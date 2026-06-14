@@ -1,16 +1,29 @@
+import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NotificationPermissionModal } from '@/components/NotificationPermissionModal';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useLanguage } from '@/context/LanguageContext';
 import { colors, spacing, typography } from '@/constants/theme';
 import { images } from '@/constants/images';
+import { requestNotificationPermission } from '@/lib/requestNotificationPermission';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { translate } = useLanguage();
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+
+  const continueToLogin = () => {
+    setShowNotificationPrompt(false);
+    router.replace('/login');
+  };
+
+  const handleAllowNotifications = () => {
+    void requestNotificationPermission().finally(continueToLogin);
+  };
 
   return (
     <View style={styles.container}>
@@ -21,8 +34,7 @@ export default function WelcomeScreen() {
           <View style={styles.logoWrap}>
             <Image source={{ uri: images.logo }} style={styles.logo} />
           </View>
-          <Text style={styles.title}>Vannakkam</Text>
-          <Text style={styles.subtitle}>{translate('matrimony')}</Text>
+          <Text style={styles.title}>{translate('matrimony')}</Text>
         </View>
 
         <View style={styles.heroWrap}>
@@ -41,7 +53,7 @@ export default function WelcomeScreen() {
             label={translate('getStarted')}
             icon="arrow-forward"
             variant="gold"
-            onPress={() => router.replace('/login')}
+            onPress={() => setShowNotificationPrompt(true)}
           />
           <View style={styles.dots}>
             <View style={[styles.dot, styles.dotActive]} />
@@ -56,6 +68,11 @@ export default function WelcomeScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.bottomLine}
+      />
+      <NotificationPermissionModal
+        visible={showNotificationPrompt}
+        onAllow={handleAllowNotifications}
+        onDontAllow={continueToLogin}
       />
     </View>
   );

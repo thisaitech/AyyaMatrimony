@@ -45,7 +45,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{translate('recommendedMatches')}</Text>
           {images.matches.map((match) => (
-            <MatchCard key={match.name} {...match} />
+            <MatchCard key={match.id} {...match} />
           ))}
         </View>
       </ScrollView>

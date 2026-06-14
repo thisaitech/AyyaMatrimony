@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Matrimony",
+    "name": "Ayya Matrimony",
     "slug": "matrimony-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -32,7 +32,14 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Ayya Matrimony to access your photos to upload profile pictures.",
+          "cameraPermission": "Allow Ayya Matrimony to use your camera to take profile pictures."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

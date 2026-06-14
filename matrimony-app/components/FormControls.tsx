@@ -67,9 +67,19 @@ type TextFieldProps = {
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  keyboardType?: 'default' | 'phone-pad';
+  maxLength?: number;
 };
 
-export function TextField({ label, value, onChangeText, placeholder, multiline }: TextFieldProps) {
+export function TextField({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  multiline,
+  keyboardType = 'default',
+  maxLength,
+}: TextFieldProps) {
   return (
     <View style={formFieldStyles.fieldGroup}>
       <Text style={formFieldStyles.fieldLabel}>{label}</Text>
@@ -80,7 +90,25 @@ export function TextField({ label, value, onChangeText, placeholder, multiline }
         placeholder={placeholder}
         placeholderTextColor="rgba(90, 65, 61, 0.4)"
         multiline={multiline}
+        keyboardType={keyboardType}
+        maxLength={maxLength}
       />
+    </View>
+  );
+}
+
+type ReadOnlyFieldProps = {
+  label: string;
+  value: string;
+};
+
+export function ReadOnlyField({ label, value }: ReadOnlyFieldProps) {
+  return (
+    <View style={formFieldStyles.fieldGroup}>
+      <Text style={formFieldStyles.fieldLabel}>{label}</Text>
+      <View style={[formFieldStyles.fieldInput, styles.readOnlyInput]}>
+        <Text style={styles.readOnlyText}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -254,122 +282,57 @@ const MONTH_LABELS: Record<Language, string[]> = {
   ],
 };
 
-const DATE_PICKER_LABELS: Record<Language, { day: string; month: string; year: string; done: string }> = {
-  en: { day: 'Day', month: 'Month', year: 'Year', done: 'Done' },
-  ta: { day: 'நாள்', month: 'மாதம்', year: 'ஆண்டு', done: 'முடிந்தது' },
+const DATE_PICKER_LABELS: Record<
+  Language,
+  { day: string; month: string; year: string; dayPlaceholder: string; monthPlaceholder: string; yearPlaceholder: string }
+> = {
+  en: {
+    day: 'Day',
+    month: 'Month',
+    year: 'Year',
+    dayPlaceholder: 'DD',
+    monthPlaceholder: 'MM',
+    yearPlaceholder: 'YYYY',
+  },
+  ta: {
+    day: 'நாள்',
+    month: 'மாதம்',
+    year: 'ஆண்டு',
+    dayPlaceholder: 'நா',
+    monthPlaceholder: 'மா',
+    yearPlaceholder: 'ஆண்டு',
+  },
 };
 
-type DateParts = {
-  day: number;
-  month: number;
-  year: number;
-};
+function buildDayOptions(year: string, month: string) {
+  const parsedYear = Number(year);
+  const parsedMonth = Number(month);
+  const totalDays =
+    parsedYear && parsedMonth ? getDaysInMonth(parsedYear, parsedMonth) : 31;
 
-function getDefaultDateParts(): DateParts {
-  return { day: 15, month: 8, year: 1995 };
+  return Array.from({ length: totalDays }, (_, index) => {
+    const day = index + 1;
+    return {
+      value: String(day),
+      label: String(day).padStart(2, '0'),
+    };
+  });
 }
 
-type DateColumnProps = {
-  title: string;
-  items: { value: number; label: string }[];
-  selected: number;
-  onSelect: (value: number) => void;
-};
-
-function DateColumn({ title, items, selected, onSelect }: DateColumnProps) {
-  return (
-    <View style={styles.dateColumn}>
-      <Text style={styles.dateColumnTitle}>{title}</Text>
-      <ScrollView style={styles.dateColumnList} nestedScrollEnabled showsVerticalScrollIndicator>
-        {items.map((item) => {
-          const isSelected = item.value === selected;
-          return (
-            <Pressable
-              key={`${title}-${item.value}`}
-              style={[styles.dateItem, isSelected && styles.dateItemSelected]}
-              onPress={() => onSelect(item.value)}
-            >
-              <Text style={[styles.dateItemText, isSelected && styles.dateItemTextSelected]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
+function buildMonthOptions(language: Language) {
+  return MONTH_LABELS[language].map((label, index) => ({
+    value: String(index + 1),
+    label,
+  }));
 }
 
-type InlineDateSelectorProps = {
-  value: DateParts;
-  language: Language;
-  onChange: (parts: DateParts) => void;
-  onDone: () => void;
-};
-
-function InlineDateSelector({ value, language, onChange, onDone }: InlineDateSelectorProps) {
+function buildYearOptions() {
   const { minYear, maxYear } = getBirthYearRange();
-  const labels = DATE_PICKER_LABELS[language];
-  const monthNames = MONTH_LABELS[language];
-
-  const yearItems = useMemo(() => {
-    const items = [];
-    for (let year = maxYear; year >= minYear; year -= 1) {
-      items.push({ value: year, label: String(year) });
-    }
-    return items;
-  }, [maxYear, minYear]);
-
-  const monthItems = useMemo(
-    () => monthNames.map((label, index) => ({ value: index + 1, label })),
-    [monthNames],
-  );
-
-  const dayItems = useMemo(() => {
-    const totalDays = getDaysInMonth(value.year, value.month);
-    return Array.from({ length: totalDays }, (_, index) => {
-      const day = index + 1;
-      return { value: day, label: String(day).padStart(2, '0') };
-    });
-  }, [value.month, value.year]);
-
-  const handleYearChange = (year: number) => {
-    const maxDay = getDaysInMonth(year, value.month);
-    onChange({ ...value, year, day: Math.min(value.day, maxDay) });
-  };
-
-  const handleMonthChange = (month: number) => {
-    const maxDay = getDaysInMonth(value.year, month);
-    onChange({ ...value, month, day: Math.min(value.day, maxDay) });
-  };
-
-  return (
-    <View style={styles.dateSelector}>
-      <View style={styles.dateColumns}>
-        <DateColumn
-          title={labels.day}
-          items={dayItems}
-          selected={value.day}
-          onSelect={(day) => onChange({ ...value, day })}
-        />
-        <DateColumn
-          title={labels.month}
-          items={monthItems}
-          selected={value.month}
-          onSelect={handleMonthChange}
-        />
-        <DateColumn
-          title={labels.year}
-          items={yearItems}
-          selected={value.year}
-          onSelect={handleYearChange}
-        />
-      </View>
-      <Pressable style={styles.dateDoneButton} onPress={onDone}>
-        <Text style={styles.doneText}>{labels.done}</Text>
-      </Pressable>
-    </View>
-  );
+  const items = [];
+  for (let year = maxYear; year >= minYear; year -= 1) {
+    items.push({ value: String(year), label: String(year) });
+  }
+  return items;
 }
 
 type DatePickerFieldProps = {
@@ -384,58 +347,104 @@ export function DatePickerField({
   label,
   value,
   onValueChange,
-  placeholder,
   language,
 }: DatePickerFieldProps) {
-  const [open, setOpen] = useState(false);
-  const [dateParts, setDateParts] = useState<DateParts>(() => parseDate(value) ?? getDefaultDateParts());
-  const displayValue = value || '';
+  const labels = DATE_PICKER_LABELS[language];
+  const parsed = parseDate(value);
+
+  const [day, setDay] = useState(parsed ? String(parsed.day) : '');
+  const [month, setMonth] = useState(parsed ? String(parsed.month) : '');
+  const [year, setYear] = useState(parsed ? String(parsed.year) : '');
 
   useEffect(() => {
-    const parsed = parseDate(value);
-    if (parsed) {
-      setDateParts(parsed);
+    const nextParsed = parseDate(value);
+    if (nextParsed) {
+      setDay(String(nextParsed.day));
+      setMonth(String(nextParsed.month));
+      setYear(String(nextParsed.year));
+      return;
+    }
+    if (!value) {
+      setDay('');
+      setMonth('');
+      setYear('');
     }
   }, [value]);
 
-  const commitDate = (parts: DateParts) => {
-    setDateParts(parts);
-    onValueChange(formatDate(parts.day, parts.month, parts.year));
+  const monthOptions = useMemo(() => buildMonthOptions(language), [language]);
+  const yearOptions = useMemo(() => buildYearOptions(), []);
+  const dayOptions = useMemo(() => buildDayOptions(year, month), [year, month]);
+
+  const syncValue = (nextDay: string, nextMonth: string, nextYear: string) => {
+    if (nextDay && nextMonth && nextYear) {
+      onValueChange(formatDate(Number(nextDay), Number(nextMonth), Number(nextYear)));
+      return;
+    }
+    onValueChange('');
   };
 
-  const handleDone = () => {
-    commitDate(dateParts);
-    setOpen(false);
+  const handleDayChange = (nextDay: string) => {
+    setDay(nextDay);
+    syncValue(nextDay, month, year);
+  };
+
+  const handleMonthChange = (nextMonth: string) => {
+    let nextDay = day;
+    if (year && nextMonth && day) {
+      const maxDay = getDaysInMonth(Number(year), Number(nextMonth));
+      if (Number(day) > maxDay) {
+        nextDay = String(maxDay);
+        setDay(nextDay);
+      }
+    }
+    setMonth(nextMonth);
+    syncValue(nextDay, nextMonth, year);
+  };
+
+  const handleYearChange = (nextYear: string) => {
+    let nextDay = day;
+    if (nextYear && month && day) {
+      const maxDay = getDaysInMonth(Number(nextYear), Number(month));
+      if (Number(day) > maxDay) {
+        nextDay = String(maxDay);
+        setDay(nextDay);
+      }
+    }
+    setYear(nextYear);
+    syncValue(nextDay, month, nextYear);
   };
 
   return (
-    <View style={[formFieldStyles.fieldGroup, open && styles.fieldGroupOpen]}>
-      <Text style={formFieldStyles.fieldLabel}>{label}</Text>
-      <View style={styles.selectWrapper}>
-        <Pressable
-          style={[formFieldStyles.selectTrigger, open && styles.selectTriggerOpen]}
-          onPress={() => setOpen((current) => !current)}
-        >
-          <Text style={displayValue ? formFieldStyles.selectValue : formFieldStyles.selectPlaceholder}>
-            {displayValue || placeholder}
-          </Text>
-          <MaterialIcons
-            name={open ? 'expand-less' : 'calendar-today'}
-            size={20}
-            color={colors.onSurfaceVariant}
+    <View style={formFieldStyles.fieldGroup}>
+      <Text style={styles.dobMainLabel}>{label}</Text>
+      <View style={styles.dobRow}>
+        <View style={styles.dobColumn}>
+          <SelectField
+            label={labels.day}
+            value={day}
+            onValueChange={handleDayChange}
+            options={dayOptions}
+            placeholder={labels.dayPlaceholder}
           />
-        </Pressable>
-
-        {open ? (
-          <View style={styles.inlineDropdown}>
-            <InlineDateSelector
-              value={dateParts}
-              language={language}
-              onChange={commitDate}
-              onDone={handleDone}
-            />
-          </View>
-        ) : null}
+        </View>
+        <View style={styles.dobColumn}>
+          <SelectField
+            label={labels.month}
+            value={month}
+            onValueChange={handleMonthChange}
+            options={monthOptions}
+            placeholder={labels.monthPlaceholder}
+          />
+        </View>
+        <View style={styles.dobColumn}>
+          <SelectField
+            label={labels.year}
+            value={year}
+            onValueChange={handleYearChange}
+            options={yearOptions}
+            placeholder={labels.yearPlaceholder}
+          />
+        </View>
       </View>
     </View>
   );
@@ -450,6 +459,14 @@ export function getStoredSelectLabel(
 }
 
 const styles = StyleSheet.create({
+  readOnlyInput: {
+    backgroundColor: colors.surfaceContainerHigh,
+    opacity: 0.92,
+  },
+  readOnlyText: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+  },
   fieldGroupOpen: {
     zIndex: 30,
     position: 'relative',
@@ -488,62 +505,19 @@ const styles = StyleSheet.create({
   inlineOptionsList: {
     maxHeight: 220,
   },
-  dateSelector: {
-    paddingBottom: spacing.xs,
+  dobMainLabel: {
+    ...formFieldStyles.fieldLabel,
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
-  dateColumns: {
+  dobRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    paddingTop: spacing.xs,
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
-  dateColumn: {
+  dobColumn: {
     flex: 1,
     minWidth: 0,
-  },
-  dateColumnTitle: {
-    ...typography.labelSm,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: spacing.xs,
-  },
-  dateColumnList: {
-    maxHeight: 180,
-    borderWidth: 1,
-    borderColor: 'rgba(226, 191, 185, 0.2)',
-    borderRadius: 8,
-    backgroundColor: colors.surfaceContainerLow,
-  },
-  dateItem: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(226, 191, 185, 0.08)',
-  },
-  dateItemSelected: {
-    backgroundColor: colors.surfaceContainerLow,
-  },
-  dateItemText: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-  },
-  dateItemTextSelected: {
-    color: colors.primary,
-    fontFamily: typography.labelLg.fontFamily,
-  },
-  dateDoneButton: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  doneText: {
-    ...typography.labelLg,
-    color: colors.primary,
   },
   optionRow: {
     flexDirection: 'row',

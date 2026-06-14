@@ -1,3 +1,21 @@
+import { InterestStatus } from '@/constants/contactDetails';
+
+export type MemberProfile = {
+  id: string;
+  name: string;
+  age: string;
+  community: string;
+  location: string;
+  image: string;
+  badge?: string;
+  verified?: boolean;
+  phoneNumber: string;
+  whatsappNumber?: string;
+  facebookProfile?: string;
+  instagramProfile?: string;
+  interestStatus: InterestStatus;
+};
+
 export const images = {
   logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD7Plco9AmswQ1ba-2niLH3HstPMbvBSdo1yGYy3ikG_Hd2ZlyKVBAvTDe4SaTIl_eHl82IUnR5zvLZzl68BJdYWLcPnJ-ayXC-9CbnSRi1Aa1GkdXcYxCg1oYKVFDx2sDJuPlMTxI0Vft7R3Bu1HhpQp6AURqU9TEwbqoSSPo41KOhFtEp1l3rZFJv1rbVRfOa479sJwXbQDML7Tkge_oObFJJff8kPRgdF7kF7NwquZ1y6t8SWv781wQNnShfGZTNLyilxZYq8Er_',
   splashCouple:
@@ -25,6 +43,7 @@ export const images = {
   ],
   matches: [
     {
+      id: '1',
       name: 'Raghavan Iyer',
       age: '32 Years, 5\'11"',
       community: 'Iyer, Brahacharanam',
@@ -32,8 +51,13 @@ export const images = {
       badge: 'New',
       image:
         'https://lh3.googleusercontent.com/aida-public/AB6AXuDBcUwfn62lPYxYn7QyUYJUAIQJ9W8jBx7kI9l5lkPgekTiWNEwoIhhGJXzziYekXF6XzQbA3-q8BXLpFGv7Bv2Q-kMfEyQcmB0a1Rh-B3yVOEsnzED66_7svbKwqKjln6vaTPBe8NoUVXiOeBBcsYGRPDHSQi4J9Z4V8f8kImtqzmkL6V40iOmUjusUvgh-kv5j9OymQFWJ-mVI1YF_FXrC5tnqjy1LNi8DuJMOXPYGRzS1IOidoBNxIOqM2wlh8uG4SFnsphY02-9',
+      phoneNumber: '9876543210',
+      whatsappNumber: '9876543210',
+      facebookProfile: 'facebook.com/raghavan.iyer',
+      interestStatus: 'sent',
     },
     {
+      id: '2',
       name: 'Sanjay Kumar',
       age: '29 Years, 5\'9"',
       community: 'Pillai, Saiva Pillai',
@@ -41,14 +65,25 @@ export const images = {
       verified: true,
       image:
         'https://lh3.googleusercontent.com/aida-public/AB6AXuAvXTF-XSYl3InCvGzjgi6pAZI8Ae1WMXR5_zz4Pt0dGaGVlyQLnBTq3xv6DPHFzTlc3E9lu8XuuULZUbj3GwP_dx2qweyRzXFiEPs0t6S3IulZtyHpoSi6DDU9DojGw9mbMpAuhweVlOqrKJJmzbq-BKp6J43CTNjkyYqR8CxnQ2lSOT8g5ELwlr-jZy7-K9ZjaW2r5HvvV7pz15EqEIT2H8VD9saFUk8Zm4sTAMKEU5NuZQttCSlZNCvpfByxTLZ3rjv96_vKTAyR',
+      phoneNumber: '9123456789',
+      whatsappNumber: '9123456789',
+      instagramProfile: '@sanjay.kumar',
+      interestStatus: 'mutual',
     },
     {
+      id: '3',
       name: 'Vignesh Mani',
       age: '30 Years, 5\'8"',
       community: 'Vanniyar, Kula',
       location: 'Coimbatore, Tamil Nadu',
       image:
         'https://lh3.googleusercontent.com/aida-public/AB6AXuCtZHAw3b_HPrs2IW-p8Uq6ULdS3PMCraLB5GcrMxeFsONuWreoTozEXl8K2UPfpOGkgjE1HUzI4A3q46iQFtwcOjZxXHSxrtY436EO_zkAQUFTOaTUfJXRaTOWYOWomZtgbR4BDz7Bz_ejpaOT1N5bleDKKrq5-zaJCl_ZFa8qzTPXC35qn7WbWNJm69zoWZRJyE6_057A8kmiK6Mm8rTdTirDvXtrDSjFvr6kCTOpj46KkRM1hUEpjpxCLyYYEoiWybM1kF32Wymj',
+      phoneNumber: '9988776655',
+      interestStatus: 'received',
     },
-  ],
+  ] satisfies MemberProfile[],
 };
+
+export function getMemberProfileById(id: string): MemberProfile | undefined {
+  return images.matches.find((match) => match.id === id);
+}

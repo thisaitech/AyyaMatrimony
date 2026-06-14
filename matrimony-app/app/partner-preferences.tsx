@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ScrollView } from 'react-native';
-import { FormField, FormScreen, FormSelectField } from '@/components/FormScreen';
+import { FormFixedCasteField, FormScreen, FormSelectField } from '@/components/FormScreen';
 import { useLanguage } from '@/context/LanguageContext';
 
 export default function PartnerPreferencesScreen() {
@@ -9,7 +9,7 @@ export default function PartnerPreferencesScreen() {
   const [preferredLocation, setPreferredLocation] = useState('tamil-nadu');
   const [educationPreference, setEducationPreference] = useState('any');
   const [religion, setReligion] = useState('hindu');
-  const [community, setCommunity] = useState('any');
+  const [subCaste, setSubCaste] = useState('any');
 
   return (
     <FormScreen
@@ -42,11 +42,13 @@ export default function PartnerPreferencesScreen() {
           onValueChange={setReligion}
           optionsKey="religion"
         />
+        <FormFixedCasteField label={translate('caste')} />
         <FormSelectField
-          label={translate('community')}
-          value={community}
-          onValueChange={setCommunity}
-          optionsKey="community"
+          label={translate('subCaste')}
+          value={subCaste}
+          onValueChange={setSubCaste}
+          optionsKey="subCastePreference"
+          placeholder={translate('selectSubCaste')}
         />
       </ScrollView>
     </FormScreen>

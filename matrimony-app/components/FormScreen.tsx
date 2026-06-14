@@ -5,11 +5,12 @@ import { AppHeader } from '@/components/AppHeader';
 import {
   DatePickerField,
   formFieldStyles,
+  ReadOnlyField,
   SelectOptionsField,
   TextField,
 } from '@/components/FormControls';
 import { PrimaryButton } from '@/components/PrimaryButton';
-import { FormOptionsKey } from '@/constants/formOptions';
+import { FIXED_CASTE_VALUE, FormOptionsKey, getOptionLabel } from '@/constants/formOptions';
 import { useLanguage } from '@/context/LanguageContext';
 import { useGoBack } from '@/hooks/useGoBack';
 import { colors, spacing, typography } from '@/constants/theme';
@@ -60,6 +61,25 @@ export function FormSelectField({
       placeholder={placeholder}
     />
   );
+}
+
+type FormReadOnlyFieldProps = {
+  label: string;
+  displayValue: string;
+};
+
+export function FormReadOnlyField({ label, displayValue }: FormReadOnlyFieldProps) {
+  return <ReadOnlyField label={label} value={displayValue} />;
+}
+
+type FormFixedCasteFieldProps = {
+  label: string;
+};
+
+export function FormFixedCasteField({ label }: FormFixedCasteFieldProps) {
+  const { language } = useLanguage();
+  const displayValue = getOptionLabel('community', FIXED_CASTE_VALUE, language);
+  return <ReadOnlyField label={label} value={displayValue} />;
 }
 
 type FormDateFieldProps = {

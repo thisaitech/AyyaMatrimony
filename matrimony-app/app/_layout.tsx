@@ -53,6 +53,7 @@ export default function RootLayout() {
         <Stack.Screen name="edit-profile" />
         <Stack.Screen name="partner-preferences" />
         <Stack.Screen name="privacy-settings" />
+        <Stack.Screen name="member" />
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
       </Stack>
     </LanguageProvider>

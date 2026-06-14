@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +12,6 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '@/components/AppHeader';
-import { PrimaryButton } from '@/components/PrimaryButton';
 import { useLanguage } from '@/context/LanguageContext';
 import { colors, spacing, typography } from '@/constants/theme';
 
@@ -43,6 +43,9 @@ export default function OtpScreen() {
   const [timeLeft, setTimeLeft] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const inputs = useRef<(TextInput | null)[]>([]);
+  const hasNavigated = useRef(false);
+
+  const otpComplete = otp.every((digit) => digit.length === 1);
 
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -53,8 +56,28 @@ export default function OtpScreen() {
     return () => clearTimeout(timer);
   }, [timeLeft]);
 
+  useEffect(() => {
+    if (!otpComplete || hasNavigated.current) {
+      return;
+    }
+    hasNavigated.current = true;
+    router.replace('/profile-setup/1');
+  }, [otpComplete, router]);
+
   const handleChange = (value: string, index: number) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
+    const digits = value.replace(/\D/g, '');
+
+    if (digits.length > 1) {
+      const next = [...otp];
+      for (let i = 0; i < OTP_LENGTH; i += 1) {
+        next[i] = digits[i] ?? '';
+      }
+      setOtp(next);
+      inputs.current[Math.min(digits.length, OTP_LENGTH) - 1]?.focus();
+      return;
+    }
+
+    const digit = digits.slice(-1);
     const next = [...otp];
     next[index] = digit;
     setOtp(next);
@@ -70,6 +93,7 @@ export default function OtpScreen() {
   };
 
   const handleResend = () => {
+    hasNavigated.current = false;
     setTimeLeft(30);
     setCanResend(false);
     setOtp(Array(OTP_LENGTH).fill(''));
@@ -88,34 +112,40 @@ export default function OtpScreen() {
           </View>
 
           <Text style={[styles.title, isCompact && styles.titleCompact]}>{translate('verifyMobile')}</Text>
-          <Text style={[styles.subtitle, isCompact && styles.subtitleCompact]}>
-            {translate('otpSubtitle')}
-          </Text>
 
           <View style={[styles.otpRow, { gap }]}>
             {otp.map((digit, index) => (
-              <TextInput
+              <View
                 key={index}
-                ref={(ref) => {
-                  inputs.current[index] = ref;
-                }}
                 style={[
-                  styles.otpInput,
-                  {
-                    width: boxWidth,
-                    height: boxHeight,
-                    fontSize,
-                    lineHeight: fontSize + 4,
-                  },
+                  styles.otpCell,
+                  { width: boxWidth, height: boxHeight },
                   digit ? styles.otpFilled : null,
                 ]}
-                value={digit}
-                onChangeText={(value) => handleChange(value, index)}
-                onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                keyboardType="number-pad"
-                maxLength={1}
-                textAlign="center"
-              />
+              >
+                <TextInput
+                  ref={(ref) => {
+                    inputs.current[index] = ref;
+                  }}
+                  style={[
+                    styles.otpInput,
+                    {
+                      fontSize,
+                      lineHeight: boxHeight,
+                      height: boxHeight,
+                    },
+                    Platform.OS === 'web' ? styles.otpInputWeb : null,
+                  ]}
+                  value={digit}
+                  onChangeText={(value) => handleChange(value, index)}
+                  onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  textAlign="center"
+                  textAlignVertical="center"
+                  selectTextOnFocus
+                />
+              </View>
             ))}
           </View>
 
@@ -133,20 +163,6 @@ export default function OtpScreen() {
             </View>
           )}
 
-          <PrimaryButton
-            label={translate('verify')}
-            onPress={() => router.replace('/profile-setup/1')}
-            style={styles.verifyBtn}
-          />
-
-          <Pressable onPress={() => router.replace('/login')}>
-            <Text style={styles.changeNumber}>{translate('changeMobileNumber')}</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.trustRow}>
-          <MaterialIcons name="verified-user" size={14} color={colors.outline} />
-          <Text style={styles.trustText}>{translate('secureVerification')}</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -204,24 +220,13 @@ const styles = StyleSheet.create({
   title: {
     ...typography.headlineLg,
     color: colors.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.lg,
     textAlign: 'center',
   },
   titleCompact: {
     fontSize: 22,
     lineHeight: 28,
-  },
-  subtitle: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  subtitleCompact: {
-    fontSize: 13,
-    lineHeight: 18,
     marginBottom: spacing.lg,
-    paddingHorizontal: spacing.xs,
   },
   otpRow: {
     flexDirection: 'row',
@@ -231,15 +236,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     flexWrap: 'nowrap',
   },
-  otpInput: {
+  otpCell: {
     borderRadius: 8,
     backgroundColor: colors.surfaceContainerLow,
     borderBottomWidth: 2,
     borderBottomColor: 'rgba(226, 191, 185, 0.3)',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  otpInput: {
+    width: '100%',
     fontFamily: typography.titleLg.fontFamily,
     fontWeight: '600',
     color: colors.onSurface,
     padding: 0,
+    margin: 0,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  otpInputWeb: {
+    outlineStyle: 'none',
   },
   otpFilled: {
     backgroundColor: '#fff',
@@ -264,28 +281,5 @@ const styles = StyleSheet.create({
     color: colors.surfaceTint,
     textDecorationLine: 'underline',
     marginBottom: spacing.xl,
-  },
-  verifyBtn: {
-    width: '100%',
-    borderRadius: 8,
-    marginBottom: spacing.xl,
-  },
-  changeNumber: {
-    ...typography.labelSm,
-    color: colors.outline,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: spacing.xl,
-    opacity: 0.6,
-  },
-  trustText: {
-    ...typography.labelSm,
-    color: colors.outline,
   },
 });

@@ -1,9 +1,11 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '@/context/LanguageContext';
 import { colors, spacing, typography } from '@/constants/theme';
 
 type MatchCardProps = {
+  id: string;
   name: string;
   age: string;
   community: string;
@@ -14,6 +16,7 @@ type MatchCardProps = {
 };
 
 export function MatchCard({
+  id,
   name,
   age,
   community,
@@ -22,21 +25,30 @@ export function MatchCard({
   badge,
   verified,
 }: MatchCardProps) {
+  const router = useRouter();
   const { translate } = useLanguage();
+
+  const openProfile = () => {
+    router.push({ pathname: '/member/[id]', params: { id } });
+  };
 
   return (
     <View style={styles.card}>
       <View style={styles.row}>
-        <Image source={{ uri: image }} style={styles.image} />
+        <Pressable onPress={openProfile}>
+          <Image source={{ uri: image }} style={styles.image} />
+        </Pressable>
         <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.name}>{name}</Text>
-            {badge ? <Text style={styles.badge}>{badge}</Text> : null}
-            {verified ? <MaterialIcons name="verified" size={18} color={colors.secondary} /> : null}
-          </View>
-          <InfoRow icon="calendar-today" text={age} />
-          <InfoRow icon="groups" text={community} />
-          <InfoRow icon="location-on" text={location} />
+          <Pressable onPress={openProfile}>
+            <View style={styles.header}>
+              <Text style={styles.name}>{name}</Text>
+              {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+              {verified ? <MaterialIcons name="verified" size={18} color={colors.secondary} /> : null}
+            </View>
+            <InfoRow icon="calendar-today" text={age} />
+            <InfoRow icon="groups" text={community} />
+            <InfoRow icon="location-on" text={location} />
+          </Pressable>
           <View style={styles.actions}>
             <Pressable style={styles.outlineBtn}>
               <MaterialIcons name="star-outline" size={18} color={colors.primary} />

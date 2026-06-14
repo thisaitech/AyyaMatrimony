@@ -8,21 +8,21 @@ export type ProfileStep = {
   title: string;
   subtitle: string;
   options?: { label: string; icon: keyof typeof MaterialIcons.glyphMap; wide?: boolean }[];
-  fields?: { label: string; placeholder: string; type?: 'text' | 'select' }[];
+  fields?: { label: string; placeholder: string; type?: 'text' | 'select' | 'readonly' }[];
 };
 
 type StepContent = {
   title: string;
   subtitle: string;
   options?: { key: string; icon: keyof typeof MaterialIcons.glyphMap; wide?: boolean }[];
-  fields?: { label: string; placeholder: string; type?: 'text' | 'select' }[];
+  fields?: { label: string; placeholder: string; type?: 'text' | 'select' | 'readonly' }[];
 };
 
 const stepContent: Record<Language, Record<string, StepContent>> = {
   en: {
     '1': {
       title: 'Who are you creating this profile for?',
-      subtitle: 'Select the relationship that best describes your bond with the person seeking a match.',
+      subtitle: '',
       options: [
         { key: 'Myself', icon: 'person' },
         { key: 'Son', icon: 'face' },
@@ -34,21 +34,24 @@ const stepContent: Record<Language, Record<string, StepContent>> = {
       ],
     },
     '2': {
-      title: 'Name',
-      subtitle: 'Enter the full name as it should appear on the matrimony profile.',
+      title: '',
+      subtitle: '',
       fields: [
         { label: 'Full Name', placeholder: 'Enter full name' },
         { label: 'Gender', placeholder: 'Select gender', type: 'select' },
+        { label: 'Religion', placeholder: 'Select religion', type: 'select' },
+        { label: 'Caste', placeholder: 'Nadar', type: 'readonly' },
+        { label: 'Sub-Caste', placeholder: 'Select sub-caste', type: 'select' },
       ],
     },
     '3': {
-      title: 'Date of Birth',
-      subtitle: 'Your date of birth helps us show accurate age details to prospective families.',
+      title: '',
+      subtitle: '',
       fields: [{ label: 'Date of Birth', placeholder: 'DD / MM / YYYY' }],
     },
     '4': {
       title: 'Marital Status',
-      subtitle: 'Select the current marital status of the person seeking a match.',
+      subtitle: '',
       options: [
         { key: 'Never Married', icon: 'favorite' },
         { key: 'Widowed', icon: 'heart_broken' },
@@ -56,101 +59,76 @@ const stepContent: Record<Language, Record<string, StepContent>> = {
         { key: 'Awaiting Divorce', icon: 'hourglass_empty' },
       ],
     },
-    '5': {
-      title: 'Rasi',
-      subtitle: 'Select the rasi for horoscope compatibility matching.',
-      fields: [{ label: 'Rasi', placeholder: 'Select rasi', type: 'select' }],
-    },
-    '6': {
-      title: 'Nakshatra',
-      subtitle: 'Select the nakshatra for traditional horoscope matching.',
-      fields: [{ label: 'Nakshatra', placeholder: 'Select nakshatra', type: 'select' }],
+    '13': {
+      title: 'Horoscope Details',
+      subtitle: 'Optional. You can skip this step and continue.',
+      fields: [],
     },
     '7': {
       title: 'Education',
-      subtitle: 'Share the highest educational qualification.',
+      subtitle: '',
       fields: [{ label: 'Education', placeholder: 'Select education', type: 'select' }],
     },
     '8': {
       title: 'Occupation',
-      subtitle: 'Share the current profession or occupation.',
-      fields: [{ label: 'Occupation', placeholder: 'Enter occupation' }],
+      subtitle: '',
+      fields: [
+        { label: 'Occupation', placeholder: 'Select occupation', type: 'select' },
+        { label: 'Work Type', placeholder: 'Select work type', type: 'select' },
+      ],
     },
     '9': {
-      title: 'Monthly Income',
-      subtitle: 'Select the approximate monthly income range.',
-      fields: [{ label: 'Monthly Income', placeholder: 'Select range', type: 'select' }],
-    },
-    '10': {
-      title: 'Native Place',
-      subtitle: 'Enter the native place or hometown of the family.',
-      fields: [{ label: 'Native Place', placeholder: 'e.g. Madurai, Tamil Nadu' }],
-    },
-    '11': {
-      title: 'Father Details',
-      subtitle: 'Share basic details about the father.',
+      title: 'Income Details',
+      subtitle: '',
       fields: [
-        { label: "Father's Name", placeholder: 'Enter name' },
-        { label: "Father's Occupation", placeholder: 'Enter occupation' },
-      ],
-    },
-    '12': {
-      title: 'Mother Details',
-      subtitle: 'Share basic details about the mother.',
-      fields: [
-        { label: "Mother's Name", placeholder: 'Enter name' },
-        { label: "Mother's Occupation", placeholder: 'Enter occupation' },
-      ],
-    },
-    '13': {
-      title: 'Siblings Details',
-      subtitle: 'Share details about brothers and sisters in the family.',
-      fields: [
-        { label: 'Brothers', placeholder: 'e.g. 1 (Married)' },
-        { label: 'Sisters', placeholder: 'e.g. 1 (Unmarried)' },
-      ],
-    },
-    '14': {
-      title: 'Birth Order',
-      subtitle: 'Select the birth order among siblings.',
-      options: [
-        { key: 'Eldest', icon: 'looks_one' },
-        { key: 'Middle', icon: 'looks_two' },
-        { key: 'Youngest', icon: 'looks_3' },
-        { key: 'Only Child', icon: 'person' },
-      ],
-    },
-    '15': {
-      title: 'Family Details',
-      subtitle: 'Share family background information.',
-      fields: [
-        { label: 'Family Type', placeholder: 'Joint / Nuclear', type: 'select' },
-        { label: 'Family Values', placeholder: 'Traditional / Moderate / Liberal', type: 'select' },
+        { label: 'Monthly Income', placeholder: 'Select range', type: 'select' },
+        { label: 'Annual Income (Optional)', placeholder: 'Select range', type: 'select' },
       ],
     },
     '16': {
       title: 'Property Details',
-      subtitle: 'Share details about family property, if any.',
-      fields: [{ label: 'Property Details', placeholder: 'e.g. Own house, agricultural land' }],
+      subtitle: 'Optional. You can skip this step and continue.',
+      fields: [],
     },
-    '17': {
-      title: 'Height',
-      subtitle: 'Select the height of the person seeking a match.',
-      fields: [{ label: 'Height', placeholder: 'Select height', type: 'select' }],
+    '10': {
+      title: 'Native Place',
+      subtitle: '',
+      fields: [
+        { label: 'District', placeholder: 'e.g. Madurai' },
+        { label: 'State', placeholder: 'Select state', type: 'select' },
+        { label: 'Country', placeholder: 'Select country', type: 'select' },
+      ],
+    },
+    '11': {
+      title: 'Family Information',
+      subtitle: '',
+      fields: [],
+    },
+    '12': {
+      title: 'Parent & Sibling Details',
+      subtitle: '',
+      fields: [],
+    },
+    '18': {
+      title: 'Physical Details',
+      subtitle: '',
+      fields: [],
+    },
+    '19': {
+      title: 'Contact Details',
+      subtitle: '',
+      fields: [],
     },
     final: {
       title: 'Upload Photos',
-      subtitle: 'Add at least one clear photo to complete your profile.',
-      options: [
-        { key: 'Add Photo', icon: 'add-a-photo' },
-        { key: 'Skip for Now', icon: 'skip-next' },
-      ],
+      subtitle: '',
+      fields: [],
     },
   },
   ta: {
     '1': {
       title: 'இந்த சுயவிவரத்தை யாருக்காக உருவாக்குகிறீர்கள்?',
-      subtitle: 'வரன்/வதுவை தேடுபவருடன் உங்கள் உறவைத் தேர்ந்தெடுக்கவும்.',
+      subtitle: '',
       options: [
         { key: 'எனக்கே', icon: 'person' },
         { key: 'மகன்', icon: 'face' },
@@ -162,21 +140,24 @@ const stepContent: Record<Language, Record<string, StepContent>> = {
       ],
     },
     '2': {
-      title: 'பெயர்',
-      subtitle: 'திருமண சுயவிவரத்தில் காட்ட வேண்டிய முழு பெயரை உள்ளிடவும்.',
+      title: '',
+      subtitle: '',
       fields: [
         { label: 'முழு பெயர்', placeholder: 'முழு பெயரை உள்ளிடவும்' },
         { label: 'பாலினம்', placeholder: 'பாலினத்தைத் தேர்ந்தெடுக்கவும்', type: 'select' },
+        { label: 'மதம்', placeholder: 'மதத்தைத் தேர்ந்தெடுக்கவும்', type: 'select' },
+        { label: 'சாதி', placeholder: 'நாடார்', type: 'readonly' },
+        { label: 'உட்சாதி', placeholder: 'உட்சாதியைத் தேர்ந்தெடுக்கவும்', type: 'select' },
       ],
     },
     '3': {
-      title: 'பிறந்த தேதி',
-      subtitle: 'சரியான வயது விவரங்களைக் காட்ட உதவும்.',
+      title: '',
+      subtitle: '',
       fields: [{ label: 'பிறந்த தேதி', placeholder: 'நாள் / மாதம் / ஆண்டு' }],
     },
     '4': {
       title: 'திருமண நிலை',
-      subtitle: 'தற்போதைய திருமண நிலையைத் தேர்ந்தெடுக்கவும்.',
+      subtitle: '',
       options: [
         { key: 'திருமணமாகாதவர்', icon: 'favorite' },
         { key: 'விதவை/விதவர்', icon: 'heart_broken' },
@@ -184,100 +165,75 @@ const stepContent: Record<Language, Record<string, StepContent>> = {
         { key: 'விவாகரத்துக்காக காத்திருப்பவர்', icon: 'hourglass_empty' },
       ],
     },
-    '5': {
-      title: 'ராசி',
-      subtitle: 'ஜாதக பொருத்தத்திற்கு ராசியைத் தேர்ந்தெடுக்கவும்.',
-      fields: [{ label: 'ராசி', placeholder: 'ராசியைத் தேர்ந்தெடுக்கவும்', type: 'select' }],
-    },
-    '6': {
-      title: 'நட்சத்திரம்',
-      subtitle: 'பாரம்பரிய ஜாதக பொருத்தத்திற்கு நட்சத்திரத்தைத் தேர்ந்தெடுக்கவும்.',
-      fields: [{ label: 'நட்சத்திரம்', placeholder: 'நட்சத்திரத்தைத் தேர்ந்தெடுக்கவும்', type: 'select' }],
+    '13': {
+      title: 'ஜாதக விவரங்கள்',
+      subtitle: 'விருப்பம். இந்தப் படியைத் தவிர்த்து தொடரலாம்.',
+      fields: [],
     },
     '7': {
       title: 'கல்வி',
-      subtitle: 'உயர்ந்த கல்வித் தகுதியைப் பகிரவும்.',
+      subtitle: '',
       fields: [{ label: 'கல்வி', placeholder: 'கல்வியைத் தேர்ந்தெடுக்கவும்', type: 'select' }],
     },
     '8': {
       title: 'தொழில்',
-      subtitle: 'தற்போதைய தொழில் அல்லது வேலையைப் பகிரவும்.',
-      fields: [{ label: 'தொழில்', placeholder: 'தொழிலை உள்ளிடவும்' }],
+      subtitle: '',
+      fields: [
+        { label: 'தொழில்', placeholder: 'தொழிலைத் தேர்ந்தெடுக்கவும்', type: 'select' },
+        { label: 'வேலை வகை', placeholder: 'வேலை வகையைத் தேர்ந்தெடுக்கவும்', type: 'select' },
+      ],
     },
     '9': {
-      title: 'மாத வருமானம்',
-      subtitle: 'தோராயமான மாத வருமான வரம்பைத் தேர்ந்தெடுக்கவும்.',
-      fields: [{ label: 'மாத வருமானம்', placeholder: 'வரம்பைத் தேர்ந்தெடுக்கவும்', type: 'select' }],
-    },
-    '10': {
-      title: 'சொந்த ஊர்',
-      subtitle: 'குடும்பத்தின் சொந்த ஊர் அல்லது பிறப்பிடத்தை உள்ளிடவும்.',
-      fields: [{ label: 'சொந்த ஊர்', placeholder: 'எ.கா. மதுரை, தமிழ்நாடு' }],
-    },
-    '11': {
-      title: 'தந்தை விவரங்கள்',
-      subtitle: 'தந்தையைப் பற்றிய அடிப்படை விவரங்களைப் பகிரவும்.',
+      title: 'வருமான விவரங்கள்',
+      subtitle: '',
       fields: [
-        { label: 'தந்தையின் பெயர்', placeholder: 'பெயரை உள்ளிடவும்' },
-        { label: 'தந்தையின் தொழில்', placeholder: 'தொழிலை உள்ளிடவும்' },
-      ],
-    },
-    '12': {
-      title: 'தாய் விவரங்கள்',
-      subtitle: 'தாயைப் பற்றிய அடிப்படை விவரங்களைப் பகிரவும்.',
-      fields: [
-        { label: 'தாயின் பெயர்', placeholder: 'பெயரை உள்ளிடவும்' },
-        { label: 'தாயின் தொழில்', placeholder: 'தொழிலை உள்ளிடவும்' },
-      ],
-    },
-    '13': {
-      title: 'சகோதரர்/சகோதரி விவரங்கள்',
-      subtitle: 'குடும்பத்தில் உள்ள சகோதரர் மற்றும் சகோதரி விவரங்களைப் பகிரவும்.',
-      fields: [
-        { label: 'சகோதரர்கள்', placeholder: 'எ.கா. 1 (திருமணமானவர்)' },
-        { label: 'சகோதரிகள்', placeholder: 'எ.கா. 1 (திருமணமாகாதவர்)' },
-      ],
-    },
-    '14': {
-      title: 'பிறப்பு வரிசை',
-      subtitle: 'சகோதரர்களில் பிறப்பு வரிசையைத் தேர்ந்தெடுக்கவும்.',
-      options: [
-        { key: 'மூத்தவர்', icon: 'looks_one' },
-        { key: 'நடுவில்', icon: 'looks_two' },
-        { key: 'இளையவர்', icon: 'looks_3' },
-        { key: 'ஒரே பிள்ளை', icon: 'person' },
-      ],
-    },
-    '15': {
-      title: 'குடும்ப விவரங்கள்',
-      subtitle: 'குடும்ப பின்னணி விவரங்களைப் பகிரவும்.',
-      fields: [
-        { label: 'குடும்ப வகை', placeholder: 'கூட்டு / தனி குடும்பம்', type: 'select' },
-        { label: 'குடும்ப மதிப்புகள்', placeholder: 'பாரம்பரிய / மிதமான / தாராள', type: 'select' },
+        { label: 'மாத வருமானம்', placeholder: 'வரம்பைத் தேர்ந்தெடுக்கவும்', type: 'select' },
+        { label: 'ஆண்டு வருமானம் (விருப்பம்)', placeholder: 'வரம்பைத் தேர்ந்தெடுக்கவும்', type: 'select' },
       ],
     },
     '16': {
       title: 'சொத்து விவரங்கள்',
-      subtitle: 'குடும்ப சொத்து விவரங்களைப் பகிரவும்.',
-      fields: [{ label: 'சொத்து விவரங்கள்', placeholder: 'எ.கா. சொந்த வீடு, விவசாய நிலம்' }],
+      subtitle: 'விருப்பம். இந்தப் படியைத் தவிர்த்து தொடரலாம்.',
+      fields: [],
     },
-    '17': {
-      title: 'உயரம்',
-      subtitle: 'வரன்/வதுவையின் உயரத்தைத் தேர்ந்தெடுக்கவும்.',
-      fields: [{ label: 'உயரம்', placeholder: 'உயரத்தைத் தேர்ந்தெடுக்கவும்', type: 'select' }],
+    '10': {
+      title: 'சொந்த ஊர்',
+      subtitle: '',
+      fields: [
+        { label: 'மாவட்டம்', placeholder: 'எ.கா. மதுரை' },
+        { label: 'மாநிலம்', placeholder: 'மாநிலத்தைத் தேர்ந்தெடுக்கவும்', type: 'select' },
+        { label: 'நாடு', placeholder: 'நாட்டைத் தேர்ந்தெடுக்கவும்', type: 'select' },
+      ],
+    },
+    '11': {
+      title: 'குடும்பத் தகவல்',
+      subtitle: '',
+      fields: [],
+    },
+    '12': {
+      title: 'பெற்றோர் & சகோதரர் விவரங்கள்',
+      subtitle: '',
+      fields: [],
+    },
+    '18': {
+      title: 'உடல் விவரங்கள்',
+      subtitle: '',
+      fields: [],
+    },
+    '19': {
+      title: 'தொடர்பு விவரங்கள்',
+      subtitle: '',
+      fields: [],
     },
     final: {
       title: 'புகைப்படங்களைப் பதிவேற்று',
-      subtitle: 'சுயவிவரத்தை முடிக்க குறைந்தது ஒரு தெளிவான புகைப்படத்தைச் சேர்க்கவும்.',
-      options: [
-        { key: 'புகைப்படம் சேர்', icon: 'add-a-photo' },
-        { key: 'இப்போது தவிர்', icon: 'skip-next' },
-      ],
+      subtitle: '',
+      fields: [],
     },
   },
 };
 
-const stepIds = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', 'final'];
+const stepIds = ['1', '2', '3', '4', '13', '7', '8', '9', '16', '10', '11', '12', '18', '19', 'final'];
 
 function buildStep(id: string, language: Language, index: number, total: number): ProfileStep {
   const content = stepContent[language][id];

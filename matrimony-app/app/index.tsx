@@ -48,8 +48,7 @@ export default function LanguageScreen() {
           <View style={styles.logoWrap}>
             <Image source={{ uri: images.logo }} style={styles.logo} />
           </View>
-          <Text style={styles.title}>Vannakkam</Text>
-          <Text style={styles.brandSubtitle}>Matrimony</Text>
+          <Text style={styles.title}>{translate('matrimony')}</Text>
         </View>
 
         <View style={styles.content}>

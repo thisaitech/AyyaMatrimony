@@ -3,6 +3,7 @@ import { ScrollView } from 'react-native';
 import {
   FormDateField,
   FormField,
+  FormFixedCasteField,
   FormScreen,
   FormSelectField,
 } from '@/components/FormScreen';
@@ -14,9 +15,10 @@ export default function EditProfileScreen() {
   const [gender, setGender] = useState('female');
   const [dateOfBirth, setDateOfBirth] = useState('15 / 08 / 1996');
   const [religion, setReligion] = useState('hindu');
-  const [community, setCommunity] = useState('iyer');
+  const [subCaste, setSubCaste] = useState('');
   const [city, setCity] = useState('Chennai');
   const [occupation, setOccupation] = useState('software');
+  const [workType, setWorkType] = useState('');
   const [education, setEducation] = useState('masters');
 
   return (
@@ -46,11 +48,13 @@ export default function EditProfileScreen() {
           optionsKey="religion"
           placeholder={translate('selectReligion')}
         />
+        <FormFixedCasteField label={translate('caste')} />
         <FormSelectField
-          label={translate('community')}
-          value={community}
-          onValueChange={setCommunity}
-          optionsKey="community"
+          label={translate('subCaste')}
+          value={subCaste}
+          onValueChange={setSubCaste}
+          optionsKey="subCaste"
+          placeholder={translate('selectSubCaste')}
         />
         <FormField label={translate('city')} value={city} onChangeText={setCity} />
         <FormSelectField
@@ -58,6 +62,13 @@ export default function EditProfileScreen() {
           value={occupation}
           onValueChange={setOccupation}
           optionsKey="occupation"
+        />
+        <FormSelectField
+          label={translate('workType')}
+          value={workType}
+          onValueChange={setWorkType}
+          optionsKey="workType"
+          placeholder={translate('selectWorkType')}
         />
         <FormSelectField
           label={translate('education')}

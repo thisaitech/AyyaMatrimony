@@ -1,4 +1,5 @@
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '@/components/AppHeader';
@@ -7,10 +8,16 @@ import { colors, spacing, typography } from '@/constants/theme';
 import { images } from '@/constants/images';
 
 export default function InterestsScreen() {
+  const router = useRouter();
   const { translate } = useLanguage();
   const interests = images.matches.map((match, index) => ({
     ...match,
-    status: index === 0 ? translate('sent') : translate('received'),
+    status:
+      match.interestStatus === 'mutual'
+        ? translate('mutual')
+        : index === 0
+          ? translate('sent')
+          : translate('received'),
     date: `${index + 1} ${translate('daysAgo')}`,
   }));
 
@@ -19,7 +26,11 @@ export default function InterestsScreen() {
       <AppHeader title={translate('interests')} showBack={false} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {interests.map((item) => (
-          <View key={item.name} style={styles.card}>
+          <Pressable
+            key={item.id}
+            style={styles.card}
+            onPress={() => router.push({ pathname: '/member/[id]', params: { id: item.id } })}
+          >
             <Image source={{ uri: item.image }} style={styles.avatar} />
             <View style={styles.info}>
               <Text style={styles.name}>{item.name}</Text>
@@ -30,7 +41,7 @@ export default function InterestsScreen() {
               <MaterialIcons name="star" size={14} color={colors.secondary} />
               <Text style={styles.badgeText}>{item.status}</Text>
             </View>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
     </SafeAreaView>
