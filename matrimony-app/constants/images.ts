@@ -31,6 +31,12 @@ export const images = {
   logo: require('@/assets/lotus-logo.png') as ImageSourcePropType,
   splashCouple:
     'https://lh3.googleusercontent.com/aida-public/AB6AXuCUIoPS2XKWE3Q5sledSAHll2YgorYInvjr-bZwWC30bCzWkR-Y0hpPjAIEIXi2oOnG0vjnp8sZNzQOTBolFzOezREmsnGmX5x-nuJwJkrvr-JJ_-aII0fzWUMPay50w9kmzIbP9KwUZveMuR_Sf0uFAZhaLUuqcnIuHv_M6EDEz4RMrBvhacv9cLknJiexLYje6VklyQhAnjjYQJA_z0eGBKlyiluAjijnnq-_9I0LCdh3HV-Bg785g760u_X4xasgAaLVGn6bby4Y',
+  loginWallpapers: {
+    hindu:
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuCUIoPS2XKWE3Q5sledSAHll2YgorYInvjr-bZwWC30bCzWkR-Y0hpPjAIEIXi2oOnG0vjnp8sZNzQOTBolFzOezREmsnGmX5x-nuJwJkrvr-JJ_-aII0fzWUMPay50w9kmzIbP9KwUZveMuR_Sf0uFAZhaLUuqcnIuHv_M6EDEz4RMrBvhacv9cLknJiexLYje6VklyQhAnjjYQJA_z0eGBKlyiluAjijnnq-_9I0LCdh3HV-Bg785g760u_X4xasgAaLVGn6bby4Y',
+    christian:
+      'https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=1600&q=85',
+  },
   tillUMarryPromo:
     'https://lh3.googleusercontent.com/aida-public/AB6AXuAvXTF-XSYl3InCvGzjgi6pAZI8Ae1WMXR5_zz4Pt0dGaGVlyQLnBTq3xv6DPHFzTlc3E9lu8XuuULZUbj3GwP_dx2qweyRzXFiEPs0t6S3IulZtyHpoSi6DDU9DojGw9mbMpAuhweVlOqrKJJmzbq-BKp6J43CTNjkyYqR8CxnQ2lSOT8g5ELwlr-jZy7-K9ZjaW2r5HvvV7pz15EqEIT2H8VD9saFUk8Zm4sTAMKEU5NuZQttCSlZNCvpfByxTLZ3rjv96_vKTAyR',
   premiumProfiles: [

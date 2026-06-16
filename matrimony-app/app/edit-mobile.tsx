@@ -7,7 +7,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '@/components/AppHeader';
 import { PrimaryButton } from '@/components/PrimaryButton';
@@ -16,7 +15,6 @@ import { useGoBack } from '@/hooks/useGoBack';
 import { colors, spacing, typography } from '@/constants/theme';
 
 export default function EditMobileScreen() {
-  const router = useRouter();
   const goBack = useGoBack('/settings');
   const { translate } = useLanguage();
   const [phone, setPhone] = useState('');
@@ -30,7 +28,7 @@ export default function EditMobileScreen() {
       return;
     }
 
-    router.push('/otp');
+    goBack();
   };
 
   return (

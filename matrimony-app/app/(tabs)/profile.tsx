@@ -38,7 +38,7 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     void clearProfile().then(() => {
-      router.replace('/login');
+      router.replace('/welcome');
     });
   };
 

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -33,7 +34,18 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   if (!loaded && !error) {
-    return null;
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.secondaryFixed} />
+      </View>
+    );
   }
 
   return (

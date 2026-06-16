@@ -832,15 +832,11 @@ function HoroscopeChart({
 type CreateProfileBiodataFormProps = {
   editable: boolean;
   onSave: () => void;
-  onDownloadPdf: () => void;
-  onEditProfile: () => void;
 };
 
 export function CreateProfileBiodataForm({
   editable,
   onSave,
-  onDownloadPdf,
-  onEditProfile,
 }: CreateProfileBiodataFormProps) {
   const { width: screenWidth } = useWindowDimensions();
   const isMobile = screenWidth < 640;
@@ -1310,87 +1306,20 @@ export function CreateProfileBiodataForm({
       </ScrollView>
 
       <View style={[styles.actionBar, isMobile && styles.actionBarMobile]}>
-        {isMobile ? (
-          <>
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButtonPrimary,
-                styles.actionButtonPrimaryMobile,
-                styles.actionButtonFull,
-                pressed && styles.actionButtonPressed,
-              ]}
-              onPress={handleSavePress}
-            >
-              <MaterialIcons name="check-circle" size={18} color={colors.onPrimary} />
-              <Text style={[styles.actionButtonPrimaryText, styles.actionButtonPrimaryTextMobile]}>
-                {translate('saveAndContinue')}
-              </Text>
-            </Pressable>
-            <View style={styles.actionSecondaryRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.actionButtonOutline,
-                  styles.actionButtonOutlineMobile,
-                  styles.actionButtonHalf,
-                  pressed && styles.actionButtonPressed,
-                ]}
-                onPress={onDownloadPdf}
-              >
-                <MaterialIcons name="picture-as-pdf" size={16} color={SHEET_BORDER} />
-                <Text style={[styles.actionButtonOutlineText, styles.actionButtonOutlineTextMobile]}>
-                  {translate('downloadPdf')}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.actionButtonOutline,
-                  styles.actionButtonOutlineMobile,
-                  styles.actionButtonHalf,
-                  pressed && styles.actionButtonPressed,
-                ]}
-                onPress={onEditProfile}
-              >
-                <MaterialIcons name="edit" size={16} color={SHEET_BORDER} />
-                <Text style={[styles.actionButtonOutlineText, styles.actionButtonOutlineTextMobile]}>
-                  {translate('editProfile')}
-                </Text>
-              </Pressable>
-            </View>
-          </>
-        ) : (
-          <>
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionButtonOutline,
-            pressed && styles.actionButtonPressed,
-          ]}
-          onPress={onDownloadPdf}
-        >
-          <MaterialIcons name="picture-as-pdf" size={18} color={SHEET_BORDER} />
-          <Text style={styles.actionButtonOutlineText}>{translate('downloadPdf')}</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            styles.actionButtonOutline,
-            pressed && styles.actionButtonPressed,
-          ]}
-          onPress={onEditProfile}
-        >
-          <MaterialIcons name="edit" size={18} color={SHEET_BORDER} />
-          <Text style={styles.actionButtonOutlineText}>{translate('editProfile')}</Text>
-        </Pressable>
         <Pressable
           style={({ pressed }) => [
             styles.actionButtonPrimary,
+            isMobile && styles.actionButtonPrimaryMobile,
+            styles.actionButtonFull,
             pressed && styles.actionButtonPressed,
           ]}
           onPress={handleSavePress}
         >
           <MaterialIcons name="check-circle" size={18} color={colors.onPrimary} />
-          <Text style={styles.actionButtonPrimaryText}>{translate('saveAndContinue')}</Text>
+          <Text style={[styles.actionButtonPrimaryText, isMobile && styles.actionButtonPrimaryTextMobile]}>
+            {translate('saveAndContinue')}
+          </Text>
         </Pressable>
-          </>
-        )}
       </View>
     </View>
   );

@@ -176,6 +176,11 @@ export function SelectField({
   const isPremium = variant === 'premium';
   const [open, setOpen] = useState(false);
   const selectedLabel = options.find((option) => option.value === value)?.label;
+  const compactRowHeight = 20;
+  const compactListMaxHeight = Math.min(
+    options.length * compactRowHeight + 2,
+    compact ? 110 : 220,
+  );
 
   const handleSelect = (nextValue: string) => {
     onValueChange(nextValue);
@@ -215,26 +220,47 @@ export function SelectField({
         </Pressable>
 
         {open ? (
-          <View style={[styles.inlineDropdown, isPremium && styles.inlineDropdownPremium]}>
+          <View
+            style={[
+              styles.inlineDropdown,
+              isPremium && styles.inlineDropdownPremium,
+              compact && styles.inlineDropdownCompact,
+            ]}
+          >
             <ScrollView
-              style={styles.inlineOptionsList}
+              style={[
+                styles.inlineOptionsList,
+                compact && styles.inlineOptionsListCompact,
+                compact && { maxHeight: compactListMaxHeight },
+              ]}
               nestedScrollEnabled
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator
+              showsVerticalScrollIndicator={compact && options.length * compactRowHeight > 110}
             >
               {options.map((option) => {
                 const isSelected = option.value === value;
                 return (
                   <Pressable
                     key={option.value}
-                    style={[styles.optionRow, isSelected && styles.optionRowSelected]}
+                    style={[
+                      styles.optionRow,
+                      compact && styles.optionRowCompact,
+                      isSelected && styles.optionRowSelected,
+                    ]}
                     onPress={() => handleSelect(option.value)}
                   >
-                    <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        compact && styles.optionTextCompact,
+                        isSelected && styles.optionTextSelected,
+                      ]}
+                      numberOfLines={1}
+                    >
                       {option.label}
                     </Text>
                     {isSelected ? (
-                      <MaterialIcons name="check" size={20} color={colors.primary} />
+                      <MaterialIcons name="check" size={compact ? 14 : 20} color={colors.primary} />
                     ) : null}
                   </Pressable>
                 );
@@ -635,21 +661,28 @@ const styles = StyleSheet.create({
   },
   inlineDropdownPremium: {
     borderColor: 'rgba(87, 0, 0, 0.18)',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     ...Platform.select({
-      web: { boxShadow: '0 12px 28px rgba(87, 0, 0, 0.12)' },
+      web: { boxShadow: '0 8px 18px rgba(87, 0, 0, 0.1)' },
       default: {
         shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 14,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 6,
       },
     }),
   },
+  inlineDropdownCompact: {
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+  },
   inlineOptionsList: {
     maxHeight: 220,
+  },
+  inlineOptionsListCompact: {
+    maxHeight: 110,
   },
   dobMainLabel: {
     ...formFieldStyles.fieldLabel,
@@ -673,9 +706,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(226, 191, 185, 0.1)',
+  },
+  optionRowCompact: {
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    minHeight: 20,
   },
   optionRowSelected: {
     backgroundColor: colors.surfaceContainerLow,
@@ -685,6 +723,13 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     flex: 1,
     paddingRight: spacing.sm,
+    lineHeight: 18,
+  },
+  optionTextCompact: {
+    fontSize: 11,
+    lineHeight: 12,
+    fontFamily: fonts.interMedium,
+    paddingRight: 4,
   },
   optionTextSelected: {
     color: colors.primary,

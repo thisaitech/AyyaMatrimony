@@ -1,200 +1,422 @@
-import { useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NotificationPermissionModal } from '@/components/NotificationPermissionModal';
+import { LanguageLogoToggle } from '@/components/LanguageLogoToggle';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useLanguage } from '@/context/LanguageContext';
-import { colors, spacing, typography } from '@/constants/theme';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { images } from '@/constants/images';
-import { requestNotificationPermission } from '@/lib/requestNotificationPermission';
+
+const INPUT_BG = '#FFFBF8';
+const INPUT_BORDER = 'rgba(122, 74, 68, 0.18)';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { translate } = useLanguage();
-  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
 
-  const continueToLogin = () => {
-    setShowNotificationPrompt(false);
-    router.replace('/login?flow=register');
-  };
+  useEffect(() => {
+    void import('@/lib/firebase').then(({ initFirebaseAnalytics }) => initFirebaseAnalytics());
+  }, []);
 
   const handleLogin = () => {
-    router.push('/login?flow=login');
+    router.replace('/(tabs)');
   };
 
-  const handleAllowNotifications = () => {
-    void requestNotificationPermission().finally(continueToLogin);
+  const handleRegister = () => {
+    router.replace('/create-profile');
   };
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.glow} />
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.branding}>
-          <View style={styles.logoWrap}>
-            <Image source={images.logo} style={styles.logo} resizeMode="contain" />
-          </View>
-          <Text style={styles.title}>{translate('matrimony')}</Text>
-        </View>
 
-        <View style={styles.heroWrap}>
-          <View style={styles.heroCard}>
-            <Image source={{ uri: images.splashCouple }} style={styles.heroImage} />
-            <LinearGradient
-              colors={['transparent', 'rgba(87,0,0,0.8)', colors.primary]}
-              style={styles.heroGradient}
-            />
-            <Text style={styles.quote}>{translate('splashQuote')}</Text>
-          </View>
-        </View>
+      <View style={styles.wallpaperLayer} pointerEvents="none">
+        <Image
+          source={{ uri: images.loginWallpapers.hindu }}
+          style={styles.wallpaperFull}
+          resizeMode="cover"
+        />
+        <Image
+          source={{ uri: images.loginWallpapers.christian }}
+          style={[styles.wallpaperFull, styles.wallpaperBlend]}
+          resizeMode="cover"
+        />
+      </View>
 
-        <View style={styles.footer}>
-          <PrimaryButton
-            label={translate('getStarted')}
-            icon="arrow-forward"
-            variant="gold"
-            onPress={() => setShowNotificationPrompt(true)}
-          />
-          <PrimaryButton
-            label={translate('login')}
-            variant="outlineGold"
-            onPress={handleLogin}
-          />
-          <View style={styles.dots}>
-            <View style={[styles.dot, styles.dotActive]} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-          </View>
-          <Text style={styles.legal}>{translate('splashLegal')}</Text>
-        </View>
-      </SafeAreaView>
       <LinearGradient
-        colors={['transparent', 'rgba(255,224,136,0.5)', 'transparent']}
+        colors={[
+          'rgba(30, 0, 0, 0.12)',
+          'rgba(87, 0, 0, 0.38)',
+          'rgba(87, 0, 0, 0.62)',
+        ]}
+        locations={[0, 0.55, 1]}
+        style={styles.overlay}
+        pointerEvents="none"
+      />
+
+      <LinearGradient
+        colors={['rgba(87, 0, 0, 0.72)', 'transparent']}
+        start={{ x: 0, y: 1 }}
+        end={{ x: 0, y: 0 }}
+        style={styles.bottomScrim}
+        pointerEvents="none"
+      />
+
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.topBar}>
+          <LanguageLogoToggle variant="maroon" dense />
+        </View>
+
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.branding}>
+              <View style={styles.logoRing}>
+                <View style={styles.logoWrap}>
+                  <Image source={images.logo} style={styles.logo} resizeMode="contain" />
+                </View>
+              </View>
+              <Text style={styles.title}>{translate('matrimony')}</Text>
+              <Text style={styles.subtitle}>{translate('loginSubtitle')}</Text>
+              <View style={styles.communityRow}>
+                <View style={styles.communityChip}>
+                  <Text style={styles.communityChipText}>{translate('hindu')}</Text>
+                </View>
+                <View style={styles.communityDivider} />
+                <View style={[styles.communityChip, styles.communityChipFeatured]}>
+                  <Text style={[styles.communityChipText, styles.communityChipFeaturedText]}>
+                    {translate('nadar')}
+                  </Text>
+                </View>
+                <View style={styles.communityDivider} />
+                <View style={styles.communityChip}>
+                  <Text style={styles.communityChipText}>{translate('christian')}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.formCard}>
+              <Text style={styles.cardTitle}>{translate('welcomeBack')}</Text>
+
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>{translate('phoneNumber')}</Text>
+                <View style={styles.phoneRow}>
+                  <View style={styles.countryCode}>
+                    <Text style={styles.countryCodeText}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.input, styles.phoneInput]}
+                    placeholder={translate('enterPhone')}
+                    placeholderTextColor="rgba(90, 65, 61, 0.42)"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    value={phone}
+                    onChangeText={setPhone}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>{translate('password')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={translate('enterPassword')}
+                  placeholderTextColor="rgba(90, 65, 61, 0.42)"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.actions}>
+                <PrimaryButton
+                  label={translate('login')}
+                  icon="arrow-forward"
+                  variant="gold"
+                  onPress={handleLogin}
+                  style={styles.loginButton}
+                />
+                <PrimaryButton
+                  label={translate('registerFree')}
+                  variant="outline"
+                  onPress={handleRegister}
+                  style={styles.registerButton}
+                  labelStyle={styles.registerLabel}
+                />
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+
+      <LinearGradient
+        colors={['transparent', 'rgba(255,224,136,0.45)', 'transparent']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.bottomLine}
+        pointerEvents="none"
       />
-      <NotificationPermissionModal
-        visible={showNotificationPrompt}
-        onAllow={handleAllowNotifications}
-        onDontAllow={continueToLogin}
-      />
+
     </View>
   );
 }
+
+const cardShadow = Platform.select({
+  web: { boxShadow: '0 18px 48px rgba(20, 0, 0, 0.28)' },
+  default: {
+    shadowColor: '#140000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.primary,
   },
-  glow: {
+  wallpaperLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  wallpaperFull: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  wallpaperBlend: {
+    opacity: 0.42,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  bottomScrim: {
     position: 'absolute',
-    top: -100,
-    alignSelf: 'center',
-    width: 500,
-    height: 300,
-    borderRadius: 250,
-    backgroundColor: 'rgba(254, 214, 91, 0.1)',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '42%',
   },
   safeArea: {
     flex: 1,
+  },
+  topBar: {
+    alignItems: 'flex-end',
     paddingHorizontal: spacing.containerMargin,
-    paddingVertical: spacing.xl,
-    justifyContent: 'space-between',
+    paddingTop: spacing.xs,
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.containerMargin,
+    paddingBottom: spacing.xl,
+    justifyContent: 'center',
+    gap: spacing.lg,
   },
   branding: {
     alignItems: 'center',
-    marginTop: spacing.xl,
+    paddingTop: spacing.sm,
+  },
+  logoRing: {
+    padding: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 224, 136, 0.45)',
+    marginBottom: spacing.sm,
+    ...Platform.select({
+      web: { boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 8,
+      },
+    }),
   },
   logoWrap: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: colors.primaryContainer,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 224, 136, 0.3)',
-    padding: 8,
-    marginBottom: spacing.lg,
+    padding: 7,
   },
   logo: {
     width: '100%',
     height: '100%',
-    borderRadius: 40,
+    borderRadius: 32,
   },
   title: {
-    ...typography.headlineLg,
+    fontSize: 30,
+    lineHeight: 36,
     color: colors.secondaryFixed,
-    letterSpacing: 4,
-    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    fontFamily: fonts.playfairSemi,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   subtitle: {
-    ...typography.labelLg,
-    color: 'rgba(255, 224, 136, 0.7)',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
+    ...typography.bodyMd,
+    color: '#FFF4D6',
+    textAlign: 'center',
+    maxWidth: 320,
     marginTop: spacing.xs,
+    lineHeight: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  heroWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroCard: {
-    width: '100%',
-    maxWidth: 340,
-    aspectRatio: 4 / 5,
-    borderRadius: 100,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 224, 136, 0.2)',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroGradient: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 100,
-  },
-  quote: {
-    position: 'absolute',
-    bottom: 40,
-    left: spacing.lg,
-    right: spacing.lg,
-    ...typography.headlineMd,
-    fontSize: 22,
-    color: '#fff',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  footer: {
-    gap: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  dots: {
+  communityRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: spacing.sm,
+    maxWidth: 340,
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 224, 136, 0.3)',
+  communityChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 224, 136, 0.35)',
+    backgroundColor: 'rgba(255, 224, 136, 0.08)',
   },
-  dotActive: {
-    backgroundColor: colors.secondaryFixed,
+  communityChipFeatured: {
+    borderColor: 'rgba(255, 224, 136, 0.75)',
+    backgroundColor: 'rgba(255, 224, 136, 0.22)',
+    paddingHorizontal: 12,
   },
-  legal: {
+  communityChipText: {
     ...typography.labelSm,
-    color: 'rgba(255, 131, 113, 0.6)',
+    color: colors.secondaryFixed,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    fontSize: 10,
+  },
+  communityChipFeaturedText: {
+    color: '#FFF8E7',
+    fontFamily: fonts.interSemi,
+    letterSpacing: 1.2,
+  },
+  communityDivider: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 224, 136, 0.5)',
+  },
+  formCard: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255, 251, 247, 0.97)',
+    borderRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 224, 136, 0.35)',
+    ...cardShadow,
+  },
+  cardTitle: {
+    ...typography.titleLg,
+    color: colors.primary,
     textAlign: 'center',
-    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    fontFamily: fonts.playfairSemi,
+  },
+  fieldBlock: {
+    marginBottom: spacing.sm,
+  },
+  fieldLabel: {
+    ...typography.labelSm,
+    color: colors.onSurfaceVariant,
+    marginBottom: 4,
+    marginLeft: 2,
+    letterSpacing: 0.8,
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'stretch',
+  },
+  countryCode: {
+    backgroundColor: INPUT_BG,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    minWidth: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: INPUT_BORDER,
+    height: 48,
+  },
+  countryCodeText: {
+    ...typography.bodyMd,
+    color: colors.onSurface,
+    fontFamily: fonts.interSemi,
+  },
+  input: {
+    backgroundColor: INPUT_BG,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    height: 48,
+    ...typography.bodyMd,
+    color: colors.onSurface,
+    borderWidth: 1,
+    borderColor: INPUT_BORDER,
+    width: '100%',
+  },
+  phoneInput: {
+    flex: 1,
+    minWidth: 0,
+  },
+  actions: {
+    gap: 10,
+    marginTop: spacing.sm,
+  },
+  loginButton: {
+    minHeight: 48,
+  },
+  registerButton: {
+    minHeight: 48,
+    borderRadius: 9999,
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+  },
+  registerLabel: {
+    color: colors.primary,
+    fontFamily: fonts.interSemi,
   },
   bottomLine: {
     position: 'absolute',
