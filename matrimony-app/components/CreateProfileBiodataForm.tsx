@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -11,15 +10,32 @@ import {
   View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { DatePickerField, SelectField } from '@/components/FormControls';
+import { FormOptionsKey, getFormOptions, getOptionLabel } from '@/constants/formOptions';
+import { Language } from '@/constants/i18n';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { borderRadius, colors, fonts, spacing } from '@/constants/theme';
 
-import { images } from '@/constants/images';
+const SHEET_BORDER = colors.primary;
+const HOROSCOPE_RED = '#B00000';
 
-const lotusLogo = images.logo;
+const FIELD_BG = colors.surfaceContainerLowest;
+const FIELD_BORDER = 'rgba(87, 0, 0, 0.1)';
+const SIDEBAR_CARD_BG = 'rgba(255, 255, 255, 0.88)';
+const SIDEBAR_PANEL_BG = '#FFF8F6';
+const PLACEHOLDER = 'rgba(90, 65, 61, 0.38)';
 
-const SHEET_RED = '#B00000';
-const SHEET_BORDER = '#8B0000';
+const fieldShadow = Platform.select({
+  web: { boxShadow: '0 2px 10px rgba(87, 0, 0, 0.05)' },
+  default: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+});
 
 const HOROSCOPE_SIZE = 4;
 const DETAIL_GRID_COUNT = 30;
@@ -56,6 +72,188 @@ type BiodataState = {
   dasaDay: string;
   registrationNumber: string;
 };
+
+function generateRegistrationNumber(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+function normalizeRegistrationNumber(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) {
+    return '';
+  }
+  return digits.slice(-4);
+}
+
+function sanitizeRegistrationInput(text: string): string {
+  return text.replace(/\D/g, '').slice(0, 4);
+}
+
+export function RegistrationNumberBar({
+  editable,
+  inline = false,
+}: {
+  editable: boolean;
+  inline?: boolean;
+}) {
+  const { translate } = useLanguage();
+  const { getValue, setValue, isReady } = useProfileForm();
+  const [registrationNumber, setRegistrationNumber] = useState('');
+
+  useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+
+    const storedRegistration = getValue('registrationNumber').trim();
+    const normalizedRegistration = normalizeRegistrationNumber(storedRegistration);
+    const nextRegistration = normalizedRegistration || generateRegistrationNumber();
+    if (!normalizedRegistration || normalizedRegistration !== storedRegistration) {
+      setValue('registrationNumber', nextRegistration);
+    }
+    setRegistrationNumber(nextRegistration);
+  }, [getValue, isReady, setValue]);
+
+  const handleChange = useCallback(
+    (text: string) => {
+      const digits = sanitizeRegistrationInput(text);
+      setRegistrationNumber(digits);
+      setValue('registrationNumber', digits);
+    },
+    [setValue],
+  );
+
+  const registrationInputProps = {
+    value: registrationNumber,
+    onChangeText: handleChange,
+    editable,
+    placeholderTextColor: PLACEHOLDER,
+    keyboardType: 'number-pad' as const,
+    maxLength: 4,
+  };
+
+  return (
+    <View style={[registrationHeaderStyles.wrap, inline && registrationHeaderStyles.wrapInline]}>
+      <View style={[registrationHeaderStyles.card, inline && registrationHeaderStyles.cardInline]}>
+        <Text
+          style={[registrationHeaderStyles.label, inline && registrationHeaderStyles.labelInline]}
+          numberOfLines={1}
+        >
+          {translate(inline ? 'biodataRegistrationNumberShort' : 'biodataRegistrationNumber')}
+        </Text>
+        {inline ? (
+          <TextInput
+            style={registrationHeaderStyles.inputInline}
+            {...registrationInputProps}
+            numberOfLines={1}
+          />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={registrationHeaderStyles.scroll}
+          >
+            <TextInput
+              style={registrationHeaderStyles.input}
+              {...registrationInputProps}
+            />
+          </ScrollView>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const registrationHeaderStyles = StyleSheet.create({
+  wrap: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  wrapInline: {
+    flexShrink: 0,
+    alignItems: 'stretch',
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFF0ED',
+    borderRadius: borderRadius.md,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    width: '100%',
+    maxWidth: 360,
+  },
+  cardInline: {
+    flexShrink: 0,
+    gap: 3,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(87, 0, 0, 0.1)',
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(87, 0, 0, 0.06)' },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+        elevation: 1,
+      },
+    }),
+  },
+  label: {
+    color: colors.primary,
+    fontSize: 11,
+    fontFamily: fonts.interSemi,
+    flexShrink: 0,
+  },
+  labelInline: {
+    fontSize: 10,
+  },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  input: {
+    width: 52,
+    minHeight: 28,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: FIELD_BORDER,
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts.interSemi,
+    textAlign: 'center',
+  },
+  inputInline: {
+    width: 52,
+    flexGrow: 0,
+    flexShrink: 0,
+    minHeight: 26,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: 'rgba(87, 0, 0, 0.12)',
+    color: colors.onSurface,
+    fontSize: 11,
+    fontFamily: fonts.interSemi,
+    textAlign: 'center',
+  },
+});
 
 function emptyHoroscope(): string[][] {
   return Array.from({ length: HOROSCOPE_SIZE }, () =>
@@ -103,6 +301,170 @@ function parseDetailGrid(raw: string | undefined): string[] {
   }
 }
 
+const cardShadow = Platform.select({
+  web: {
+    boxShadow: '0 8px 32px rgba(87, 0, 0, 0.1)',
+  },
+  default: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+});
+
+const actionBarShadow = Platform.select({
+  web: {
+    boxShadow: '0 -4px 20px rgba(87, 0, 0, 0.08)',
+  },
+  default: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+});
+
+function resolveStoredOptionValue(
+  optionsKey: FormOptionsKey,
+  stored: string,
+  language: Language,
+): string {
+  const trimmed = stored.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const options = getFormOptions(optionsKey, language);
+  if (options.some((option) => option.value === trimmed)) {
+    return trimmed;
+  }
+
+  const exactLabel = options.find(
+    (option) => option.label.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (exactLabel) {
+    return exactLabel.value;
+  }
+
+  const looseLabel = options.find(
+    (option) =>
+      option.label.toLowerCase().includes(trimmed.toLowerCase()) ||
+      trimmed.toLowerCase().includes(option.label.toLowerCase()),
+  );
+  return looseLabel?.value ?? trimmed;
+}
+
+function BiodataSelectRow({
+  label,
+  value,
+  onValueChange,
+  optionsKey,
+  editable,
+  mobile,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  optionsKey: FormOptionsKey;
+  editable: boolean;
+  mobile?: boolean;
+  placeholder?: string;
+}) {
+  const { language } = useLanguage();
+  const options = useMemo(() => getFormOptions(optionsKey, language), [optionsKey, language]);
+  const resolvedValue = useMemo(
+    () => resolveStoredOptionValue(optionsKey, value, language),
+    [language, optionsKey, value],
+  );
+
+  if (!editable) {
+    const display = getOptionLabel(optionsKey, resolvedValue, language, value);
+    return (
+      <View style={[styles.fieldGroup, mobile && styles.fieldGroupMobile]}>
+        <Text style={[styles.fieldLabel, mobile && styles.fieldLabelMobile]}>{label}</Text>
+        <View
+          style={[
+            styles.fieldInput,
+            styles.fieldInputReadonly,
+            mobile && styles.fieldInputMobile,
+          ]}
+        >
+          <Text style={styles.fieldReadonlyText}>{display || '—'}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.fieldGroup, mobile && styles.fieldGroupMobile, styles.selectFieldGroup]}>
+      <Text style={[styles.fieldLabel, mobile && styles.fieldLabelMobile]}>{label}</Text>
+      <SelectField
+        label={label}
+        value={resolvedValue}
+        onValueChange={onValueChange}
+        options={options}
+        placeholder={placeholder}
+        showLabel={false}
+        compact
+        variant="premium"
+      />
+    </View>
+  );
+}
+
+function BiodataDateRow({
+  label,
+  value,
+  onValueChange,
+  editable,
+  mobile,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  editable: boolean;
+  mobile?: boolean;
+}) {
+  const { language } = useLanguage();
+
+  if (!editable) {
+    return (
+      <View style={[styles.fieldGroup, mobile && styles.fieldGroupMobile]}>
+        <Text style={[styles.fieldLabel, mobile && styles.fieldLabelMobile]}>{label}</Text>
+        <View
+          style={[
+            styles.fieldInput,
+            styles.fieldInputReadonly,
+            mobile && styles.fieldInputMobile,
+          ]}
+        >
+          <Text style={styles.fieldReadonlyText}>{value || '—'}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.fieldGroup, mobile && styles.fieldGroupMobile, styles.selectFieldGroup]}>
+      <Text style={[styles.fieldLabel, mobile && styles.fieldLabelMobile]}>{label}</Text>
+      <DatePickerField
+        label={label}
+        value={value}
+        onValueChange={onValueChange}
+        language={language}
+        showMainLabel={false}
+        showPartLabels={false}
+        compact
+        variant="premium"
+      />
+    </View>
+  );
+}
+
 function BiodataRow({
   label,
   value,
@@ -119,20 +481,21 @@ function BiodataRow({
   mobile?: boolean;
 }) {
   return (
-    <View style={styles.row}>
-      <Text style={[styles.rowLabel, mobile && styles.rowLabelMobile]}>{label}</Text>
+    <View style={[styles.fieldGroup, mobile && styles.fieldGroupMobile]}>
+      <Text style={[styles.fieldLabel, mobile && styles.fieldLabelMobile]}>{label}</Text>
       <TextInput
         style={[
-          styles.rowInput,
-          mobile && styles.rowInputMobile,
-          multiline && styles.rowInputMultiline,
-          multiline && mobile && styles.rowInputMultilineMobile,
+          styles.fieldInput,
+          mobile && styles.fieldInputMobile,
+          multiline && styles.fieldInputMultiline,
+          multiline && mobile && styles.fieldInputMultilineMobile,
+          !editable && styles.fieldInputReadonly,
         ]}
         value={value}
         onChangeText={onChangeText}
         editable={editable}
         multiline={multiline}
-        placeholderTextColor="rgba(139, 0, 0, 0.35)"
+        placeholderTextColor={PLACEHOLDER}
       />
     </View>
   );
@@ -142,25 +505,148 @@ function MetricBox({
   label,
   value,
   onChangeText,
+  onValueChange,
+  optionsKey,
   editable,
   mobile,
+  sidebar,
+  registration,
 }: {
   label: string;
   value: string;
-  onChangeText: (text: string) => void;
+  onChangeText?: (text: string) => void;
+  onValueChange?: (value: string) => void;
+  optionsKey?: FormOptionsKey;
   editable: boolean;
   mobile?: boolean;
+  sidebar?: boolean;
+  registration?: boolean;
 }) {
+  const { language } = useLanguage();
+
+  if (optionsKey) {
+    const options = useMemo(() => getFormOptions(optionsKey, language), [language, optionsKey]);
+    const resolvedValue = useMemo(
+      () => resolveStoredOptionValue(optionsKey, value, language),
+      [language, optionsKey, value],
+    );
+
+    if (!editable) {
+      const display = getOptionLabel(optionsKey, resolvedValue, language, value);
+      return (
+        <View
+          style={[
+            styles.metricBox,
+            sidebar && styles.metricBoxSidebar,
+            mobile && styles.metricBoxMobile,
+            sidebar && mobile && styles.metricBoxSidebarMobile,
+          ]}
+        >
+          <Text
+            style={[
+              styles.metricLabel,
+              sidebar && styles.metricLabelSidebar,
+              mobile && styles.metricLabelMobile,
+              sidebar && mobile && styles.metricLabelSidebarMobile,
+            ]}
+            numberOfLines={sidebar ? 2 : 1}
+          >
+            {label}
+          </Text>
+          <Text
+            style={[
+              styles.metricInput,
+              sidebar && styles.metricInputSidebar,
+              mobile && styles.metricInputMobile,
+              sidebar && mobile && styles.metricInputSidebarMobile,
+              styles.fieldReadonlyText,
+            ]}
+          >
+            {display || '—'}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View
+        style={[
+          styles.metricBox,
+          sidebar && styles.metricBoxSidebar,
+          mobile && styles.metricBoxMobile,
+          sidebar && mobile && styles.metricBoxSidebarMobile,
+          styles.selectFieldGroup,
+        ]}
+      >
+        <Text
+          style={[
+            styles.metricLabel,
+            sidebar && styles.metricLabelSidebar,
+            mobile && styles.metricLabelMobile,
+            sidebar && mobile && styles.metricLabelSidebarMobile,
+          ]}
+          numberOfLines={sidebar ? 2 : 1}
+        >
+          {label}
+        </Text>
+        <SelectField
+          label={label}
+          value={resolvedValue}
+          onValueChange={onValueChange ?? (() => undefined)}
+          options={options}
+          showLabel={false}
+          compact
+          variant="premium"
+        />
+      </View>
+    );
+  }
+
+  const input = (
+    <TextInput
+      style={[
+        styles.metricInput,
+        sidebar && styles.metricInputSidebar,
+        mobile && styles.metricInputMobile,
+        sidebar && mobile && styles.metricInputSidebarMobile,
+        registration && styles.metricInputRegistration,
+        registration && mobile && styles.metricInputRegistrationMobile,
+      ]}
+      value={value}
+      onChangeText={onChangeText}
+      editable={editable}
+      placeholderTextColor={PLACEHOLDER}
+    />
+  );
+
   return (
-    <View style={[styles.metricBox, mobile && styles.metricBoxMobile]}>
-      <Text style={[styles.metricLabel, mobile && styles.metricLabelMobile]}>{label}</Text>
-      <TextInput
-        style={[styles.metricInput, mobile && styles.metricInputMobile]}
-        value={value}
-        onChangeText={onChangeText}
-        editable={editable}
-        placeholderTextColor="rgba(139, 0, 0, 0.35)"
-      />
+    <View
+      style={[
+        styles.metricBox,
+        sidebar && styles.metricBoxSidebar,
+        mobile && styles.metricBoxMobile,
+        sidebar && mobile && styles.metricBoxSidebarMobile,
+        registration && styles.metricBoxRegistration,
+      ]}
+    >
+      <Text
+        style={[
+          styles.metricLabel,
+          sidebar && styles.metricLabelSidebar,
+          mobile && styles.metricLabelMobile,
+          sidebar && mobile && styles.metricLabelSidebarMobile,
+        ]}
+        numberOfLines={sidebar ? 2 : 1}
+      >
+        {label}
+      </Text>
+      {registration ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.regScroll}>
+          {input}
+        </ScrollView>
+      ) : (
+        input
+      )}
     </View>
   );
 }
@@ -171,30 +657,101 @@ function MemberBox({
   editable,
   onChange,
   mobile,
+  sidebar,
+  countSelect,
 }: {
   title: string;
   fields: { key: keyof BiodataState; label: string; value: string }[];
   editable: boolean;
   onChange: (key: keyof BiodataState, value: string) => void;
   mobile?: boolean;
+  sidebar?: boolean;
+  countSelect?: boolean;
 }) {
+  const { language } = useLanguage();
+  const countOptions = useMemo(() => getFormOptions('siblingCount', language), [language]);
+
   return (
-    <View style={[styles.memberBox, mobile && styles.memberBoxMobile]}>
-      <Text style={[styles.memberTitle, mobile && styles.memberTitleMobile]}>{title}</Text>
+    <View
+      style={[
+        styles.memberBox,
+        sidebar && styles.memberBoxSidebar,
+        mobile && styles.memberBoxMobile,
+        sidebar && mobile && styles.memberBoxSidebarMobile,
+      ]}
+    >
+      <Text
+        style={[
+          styles.memberTitle,
+          sidebar && styles.memberTitleSidebar,
+          mobile && styles.memberTitleMobile,
+          sidebar && mobile && styles.memberTitleSidebarMobile,
+        ]}
+        numberOfLines={sidebar ? 2 : 1}
+      >
+        {title}
+      </Text>
       {fields.map((field) => (
-        <View key={field.key} style={styles.memberRow}>
+        <View
+          key={field.key}
+          style={[styles.memberRow, sidebar && styles.memberRowSidebar]}
+        >
           <Text
-            style={[styles.memberLabel, mobile && styles.memberLabelMobile]}
+            style={[
+              styles.memberLabel,
+              sidebar && styles.memberLabelSidebar,
+              mobile && styles.memberLabelMobile,
+              sidebar && mobile && styles.memberLabelSidebarMobile,
+            ]}
+            numberOfLines={sidebar ? 2 : 1}
           >
             {field.label}
           </Text>
+          {countSelect && sidebar ? (
+            editable ? (
+              <View style={[styles.memberSelectWrap, styles.selectFieldGroup]}>
+                <SelectField
+                  label={field.label}
+                  value={resolveStoredOptionValue('siblingCount', field.value, language)}
+                  onValueChange={(text) => onChange(field.key, text)}
+                  options={countOptions}
+                  showLabel={false}
+                  compact
+                  variant="premium"
+                />
+              </View>
+            ) : (
+              <Text
+                style={[
+                  styles.memberInput,
+                  sidebar && styles.memberInputSidebar,
+                  mobile && styles.memberInputMobile,
+                  sidebar && mobile && styles.memberInputSidebarMobile,
+                  styles.fieldReadonlyText,
+                ]}
+              >
+                {getOptionLabel(
+                  'siblingCount',
+                  resolveStoredOptionValue('siblingCount', field.value, language),
+                  language,
+                  field.value,
+                ) || '—'}
+              </Text>
+            )
+          ) : (
           <TextInput
-            style={[styles.memberInput, mobile && styles.memberInputMobile]}
+            style={[
+              styles.memberInput,
+              sidebar && styles.memberInputSidebar,
+              mobile && styles.memberInputMobile,
+              sidebar && mobile && styles.memberInputSidebarMobile,
+            ]}
             value={field.value}
             onChangeText={(text) => onChange(field.key, text)}
             editable={editable}
-            placeholderTextColor="rgba(139, 0, 0, 0.35)"
+            placeholderTextColor={PLACEHOLDER}
           />
+          )}
         </View>
       ))}
     </View>
@@ -225,7 +782,7 @@ function HoroscopeChart({
         onChangeText={(text) => onCellChange(row, col, text)}
         editable={editable}
         textAlign="center"
-        placeholderTextColor="rgba(139, 0, 0, 0.25)"
+        placeholderTextColor="rgba(87, 0, 0, 0.25)"
       />
     </View>
   );
@@ -333,6 +890,14 @@ export function CreateProfileBiodataForm({
     setRasiChart(parseHoroscope(getValue('biodataHoroscopeRasi')));
     setAmsamChart(parseHoroscope(getValue('biodataHoroscopeAmsam')));
     setDetailGrid(parseDetailGrid(getValue('biodataDetailGrid')));
+
+    const storedRegistration = getValue('registrationNumber').trim();
+    const normalizedRegistration = normalizeRegistrationNumber(storedRegistration);
+    const registrationNumber = normalizedRegistration || generateRegistrationNumber();
+    if (!normalizedRegistration || normalizedRegistration !== storedRegistration) {
+      setValue('registrationNumber', registrationNumber);
+    }
+
     setForm({
       fullName: getValue('fullName'),
       dateOfBirth: getValue('dateOfBirth'),
@@ -361,9 +926,9 @@ export function CreateProfileBiodataForm({
       dasaYear: getValue('dasaYear'),
       dasaMonth: getValue('dasaMonth'),
       dasaDay: getValue('dasaDay'),
-      registrationNumber: getValue('registrationNumber'),
+      registrationNumber,
     });
-  }, [getValue, isReady]);
+  }, [getValue, isReady, setValue]);
 
   const updateField = useCallback((key: keyof BiodataState, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -398,7 +963,7 @@ export function CreateProfileBiodataForm({
     setValue('dasaYear', form.dasaYear.trim());
     setValue('dasaMonth', form.dasaMonth.trim());
     setValue('dasaDay', form.dasaDay.trim());
-    setValue('registrationNumber', form.registrationNumber.trim());
+    setValue('registrationNumber', getValue('registrationNumber').trim() || form.registrationNumber.trim());
     setValue('biodataHoroscopeRasi', JSON.stringify(rasiChart));
     setValue('biodataHoroscopeAmsam', JSON.stringify(amsamChart));
     setValue('biodataDetailGrid', JSON.stringify(detailGrid));
@@ -462,79 +1027,7 @@ export function CreateProfileBiodataForm({
   );
 
   const biodataSheet = (
-    <View style={[styles.sheetOuter, isMobile && styles.sheetOuterMobile]}>
-      <View style={[styles.sheetInner, isMobile && styles.sheetInnerMobile]}>
-        <View style={[styles.headerRow, isMobile && styles.headerRowMobile]}>
-          <View style={[styles.photoBox, isMobile && styles.photoBoxMobile]}>
-            <Image
-              source={lotusLogo}
-              style={styles.lotusLogo}
-              resizeMode="contain"
-              accessibilityLabel="Lotus logo"
-            />
-          </View>
-
-          <View style={styles.headerCenter}>
-            <View style={[styles.brandRow, isMobile && styles.brandRowMobile]}>
-              <Text style={[styles.brandWord, isMobile && styles.brandWordMobile]}>
-                {translate('biodataBrandAyya')}
-              </Text>
-              <Image
-                source={lotusLogo}
-                style={[styles.brandLotus, isMobile && styles.brandLotusMobile]}
-                resizeMode="contain"
-                accessibilityLabel="Lotus logo"
-              />
-              <Text style={[styles.brandWord, isMobile && styles.brandWordMobile]}>
-                {translate('biodataBrandThunai')}
-              </Text>
-            </View>
-            <Text
-              style={[styles.orgTitle, isMobile && styles.orgTitleMobile]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.6}
-            >
-              {translate('biodataOrgTitle')}
-            </Text>
-            <Text
-              style={[styles.orgAddress, isMobile && styles.orgAddressMobile]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.6}
-            >
-              {translate('biodataOrgAddressLine1')}
-            </Text>
-            <Text
-              style={[styles.orgAddress, isMobile && styles.orgAddressMobile]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.6}
-            >
-              {translate('biodataOrgAddressLine2')}
-            </Text>
-            <View style={styles.contactRow}>
-              <MaterialIcons name="phone" size={12} color="#1B8A3E" />
-              <Text style={[styles.contactText, isMobile && styles.contactTextMobile]}>95 43 69 29 00</Text>
-              <MaterialIcons name="phone" size={12} color="#1B8A3E" />
-              <Text style={[styles.contactText, isMobile && styles.contactTextMobile]}>99 42 81 88 41</Text>
-            </View>
-          </View>
-
-          <View style={[styles.registrationBox, isMobile && styles.registrationBoxMobile]}>
-            <Text style={[styles.registrationLabel, isMobile && styles.registrationLabelMobile]}>
-              {translate('biodataRegistrationNumber')}
-            </Text>
-            <TextInput
-              style={[styles.registrationInput, isMobile && styles.registrationInputMobile]}
-              value={form.registrationNumber}
-              onChangeText={(text) => updateField('registrationNumber', text)}
-              editable={editable}
-              placeholderTextColor="rgba(139, 0, 0, 0.35)"
-            />
-          </View>
-        </View>
-
+    <View style={[styles.sheetCard, isMobile && styles.sheetCardMobile]}>
         <View style={[styles.columnsRow, isMobile && styles.columnsRowMobile]}>
           <View style={[styles.leftColumn, isMobile && styles.leftColumnMobile]}>
             <BiodataRow
@@ -544,38 +1037,42 @@ export function CreateProfileBiodataForm({
               editable={editable}
               mobile={isMobile}
             />
-            <BiodataRow
+            <BiodataDateRow
               label={translate('biodataFieldDateOfBirth')}
               value={form.dateOfBirth}
-              onChangeText={(text) => updateField('dateOfBirth', text)}
+              onValueChange={(text) => updateField('dateOfBirth', text)}
               editable={editable}
               mobile={isMobile}
             />
-            <BiodataRow
+            <BiodataSelectRow
               label={translate('biodataFieldNatchathiram')}
               value={form.natchathiram}
-              onChangeText={(text) => updateField('natchathiram', text)}
+              onValueChange={(text) => updateField('natchathiram', text)}
+              optionsKey="nakshatra"
               editable={editable}
               mobile={isMobile}
             />
-            <BiodataRow
+            <BiodataSelectRow
               label={translate('biodataFieldRasi')}
               value={form.rasi}
-              onChangeText={(text) => updateField('rasi', text)}
+              onValueChange={(text) => updateField('rasi', text)}
+              optionsKey="rasi"
               editable={editable}
               mobile={isMobile}
             />
-            <BiodataRow
+            <BiodataSelectRow
               label={translate('biodataFieldOccupation')}
               value={form.occupation}
-              onChangeText={(text) => updateField('occupation', text)}
+              onValueChange={(text) => updateField('occupation', text)}
+              optionsKey="occupation"
               editable={editable}
               mobile={isMobile}
             />
-            <BiodataRow
+            <BiodataSelectRow
               label={translate('biodataFieldIncome')}
               value={form.monthlyIncome}
-              onChangeText={(text) => updateField('monthlyIncome', text)}
+              onValueChange={(text) => updateField('monthlyIncome', text)}
+              optionsKey="monthlyIncome"
               editable={editable}
               mobile={isMobile}
             />
@@ -615,16 +1112,20 @@ export function CreateProfileBiodataForm({
             <MetricBox
               label={translate('biodataFieldTotalMembers')}
               value={form.totalFamilyMembers}
-              onChangeText={(text) => updateField('totalFamilyMembers', text)}
+              onValueChange={(text) => updateField('totalFamilyMembers', text)}
+              optionsKey="siblingCount"
               editable={editable}
               mobile={isMobile}
+              sidebar
             />
             <MetricBox
               label={translate('biodataFieldBirthOrder')}
               value={form.birthOrder}
-              onChangeText={(text) => updateField('birthOrder', text)}
+              onValueChange={(text) => updateField('birthOrder', text)}
+              optionsKey="birthOrder"
               editable={editable}
               mobile={isMobile}
+              sidebar
             />
             <MemberBox
               title={translate('biodataSectionMarried')}
@@ -632,6 +1133,8 @@ export function CreateProfileBiodataForm({
               editable={editable}
               onChange={updateField}
               mobile={isMobile}
+              sidebar
+              countSelect
             />
             <MemberBox
               title={translate('biodataSectionUnmarried')}
@@ -639,20 +1142,26 @@ export function CreateProfileBiodataForm({
               editable={editable}
               onChange={updateField}
               mobile={isMobile}
+              sidebar
+              countSelect
             />
             <MetricBox
               label={translate('biodataFieldComplexion')}
               value={form.complexion}
-              onChangeText={(text) => updateField('complexion', text)}
+              onValueChange={(text) => updateField('complexion', text)}
+              optionsKey="skinColor"
               editable={editable}
               mobile={isMobile}
+              sidebar
             />
             <MetricBox
               label={translate('biodataFieldHeight')}
               value={form.height}
-              onChangeText={(text) => updateField('height', text)}
+              onValueChange={(text) => updateField('height', text)}
+              optionsKey="height"
               editable={editable}
               mobile={isMobile}
+              sidebar
             />
             <MetricBox
               label={translate('biodataFieldSeervarisai')}
@@ -660,6 +1169,7 @@ export function CreateProfileBiodataForm({
               onChangeText={(text) => updateField('seervarisai', text)}
               editable={editable}
               mobile={isMobile}
+              sidebar
             />
           </View>
         </View>
@@ -697,6 +1207,7 @@ export function CreateProfileBiodataForm({
           />
         </View>
 
+        <View style={[styles.dasaCard, isMobile && styles.dasaCardMobile]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -751,7 +1262,9 @@ export function CreateProfileBiodataForm({
             editable={editable}
           />
         </ScrollView>
+        </View>
 
+        <View style={styles.detailGridWrap}>
         <View style={styles.detailGrid}>
           {Array.from({ length: DETAIL_GRID_ROWS }, (_, rowIndex) => (
             <View key={rowIndex} style={styles.detailGridRow}>
@@ -781,63 +1294,103 @@ export function CreateProfileBiodataForm({
             </View>
           ))}
         </View>
-      </View>
+        </View>
     </View>
   );
 
   return (
     <View style={styles.wrapper}>
       <ScrollView
-        showsVerticalScrollIndicator
+        showsVerticalScrollIndicator={false}
         nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, isMobile && styles.scrollContentMobile]}
       >
         {biodataSheet}
       </ScrollView>
 
       <View style={[styles.actionBar, isMobile && styles.actionBarMobile]}>
+        {isMobile ? (
+          <>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButtonPrimary,
+                styles.actionButtonPrimaryMobile,
+                styles.actionButtonFull,
+                pressed && styles.actionButtonPressed,
+              ]}
+              onPress={handleSavePress}
+            >
+              <MaterialIcons name="check-circle" size={18} color={colors.onPrimary} />
+              <Text style={[styles.actionButtonPrimaryText, styles.actionButtonPrimaryTextMobile]}>
+                {translate('saveAndContinue')}
+              </Text>
+            </Pressable>
+            <View style={styles.actionSecondaryRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButtonOutline,
+                  styles.actionButtonOutlineMobile,
+                  styles.actionButtonHalf,
+                  pressed && styles.actionButtonPressed,
+                ]}
+                onPress={onDownloadPdf}
+              >
+                <MaterialIcons name="picture-as-pdf" size={16} color={SHEET_BORDER} />
+                <Text style={[styles.actionButtonOutlineText, styles.actionButtonOutlineTextMobile]}>
+                  {translate('downloadPdf')}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButtonOutline,
+                  styles.actionButtonOutlineMobile,
+                  styles.actionButtonHalf,
+                  pressed && styles.actionButtonPressed,
+                ]}
+                onPress={onEditProfile}
+              >
+                <MaterialIcons name="edit" size={16} color={SHEET_BORDER} />
+                <Text style={[styles.actionButtonOutlineText, styles.actionButtonOutlineTextMobile]}>
+                  {translate('editProfile')}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
         <Pressable
-          style={[styles.actionButtonOutline, isMobile && styles.actionButtonOutlineMobile]}
+          style={({ pressed }) => [
+            styles.actionButtonOutline,
+            pressed && styles.actionButtonPressed,
+          ]}
           onPress={onDownloadPdf}
         >
-          <MaterialIcons name="picture-as-pdf" size={isMobile ? 16 : 18} color={SHEET_RED} />
-          <Text
-            style={[styles.actionButtonOutlineText, isMobile && styles.actionButtonOutlineTextMobile]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-          >
-            {translate('downloadPdf')}
-          </Text>
+          <MaterialIcons name="picture-as-pdf" size={18} color={SHEET_BORDER} />
+          <Text style={styles.actionButtonOutlineText}>{translate('downloadPdf')}</Text>
         </Pressable>
         <Pressable
-          style={[styles.actionButtonOutline, isMobile && styles.actionButtonOutlineMobile]}
+          style={({ pressed }) => [
+            styles.actionButtonOutline,
+            pressed && styles.actionButtonPressed,
+          ]}
           onPress={onEditProfile}
         >
-          <MaterialIcons name="edit" size={isMobile ? 16 : 18} color={SHEET_RED} />
-          <Text
-            style={[styles.actionButtonOutlineText, isMobile && styles.actionButtonOutlineTextMobile]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-          >
-            {translate('editProfile')}
-          </Text>
+          <MaterialIcons name="edit" size={18} color={SHEET_BORDER} />
+          <Text style={styles.actionButtonOutlineText}>{translate('editProfile')}</Text>
         </Pressable>
         <Pressable
-          style={[styles.actionButtonPrimary, isMobile && styles.actionButtonPrimaryMobile]}
+          style={({ pressed }) => [
+            styles.actionButtonPrimary,
+            pressed && styles.actionButtonPressed,
+          ]}
           onPress={handleSavePress}
         >
-          <MaterialIcons name="save" size={isMobile ? 16 : 18} color="#fff" />
-          <Text
-            style={[styles.actionButtonPrimaryText, isMobile && styles.actionButtonPrimaryTextMobile]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-          >
-            {translate('saveAndContinue')}
-          </Text>
+          <MaterialIcons name="check-circle" size={18} color={colors.onPrimary} />
+          <Text style={styles.actionButtonPrimaryText}>{translate('saveAndContinue')}</Text>
         </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -846,334 +1399,369 @@ export function CreateProfileBiodataForm({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#F3F3F3',
+    backgroundColor: '#F3F7FC',
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 120,
-    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingTop: 6,
+    paddingBottom: 130,
+    alignItems: 'stretch',
   },
   scrollContentMobile: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    paddingTop: 4,
+    paddingBottom: 120,
   },
-  sheetOuter: {
+  sheetCard: {
     width: '100%',
     maxWidth: 820,
-    borderWidth: 3,
-    borderColor: SHEET_BORDER,
-    backgroundColor: '#fff',
-    padding: 4,
-  },
-  sheetOuterMobile: {
-    padding: 2,
-  },
-  sheetInner: {
-    borderWidth: 2,
-    borderColor: SHEET_RED,
-    backgroundColor: '#fff',
-    padding: 12,
-  },
-  sheetInnerMobile: {
-    padding: 6,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    gap: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: SHEET_RED,
-    paddingBottom: 12,
-    marginBottom: 12,
-  },
-  headerRowMobile: {
-    gap: 6,
-    paddingBottom: 8,
-    marginBottom: 8,
-  },
-  photoBox: {
-    width: 92,
-    height: 112,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 6,
-  },
-  photoBoxMobile: {
-    width: 68,
-    height: 82,
-  },
-  lotusLogo: {
-    width: '100%',
-    height: '100%',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    minWidth: 0,
-    width: '100%',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  brandRowMobile: {
-    gap: 5,
-  },
-  brandWord: {
-    color: SHEET_RED,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  brandWordMobile: {
-    fontSize: 14,
-  },
-  brandLotus: {
-    width: 38,
-    height: 38,
-  },
-  brandLotusMobile: {
-    width: 28,
-    height: 28,
-  },
-  orgTitle: {
-    color: SHEET_RED,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-    width: '100%',
-  },
-  orgTitleMobile: {
-    fontSize: 10,
-  },
-  orgAddress: {
-    color: SHEET_RED,
-    fontSize: 10,
-    textAlign: 'center',
-    width: '100%',
-  },
-  orgAddressMobile: {
-    fontSize: 8,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  contactText: {
-    color: '#1B8A3E',
-    fontSize: 11,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  contactTextMobile: {
-    fontSize: 9,
-    marginRight: 4,
-  },
-  registrationBox: {
-    width: 72,
-    borderWidth: 2,
-    borderColor: SHEET_RED,
-    padding: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  registrationBoxMobile: {
-    width: 56,
-    padding: 4,
-  },
-  registrationLabel: {
-    color: SHEET_RED,
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  registrationLabelMobile: {
-    fontSize: 8,
-    marginBottom: 2,
-  },
-  registrationInput: {
-    width: '100%',
+    alignSelf: 'center',
+    borderRadius: 20,
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: spacing.sm,
     borderWidth: 1,
-    borderColor: SHEET_RED,
-    minHeight: 28,
-    textAlign: 'center',
-    color: '#111',
-    fontSize: 14,
-    fontWeight: '700',
+    borderColor: 'rgba(87, 0, 0, 0.06)',
+    ...cardShadow,
   },
-  registrationInputMobile: {
-    minHeight: 22,
-    fontSize: 11,
+  sheetCardMobile: {
+    padding: 8,
+    borderRadius: 16,
   },
   columnsRow: {
     flexDirection: 'row',
-    gap: 10,
-  },
-  columnsRowMobile: {
-    gap: 6,
-  },
-  leftColumn: {
-    flex: 1.2,
-    minWidth: 0,
-    borderWidth: 1,
-    borderColor: SHEET_RED,
-    padding: 8,
-    gap: 6,
-  },
-  leftColumnMobile: {
-    padding: 4,
-    gap: 4,
-  },
-  rightColumn: {
-    flex: 0.9,
-    minWidth: 0,
+    alignItems: 'flex-start',
     gap: 8,
   },
-  rightColumnMobile: {
+  columnsRowMobile: {
+    gap: 5,
+  },
+  leftColumn: {
+    flex: 3,
+    minWidth: 0,
+    maxWidth: '75%',
+    gap: 5,
+  },
+  leftColumnMobile: {
+    flex: 3,
     gap: 4,
+    maxWidth: '75%',
   },
-  row: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(176, 0, 0, 0.25)',
-    paddingBottom: 4,
-  },
-  rowLabel: {
-    color: SHEET_RED,
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  rowLabelMobile: {
-    fontSize: 9,
-    marginBottom: 1,
-  },
-  rowInput: {
-    minHeight: 28,
+  rightColumn: {
+    flex: 1,
+    minWidth: 0,
+    maxWidth: '25%',
+    gap: 4,
+    backgroundColor: SIDEBAR_PANEL_BG,
+    borderRadius: 16,
+    padding: 4,
     borderWidth: 1,
-    borderColor: 'rgba(176, 0, 0, 0.35)',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    color: '#111',
+    borderColor: 'rgba(87, 0, 0, 0.08)',
+    ...fieldShadow,
+  },
+  rightColumnMobile: {
+    gap: 3,
+    maxWidth: '25%',
+    padding: 3,
+    borderRadius: 14,
+  },
+  fieldGroup: {
+    gap: 2,
+  },
+  fieldGroupMobile: {
+    gap: 2,
+  },
+  fieldLabel: {
+    color: colors.primary,
+    fontSize: 10,
+    fontFamily: fonts.interSemi,
+    letterSpacing: 0.35,
+    opacity: 0.88,
+  },
+  fieldLabelMobile: {
+    fontSize: 9,
+    lineHeight: 12,
+  },
+  fieldInput: {
+    backgroundColor: FIELD_BG,
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    minHeight: 34,
+    color: colors.onSurface,
     fontSize: 13,
-    backgroundColor: '#fff',
+    fontFamily: fonts.interMedium,
+    borderWidth: 1,
+    borderColor: FIELD_BORDER,
+    ...fieldShadow,
   },
-  rowInputMobile: {
-    minHeight: 22,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    fontSize: 11,
+  fieldInputMobile: {
+    minHeight: 32,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 12,
+    borderRadius: 10,
   },
-  rowInputMultiline: {
+  fieldInputMultiline: {
     minHeight: 48,
     textAlignVertical: 'top',
+    paddingTop: 6,
   },
-  rowInputMultilineMobile: {
-    minHeight: 36,
+  fieldInputMultilineMobile: {
+    minHeight: 40,
+  },
+  fieldInputReadonly: {
+    backgroundColor: colors.surfaceContainerHigh,
+    opacity: 0.96,
+  },
+  fieldReadonlyText: {
+    color: colors.onSurface,
+    fontSize: 13,
+    fontFamily: fonts.interMedium,
+  },
+  selectFieldGroup: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  memberSelectWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   metricBox: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    backgroundColor: FIELD_BG,
     borderWidth: 1,
-    borderColor: SHEET_RED,
-    padding: 6,
+    borderColor: FIELD_BORDER,
+  },
+  metricBoxSidebar: {
+    padding: 4,
+    borderRadius: 10,
+    backgroundColor: SIDEBAR_CARD_BG,
+    borderWidth: 1,
+    borderColor: 'rgba(87, 0, 0, 0.06)',
+  },
+  metricBoxRegistration: {
+    backgroundColor: '#FFF0ED',
   },
   metricBoxMobile: {
+    padding: spacing.xs,
+  },
+  metricBoxSidebarMobile: {
     padding: 4,
+    borderRadius: 8,
   },
   metricLabel: {
-    color: SHEET_RED,
+    color: colors.onSurfaceVariant,
     fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontFamily: fonts.interSemi,
+    marginBottom: 3,
+    letterSpacing: 0.2,
+  },
+  metricLabelSidebar: {
+    fontSize: 8,
+    marginBottom: 2,
+    textAlign: 'center',
+    lineHeight: 10,
+    color: colors.primary,
+    opacity: 0.9,
   },
   metricLabelMobile: {
     fontSize: 8,
-    marginBottom: 2,
+    marginBottom: 3,
+  },
+  metricLabelSidebarMobile: {
+    fontSize: 8,
+    lineHeight: 11,
+    marginBottom: 3,
   },
   metricInput: {
     borderWidth: 1,
-    borderColor: 'rgba(176, 0, 0, 0.35)',
-    minHeight: 28,
-    paddingHorizontal: 6,
-    color: '#111',
+    borderColor: FIELD_BORDER,
+    borderRadius: 10,
+    minHeight: 34,
+    paddingHorizontal: spacing.sm,
+    color: colors.onSurface,
     fontSize: 13,
-    backgroundColor: '#fff',
+    fontFamily: fonts.inter,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  metricInputSidebar: {
+    minHeight: 26,
+    paddingHorizontal: 3,
+    fontSize: 10,
+    fontFamily: fonts.interSemi,
+    textAlign: 'center',
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: 'rgba(87, 0, 0, 0.1)',
   },
   metricInputMobile: {
+    minHeight: 36,
+    fontSize: 13,
+  },
+  metricInputSidebarMobile: {
     minHeight: 22,
-    paddingHorizontal: 4,
-    fontSize: 11,
+    fontSize: 9,
+    paddingHorizontal: 2,
+  },
+  metricInputRegistration: {
+    minWidth: 88,
+    fontSize: 10,
+    letterSpacing: -0.2,
+  },
+  metricInputRegistrationMobile: {
+    minWidth: 72,
+    fontSize: 9,
+  },
+  regScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   memberBox: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    gap: spacing.xs,
+    backgroundColor: FIELD_BG,
     borderWidth: 1,
-    borderColor: SHEET_RED,
-    padding: 6,
-    gap: 4,
+    borderColor: FIELD_BORDER,
+  },
+  memberBoxSidebar: {
+    padding: 3,
+    gap: 3,
+    borderRadius: 10,
+    backgroundColor: SIDEBAR_CARD_BG,
+    borderWidth: 1,
+    borderColor: 'rgba(87, 0, 0, 0.06)',
   },
   memberBoxMobile: {
-    padding: 4,
+    padding: spacing.xs,
+    gap: 4,
+  },
+  memberBoxSidebarMobile: {
+    padding: 3,
     gap: 2,
   },
   memberTitle: {
-    color: SHEET_RED,
+    color: SHEET_BORDER,
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.interSemi,
     marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+  memberTitleSidebar: {
+    fontSize: 8,
+    textAlign: 'center',
+    lineHeight: 10,
+    marginBottom: 3,
+    color: colors.primary,
+    fontFamily: fonts.interSemi,
+    letterSpacing: 0.3,
   },
   memberTitleMobile: {
     fontSize: 8,
-    marginBottom: 1,
+    marginBottom: 2,
+  },
+  memberTitleSidebarMobile: {
+    fontSize: 8,
+    lineHeight: 11,
   },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs,
+  },
+  memberRowSidebar: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 3,
   },
   memberLabel: {
     width: 62,
     flexShrink: 0,
-    color: SHEET_RED,
+    color: colors.onSurfaceVariant,
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.interMedium,
+  },
+  memberLabelSidebar: {
+    width: '100%',
+    fontSize: 8,
+    lineHeight: 11,
+    textAlign: 'center',
+    color: colors.onSurfaceVariant,
   },
   memberLabelMobile: {
     width: 64,
     fontSize: 9,
   },
+  memberLabelSidebarMobile: {
+    width: '100%',
+    fontSize: 8,
+    lineHeight: 10,
+  },
   memberInput: {
     flex: 1,
     minWidth: 0,
     borderWidth: 1,
-    borderColor: 'rgba(176, 0, 0, 0.35)',
+    borderColor: FIELD_BORDER,
+    borderRadius: 10,
+    minHeight: 32,
+    paddingHorizontal: 6,
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts.inter,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  memberInputSidebar: {
+    width: '100%',
     minHeight: 22,
     paddingHorizontal: 3,
-    color: '#111',
-    fontSize: 11,
-    backgroundColor: '#fff',
+    textAlign: 'center',
+    fontSize: 10,
+    fontFamily: fonts.interSemi,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainerLowest,
   },
   memberInputMobile: {
-    minHeight: 20,
-    fontSize: 10,
+    minHeight: 28,
+    fontSize: 11,
+  },
+  memberInputSidebarMobile: {
+    minHeight: 22,
+    fontSize: 9,
     paddingHorizontal: 2,
   },
   chartsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     justifyContent: 'center',
     flexWrap: 'wrap',
+    marginTop: spacing.sm,
+  },
+  dasaCard: {
+    marginTop: spacing.sm,
+    backgroundColor: FIELD_BG,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: FIELD_BORDER,
+    ...fieldShadow,
+  },
+  dasaCardMobile: {
+    marginTop: 6,
+    borderRadius: 10,
+  },
+  detailGridWrap: {
+    marginTop: spacing.sm,
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
   },
   chartWrap: {
     flex: 1,
     minWidth: 150,
     maxWidth: 220,
     borderWidth: 1,
-    borderColor: SHEET_RED,
+    borderColor: HOROSCOPE_RED,
     padding: 4,
     backgroundColor: '#fff',
   },
@@ -1181,7 +1769,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     flexDirection: 'column',
-    backgroundColor: SHEET_RED,
+    backgroundColor: HOROSCOPE_RED,
     gap: 1,
     padding: 1,
   },
@@ -1240,7 +1828,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   chartCenterLabel: {
-    color: SHEET_RED,
+    color: HOROSCOPE_RED,
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
@@ -1249,66 +1837,64 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   dasaRow: {
-    marginTop: 12,
     flexDirection: 'row',
     flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: 4,
-    borderTopWidth: 1,
-    borderTopColor: SHEET_RED,
-    paddingTop: 10,
-    paddingBottom: 2,
+    gap: 6,
+    paddingHorizontal: 4,
   },
   dasaRowMobile: {
-    marginTop: 8,
-    gap: 3,
-    paddingTop: 6,
+    gap: 4,
   },
   dasaLabel: {
-    color: SHEET_RED,
+    color: colors.onSurfaceVariant,
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.interSemi,
     flexShrink: 0,
   },
   dasaLabelMobile: {
-    fontSize: 8,
+    fontSize: 9,
   },
   dasaInput: {
-    width: 72,
+    width: 80,
     borderWidth: 1,
-    borderColor: SHEET_RED,
-    minHeight: 26,
-    paddingHorizontal: 4,
-    color: '#111',
-    fontSize: 11,
+    borderColor: FIELD_BORDER,
+    borderRadius: borderRadius.md,
+    minHeight: 36,
+    paddingHorizontal: 6,
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts.inter,
+    backgroundColor: colors.surfaceContainerLowest,
     flexShrink: 0,
   },
   dasaInputMobile: {
-    width: 52,
-    minHeight: 20,
-    fontSize: 9,
-    paddingHorizontal: 2,
+    width: 64,
+    minHeight: 32,
+    fontSize: 11,
   },
   dasaInputSmall: {
-    width: 36,
+    width: 40,
     borderWidth: 1,
-    borderColor: SHEET_RED,
-    minHeight: 26,
-    paddingHorizontal: 2,
+    borderColor: FIELD_BORDER,
+    borderRadius: borderRadius.md,
+    minHeight: 36,
+    paddingHorizontal: 4,
     textAlign: 'center',
-    color: '#111',
-    fontSize: 11,
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts.inter,
+    backgroundColor: colors.surfaceContainerLowest,
     flexShrink: 0,
   },
   dasaInputSmallMobile: {
-    width: 28,
-    minHeight: 20,
-    fontSize: 9,
+    width: 34,
+    minHeight: 32,
+    fontSize: 11,
   },
   detailGrid: {
-    marginTop: 10,
     borderWidth: 1,
-    borderColor: SHEET_RED,
+    borderColor: HOROSCOPE_RED,
   },
   detailGridRow: {
     flexDirection: 'row',
@@ -1316,7 +1902,7 @@ const styles = StyleSheet.create({
   detailCellWrap: {
     flex: 1,
     borderWidth: 1,
-    borderColor: SHEET_RED,
+    borderColor: HOROSCOPE_RED,
     alignItems: 'center',
     paddingVertical: 2,
     minWidth: 0,
@@ -1343,17 +1929,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(176, 0, 0, 0.2)',
+    borderTopColor: 'rgba(87, 0, 0, 0.08)',
+    ...actionBarShadow,
   },
   actionBarMobile: {
+    flexDirection: 'column',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 8,
+  },
+  actionSecondaryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
+  },
+  actionButtonFull: {
+    width: '100%',
+    flex: undefined,
+  },
+  actionButtonHalf: {
+    flex: 1,
+  },
+  actionButtonPressed: {
+    opacity: 0.88,
   },
   actionButtonOutline: {
     flex: 1,
@@ -1361,22 +1966,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderWidth: 1,
-    borderColor: SHEET_RED,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: 'rgba(87, 0, 0, 0.22)',
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceContainerLowest,
     minWidth: 0,
+    minHeight: 48,
+    ...fieldShadow,
   },
   actionButtonOutlineMobile: {
     gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.sm,
+    minHeight: 44,
+    borderRadius: borderRadius.md,
   },
   actionButtonOutlineText: {
-    color: SHEET_RED,
-    fontWeight: '700',
+    color: SHEET_BORDER,
+    fontFamily: fonts.interSemi,
     fontSize: 13,
     flexShrink: 1,
   },
@@ -1389,24 +1998,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: SHEET_RED,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary,
     minWidth: 0,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 6px 20px rgba(87, 0, 0, 0.32)',
+      },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.32,
+        shadowRadius: 12,
+        elevation: 6,
+      },
+    }),
   },
   actionButtonPrimaryMobile: {
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
+    minHeight: 44,
+    borderRadius: borderRadius.md,
   },
   actionButtonPrimaryText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
+    color: colors.onPrimary,
+    fontFamily: fonts.interSemi,
+    fontSize: 14,
     flexShrink: 1,
   },
   actionButtonPrimaryTextMobile: {
-    fontSize: 10,
+    fontSize: 14,
   },
 });

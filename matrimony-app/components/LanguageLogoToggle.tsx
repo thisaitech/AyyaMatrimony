@@ -5,22 +5,27 @@ import { useLanguage } from '@/context/LanguageContext';
 type LanguageLogoToggleProps = {
   variant?: 'default' | 'maroon';
   compact?: boolean;
+  dense?: boolean;
 };
 
-const options: { id: Language; label: string; accessibilityLabel: string }[] = [
-  { id: 'en', label: 'English', accessibilityLabel: 'English' },
-  { id: 'ta', label: 'தமிழ்', accessibilityLabel: 'Tamil' },
+const options: { id: Language; label: string; denseLabel?: string; accessibilityLabel: string }[] = [
+  { id: 'en', label: 'English', denseLabel: 'EN', accessibilityLabel: 'English' },
+  { id: 'ta', label: 'தமிழ்', denseLabel: 'த', accessibilityLabel: 'Tamil' },
 ];
 
 export function LanguageLogoToggle({
   variant = 'default',
   compact = false,
+  dense = false,
 }: LanguageLogoToggleProps) {
   const { language, setLanguage } = useLanguage();
   const isMaroon = variant === 'maroon';
 
   return (
-    <View style={[styles.row, compact && styles.rowCompact]} accessibilityRole="tablist">
+    <View
+      style={[styles.row, compact && styles.rowCompact, dense && styles.rowDense]}
+      accessibilityRole="tablist"
+    >
       {options.map((option) => {
         const isActive = language === option.id;
         return (
@@ -33,6 +38,7 @@ export function LanguageLogoToggle({
             style={[
               styles.badge,
               compact && styles.badgeCompact,
+              dense && styles.badgeDense,
               isMaroon ? styles.badgeMaroon : styles.badgeDefault,
               isActive && (isMaroon ? styles.badgeMaroonActive : styles.badgeDefaultActive),
             ]}
@@ -41,13 +47,15 @@ export function LanguageLogoToggle({
               style={[
                 styles.badgeText,
                 compact && styles.badgeTextCompact,
-                option.id === 'ta' && styles.badgeTextTamil,
+                dense && styles.badgeTextDense,
+                option.id === 'ta' && !dense && styles.badgeTextTamil,
+                dense && option.id === 'ta' && styles.badgeTextTamilDense,
                 isMaroon ? styles.badgeTextMaroon : styles.badgeTextDefault,
                 isActive &&
                   (isMaroon ? styles.badgeTextMaroonActive : styles.badgeTextDefaultActive),
               ]}
             >
-              {option.label}
+              {dense && option.denseLabel ? option.denseLabel : option.label}
             </Text>
           </Pressable>
         );
@@ -65,6 +73,9 @@ const styles = StyleSheet.create({
   rowCompact: {
     gap: 6,
   },
+  rowDense: {
+    gap: 4,
+  },
   badge: {
     minWidth: 40,
     height: 40,
@@ -79,6 +90,13 @@ const styles = StyleSheet.create({
     height: 34,
     paddingHorizontal: 8,
     borderRadius: 17,
+  },
+  badgeDense: {
+    minWidth: 28,
+    height: 28,
+    paddingHorizontal: 6,
+    borderRadius: 14,
+    borderWidth: 1.5,
   },
   badgeDefault: {
     backgroundColor: '#fff',
@@ -104,8 +122,15 @@ const styles = StyleSheet.create({
   badgeTextCompact: {
     fontSize: 10,
   },
+  badgeTextDense: {
+    fontSize: 9,
+    letterSpacing: 0,
+  },
   badgeTextTamil: {
     fontSize: 12,
+  },
+  badgeTextTamilDense: {
+    fontSize: 11,
   },
   badgeTextDefault: {
     color: '#8D1E1E',

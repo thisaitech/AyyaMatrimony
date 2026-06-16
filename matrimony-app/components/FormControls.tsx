@@ -11,7 +11,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { FormOptionsKey, getFormOptions, getOptionLabel } from '@/constants/formOptions';
 import { Language } from '@/constants/i18n';
-import { colors, spacing, typography } from '@/constants/theme';
+import { colors, fonts, spacing, typography } from '@/constants/theme';
 
 export const formFieldStyles = StyleSheet.create({
   fieldGroup: {
@@ -159,6 +159,8 @@ type SelectFieldProps = {
   options: { value: string; label: string }[];
   placeholder?: string;
   showLabel?: boolean;
+  compact?: boolean;
+  variant?: 'default' | 'premium';
 };
 
 export function SelectField({
@@ -168,7 +170,10 @@ export function SelectField({
   options,
   placeholder,
   showLabel = true,
+  compact = false,
+  variant = 'default',
 }: SelectFieldProps) {
+  const isPremium = variant === 'premium';
   const [open, setOpen] = useState(false);
   const selectedLabel = options.find((option) => option.value === value)?.label;
 
@@ -182,21 +187,35 @@ export function SelectField({
       {showLabel && label ? <Text style={formFieldStyles.fieldLabel}>{label}</Text> : null}
       <View style={styles.selectWrapper}>
         <Pressable
-          style={[formFieldStyles.selectTrigger, open && styles.selectTriggerOpen]}
+          style={[
+            formFieldStyles.selectTrigger,
+            isPremium && styles.selectTriggerPremium,
+            compact && styles.selectTriggerCompact,
+            compact && isPremium && styles.selectTriggerPremiumCompact,
+            open && styles.selectTriggerOpen,
+            open && isPremium && styles.selectTriggerPremiumOpen,
+          ]}
           onPress={() => setOpen((current) => !current)}
         >
-          <Text style={selectedLabel ? formFieldStyles.selectValue : formFieldStyles.selectPlaceholder}>
+          <Text
+            style={[
+              selectedLabel ? formFieldStyles.selectValue : formFieldStyles.selectPlaceholder,
+              compact && styles.selectValueCompact,
+              isPremium && styles.selectValuePremium,
+            ]}
+            numberOfLines={1}
+          >
             {selectedLabel ?? placeholder}
           </Text>
           <MaterialIcons
             name={open ? 'expand-less' : 'expand-more'}
-            size={22}
-            color={colors.onSurfaceVariant}
+            size={compact ? 16 : 22}
+            color={isPremium ? colors.primary : colors.onSurfaceVariant}
           />
         </Pressable>
 
         {open ? (
-          <View style={styles.inlineDropdown}>
+          <View style={[styles.inlineDropdown, isPremium && styles.inlineDropdownPremium]}>
             <ScrollView
               style={styles.inlineOptionsList}
               nestedScrollEnabled
@@ -380,6 +399,10 @@ type DatePickerFieldProps = {
   onValueChange: (value: string) => void;
   placeholder?: string;
   language: Language;
+  showMainLabel?: boolean;
+  showPartLabels?: boolean;
+  compact?: boolean;
+  variant?: 'default' | 'premium';
 };
 
 export function DatePickerField({
@@ -387,6 +410,10 @@ export function DatePickerField({
   value,
   onValueChange,
   language,
+  showMainLabel = true,
+  showPartLabels = true,
+  compact = false,
+  variant = 'default',
 }: DatePickerFieldProps) {
   const labels = DATE_PICKER_LABELS[language];
   const parsed = parseDate(value);
@@ -455,8 +482,8 @@ export function DatePickerField({
 
   return (
     <View style={formFieldStyles.fieldGroup}>
-      <Text style={styles.dobMainLabel}>{label}</Text>
-      <View style={styles.dobRow}>
+      {showMainLabel ? <Text style={styles.dobMainLabel}>{label}</Text> : null}
+      <View style={[styles.dobRow, compact && styles.dobRowCompact]}>
         <View style={styles.dobColumn}>
           <SelectField
             label={labels.day}
@@ -464,6 +491,9 @@ export function DatePickerField({
             onValueChange={handleDayChange}
             options={dayOptions}
             placeholder={labels.dayPlaceholder}
+            showLabel={showPartLabels}
+            compact={compact}
+            variant={variant}
           />
         </View>
         <View style={styles.dobColumn}>
@@ -473,6 +503,9 @@ export function DatePickerField({
             onValueChange={handleMonthChange}
             options={monthOptions}
             placeholder={labels.monthPlaceholder}
+            showLabel={showPartLabels}
+            compact={compact}
+            variant={variant}
           />
         </View>
         <View style={styles.dobColumn}>
@@ -482,6 +515,9 @@ export function DatePickerField({
             onValueChange={handleYearChange}
             options={yearOptions}
             placeholder={labels.yearPlaceholder}
+            showLabel={showPartLabels}
+            compact={compact}
+            variant={variant}
           />
         </View>
       </View>
@@ -515,6 +551,44 @@ const styles = StyleSheet.create({
   visibilityButton: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
+  },
+  selectTriggerCompact: {
+    minHeight: 28,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  selectTriggerPremium: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: 'rgba(87, 0, 0, 0.1)',
+    borderRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 10px rgba(87, 0, 0, 0.05)' },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        elevation: 1,
+      },
+    }),
+  },
+  selectTriggerPremiumCompact: {
+    minHeight: 28,
+    borderRadius: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+  },
+  selectTriggerPremiumOpen: {
+    borderColor: 'rgba(87, 0, 0, 0.22)',
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  selectValuePremium: {
+    fontFamily: fonts.interMedium,
+    fontSize: 12,
+  },
+  selectValueCompact: {
+    fontSize: 11,
   },
   readOnlyInput: {
     backgroundColor: colors.surfaceContainerHigh,
@@ -559,6 +633,21 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  inlineDropdownPremium: {
+    borderColor: 'rgba(87, 0, 0, 0.18)',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    ...Platform.select({
+      web: { boxShadow: '0 12px 28px rgba(87, 0, 0, 0.12)' },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+        elevation: 8,
+      },
+    }),
+  },
   inlineOptionsList: {
     maxHeight: 220,
   },
@@ -571,6 +660,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
+  },
+  dobRowCompact: {
+    gap: 3,
   },
   dobColumn: {
     flex: 1,
