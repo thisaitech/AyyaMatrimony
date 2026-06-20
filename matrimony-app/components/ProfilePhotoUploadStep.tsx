@@ -98,6 +98,33 @@ function cropToAspectRatio(
   return outputCanvas.toDataURL('image/jpeg', 0.85);
 }
 
+async function compressWebImage(uri: string, maxWidth = 1200): Promise<string> {
+  if (Platform.OS !== 'web' || !uri.startsWith('data:')) {
+    return uri;
+  }
+
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, maxWidth / image.width);
+      const width = Math.round(image.width * scale);
+      const height = Math.round(image.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        resolve(uri);
+        return;
+      }
+      context.drawImage(image, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    image.onerror = () => resolve(uri);
+    image.src = uri;
+  });
+}
+
 type WebCameraCaptureModalProps = {
   visible: boolean;
   labels: Pick<ProfilePhotoUploadStepLabels, 'camera' | 'cancel' | 'permissionRequired' | 'photoPermissionMessage'>;
@@ -278,7 +305,11 @@ export function ProfilePhotoUploadStep({
           return;
         }
 
-        applyPhotoToSlot(slotIndex, result.assets[0].uri);
+        const uri =
+          Platform.OS === 'web'
+            ? await compressWebImage(result.assets[0].uri)
+            : result.assets[0].uri;
+        applyPhotoToSlot(slotIndex, uri);
       } catch {
         if (Platform.OS === 'web') {
           window.alert(labels.photoPermissionMessage);

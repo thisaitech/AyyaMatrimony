@@ -2,6 +2,7 @@ import { createElement, useCallback, useEffect, useMemo, useRef, useState, type 
 import {
   Alert,
   Image,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -28,6 +29,8 @@ import { borderRadius, colors, fonts, spacing } from '@/constants/theme';
 
 const SHEET_BORDER = colors.primary;
 const HOROSCOPE_RED = colors.primary;
+const HOROSCOPE_GRID_LINE = '#570000';
+const HOROSCOPE_CELL_BORDER = 1.5;
 
 const FIELD_BG = colors.surfaceContainerLowest;
 const FIELD_BORDER = 'rgba(87, 0, 0, 0.1)';
@@ -108,53 +111,277 @@ const BIODATA_PRINT_CSS = `
     }
 
     body.biodata-print-hindu #biodata-print-root {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 287mm !important;
+      height: 287mm !important;
+      width: 100% !important;
+      max-width: 100% !important;
       border: 2px solid #570000 !important;
       border-radius: 0 !important;
-      zoom: 0.68;
+      box-sizing: border-box !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-letterhead {
+      flex: 0 0 auto !important;
+      min-height: 22mm !important;
+      padding: 3mm 4mm !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-letterhead * {
+      font-size: 11px !important;
+      line-height: 14px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-letterhead > div:nth-child(2) > div:nth-child(2) {
+      font-size: 18px !important;
+      line-height: 22px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-letterhead > div:nth-child(4) > div:first-child {
+      font-size: 10px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-letterhead > div:nth-child(4) > div:last-child {
+      font-size: 16px !important;
+      line-height: 20px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-letterhead img {
+      width: 52px !important;
+      height: 52px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-body-row {
+      flex: 0 0 auto !important;
+      min-height: 0 !important;
+      align-items: stretch !important;
+      overflow: visible !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-body-row * {
+      font-size: 13px !important;
+      line-height: 17px !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow: visible !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-left-pane > div,
+    body.biodata-print-hindu #biodata-print-right-pane > div {
+      flex: 0 0 auto !important;
+      min-height: auto !important;
+      height: auto !important;
+      align-items: flex-start !important;
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-right-pane {
+      gap: 3px !important;
+      padding: 4px !important;
+      justify-content: flex-start !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-right-pane > div > div {
+      flex: 0 0 auto !important;
+      min-height: auto !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-horoscope-section {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      padding: 2mm 3mm 3mm !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
     }
 
     body.biodata-print-hindu #biodata-print-charts {
       display: flex !important;
       flex-direction: row !important;
-      align-items: stretch !important;
-      gap: 6px !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex: 0 0 auto !important;
+      width: 100% !important;
+      height: auto !important;
+      gap: 10mm !important;
+      margin: 0 auto 2mm !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi,
     body.biodata-print-hindu #biodata-print-chart-amsam {
-      flex: 1 1 0 !important;
-      min-width: 0 !important;
-      max-width: 50% !important;
+      flex: 0 0 auto !important;
+      width: 36mm !important;
+      min-width: 36mm !important;
+      max-width: 36mm !important;
+      height: auto !important;
+      margin: 0 !important;
+      align-self: center !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-chart-rasi > div,
+    body.biodata-print-hindu #biodata-print-chart-amsam > div,
+    body.biodata-print-hindu #biodata-print-chart-rasi > div > div,
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div {
+      width: 36mm !important;
+      min-width: 36mm !important;
+      max-width: 36mm !important;
+      height: auto !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+      border-color: #570000 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div,
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div {
+      min-height: 0 !important;
+      width: 32mm !important;
+      min-width: 32mm !important;
+      max-width: 32mm !important;
+      height: 32mm !important;
+      max-height: 32mm !important;
+      aspect-ratio: 1 / 1 !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+      border-color: #570000 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div > div,
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div > div,
+    body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div > div > div,
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div > div > div {
+      border: 1.5px solid #570000 !important;
+      background-color: #ffffff !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-chart-rasi *,
+    body.biodata-print-hindu #biodata-print-chart-amsam * {
+      font-size: 10px !important;
+      line-height: 12px !important;
     }
 
     body.biodata-print-hindu #biodata-print-horoscope-footer {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      width: 100% !important;
+      align-self: stretch !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: flex-start !important;
+      align-items: stretch !important;
       box-shadow: none !important;
       border-radius: 0 !important;
+      padding: 1mm 0 2mm !important;
+      gap: 2mm !important;
+      overflow: visible !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-horoscope-footer * {
+      font-size: 13px !important;
+      line-height: 17px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-detail-grid {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: stretch !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-detail-grid > div {
+      flex: 1 1 auto !important;
+      height: 100% !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-detail-grid > div > div {
+      flex: 1 1 auto !important;
+      height: 100% !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-detail-grid > div > div > div {
+      flex: 1 1 auto !important;
+      height: 100% !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-detail-grid > div > div > div > div {
+      min-height: 10mm !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-detail-grid > div > div > div > div * {
+      font-size: 12px !important;
+      line-height: 15px !important;
     }
 
     body.biodata-print-christian #biodata-print-root {
       display: flex !important;
       flex-direction: column !important;
-      min-height: 277mm !important;
-      height: 277mm !important;
+      min-height: 258mm !important;
+      height: 258mm !important;
+      max-height: 258mm !important;
+      width: 100% !important;
+      max-width: 100% !important;
       border: 2px solid #570000 !important;
       border-radius: 0 !important;
       background: #ffffff !important;
+      box-sizing: border-box !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+      overflow: hidden !important;
+    }
+
+    body.biodata-print-christian #biodata-print-letterhead {
+      flex: 0 0 auto !important;
+      min-height: 0 !important;
+      max-height: 14mm !important;
+      padding: 2mm 4mm !important;
+    }
+
+    body.biodata-print-christian #biodata-print-letterhead * {
+      font-size: 9px !important;
+      line-height: 12px !important;
+    }
+
+    body.biodata-print-christian #biodata-print-letterhead > div:nth-child(2) > div:nth-child(2) {
+      font-size: 15px !important;
+      line-height: 18px !important;
+    }
+
+    body.biodata-print-christian #biodata-print-letterhead > div:nth-child(4) > div:first-child {
+      font-size: 8px !important;
+    }
+
+    body.biodata-print-christian #biodata-print-letterhead > div:nth-child(4) > div:last-child {
+      font-size: 13px !important;
+      line-height: 16px !important;
+    }
+
+    body.biodata-print-christian #biodata-print-letterhead img {
+      width: 38px !important;
+      height: 38px !important;
     }
 
     body.biodata-print-christian #biodata-print-christian-body {
-      flex: 1 1 auto !important;
+      flex: 1 1 0 !important;
       min-height: 0 !important;
-      max-height: none !important;
+      max-height: calc(258mm - 14mm) !important;
       height: auto !important;
-      overflow: visible !important;
-    }
-
-    body.biodata-print-christian #biodata-print-christian-body > div {
-      height: 100% !important;
-      min-height: 100% !important;
-      max-height: none !important;
-      overflow: visible !important;
+      overflow: hidden !important;
       display: flex !important;
       flex-direction: column !important;
     }
@@ -163,9 +390,12 @@ const BIODATA_PRINT_CSS = `
       display: flex !important;
       flex-direction: row !important;
       align-items: stretch !important;
-      flex: 1 1 auto !important;
-      min-height: 235mm !important;
-      height: 100% !important;
+      flex: 1 1 0 !important;
+      min-height: 0 !important;
+      max-height: 100% !important;
+      height: auto !important;
+      overflow: hidden !important;
+      border-bottom: none !important;
     }
 
     body.biodata-print-christian #biodata-print-christian-left-pane,
@@ -175,37 +405,103 @@ const BIODATA_PRINT_CSS = `
       flex: 1 1 0 !important;
       min-height: 100% !important;
       height: 100% !important;
+      overflow: visible !important;
+      justify-content: stretch !important;
+    }
+
+    body.biodata-print-christian #biodata-print-christian-left-pane {
+      flex: 1.45 1 0 !important;
+      border-right: 1px solid #570000 !important;
+    }
+
+    body.biodata-print-christian #biodata-print-christian-right-pane {
+      flex: 1 1 0 !important;
+      gap: 1mm !important;
+      padding: 1.5mm !important;
+      box-sizing: border-box !important;
     }
 
     body.biodata-print-christian #biodata-print-christian-left-pane > div {
       flex: 1 1 0 !important;
-      min-height: 36px !important;
+      min-height: 0 !important;
+      height: auto !important;
+      align-items: flex-start !important;
+      padding-top: 1px !important;
+      padding-bottom: 1px !important;
+      padding-left: 5px !important;
+      padding-right: 6px !important;
     }
 
     body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(1),
     body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(2) {
       flex: 1 1 0 !important;
-      min-height: 52px !important;
+      min-height: 0 !important;
       height: auto !important;
+      padding: 1.5mm !important;
+      box-sizing: border-box !important;
     }
 
     body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(3),
     body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(4) {
-      flex: 1.65 1 0 !important;
-      min-height: 100px !important;
+      flex: 2 1 0 !important;
+      min-height: 0 !important;
+      height: auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(3) > div,
+    body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(4) > div {
+      flex: 1 1 0 !important;
+      min-height: 0 !important;
+      height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      padding: 1.5mm !important;
+      box-sizing: border-box !important;
+    }
+
+    body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(3) > div > div,
+    body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(4) > div > div {
+      flex: 1 1 0 !important;
+      min-height: 0 !important;
+      align-items: flex-start !important;
+    }
+
+    body.biodata-print-christian #biodata-print-christian-body-row * {
+      font-size: 13.5px !important;
+      line-height: 16px !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+      overflow: visible !important;
+    }
+
+    body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(3) > div > div:first-child,
+    body.biodata-print-christian #biodata-print-christian-right-pane > div:nth-child(4) > div > div:first-child {
+      flex: 0 0 auto !important;
+      font-size: 12px !important;
+      line-height: 14px !important;
+      margin-bottom: 0.5mm !important;
     }
 
     body.biodata-print-christian #biodata-print-christian-footer {
-      flex-shrink: 0 !important;
+      flex: 0 0 auto !important;
       margin-top: auto !important;
-      padding-top: 14px !important;
-      padding-bottom: 18px !important;
+      padding-top: 2mm !important;
+      padding-bottom: 2mm !important;
+      min-height: 0 !important;
+      max-height: 10mm !important;
       break-inside: avoid !important;
       page-break-inside: avoid !important;
+      break-before: avoid !important;
+      page-break-before: avoid !important;
+      border-top: 1px solid #570000 !important;
     }
 
     body.biodata-print-christian #biodata-print-christian-footer * {
-      line-height: 22px !important;
+      font-size: 15px !important;
+      line-height: 18px !important;
+      font-weight: 600 !important;
       overflow: visible !important;
     }
   }
@@ -347,6 +643,7 @@ type BiodataState = {
   fatherName: string;
   motherName: string;
   irupidam: string;
+  nativePlace: string;
   totalFamilyMembers: string;
   birthOrder: string;
   marriedBrother: string;
@@ -641,6 +938,19 @@ function resolveStoredOptionValue(
     return trimmed;
   }
 
+  if (optionsKey === 'dasaYear' || optionsKey === 'dasaMonth' || optionsKey === 'dasaDay') {
+    const num = Number.parseInt(trimmed, 10);
+    if (!Number.isNaN(num)) {
+      const max = optionsKey === 'dasaYear' ? 20 : optionsKey === 'dasaMonth' ? 12 : 31;
+      if (num >= 1 && num <= max) {
+        const padded = String(num).padStart(2, '0');
+        if (options.some((option) => option.value === padded)) {
+          return padded;
+        }
+      }
+    }
+  }
+
   const exactLabel = options.find(
     (option) => option.label.toLowerCase() === trimmed.toLowerCase(),
   );
@@ -661,37 +971,16 @@ function SectionCard({ children, dense }: { children: ReactNode; dense?: boolean
 }
 
 function IconFieldShell({
-  icon,
   children,
   dense,
-  onIconPress,
 }: {
-  icon: keyof typeof MaterialIcons.glyphMap;
+  icon?: keyof typeof MaterialIcons.glyphMap;
   children: ReactNode;
   dense?: boolean;
   onIconPress?: () => void;
 }) {
-  const badge = (
-    <View style={[styles.iconFieldBadge, dense && styles.iconFieldBadgeDense]}>
-      <MaterialIcons name={icon} size={dense ? 11 : 13} color={colors.primary} />
-    </View>
-  );
-
   return (
     <View style={[styles.iconFieldShell, dense && styles.iconFieldShellDense]}>
-      {onIconPress ? (
-        <Pressable
-          onPress={onIconPress}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Choose date"
-          style={({ pressed }) => [pressed && styles.iconFieldBadgePressed]}
-        >
-          {badge}
-        </Pressable>
-      ) : (
-        badge
-      )}
       <View style={styles.iconFieldBody}>{children}</View>
     </View>
   );
@@ -782,13 +1071,7 @@ function BiodataSelectRow({
           {label}
         </Text>
       )}
-      {narrow ? (
-        <View style={[styles.narrowSelectShell, dense && styles.narrowSelectShellDense]}>{selectField}</View>
-      ) : (
-        <IconFieldShell icon={icon ?? 'expand-more'} dense={dense}>
-          {selectField}
-        </IconFieldShell>
-      )}
+      <View style={[styles.narrowSelectShell, dense && styles.narrowSelectShellDense]}>{selectField}</View>
     </View>
   );
 }
@@ -864,7 +1147,6 @@ function BiodataOccupationFields({
             editable={editable}
             dense={dense}
             placeholder={translate('selectOccupationType')}
-            icon="work"
           />
         </View>
         <View style={styles.fieldPairItem}>
@@ -876,7 +1158,6 @@ function BiodataOccupationFields({
             editable={editable}
             dense={dense}
             placeholder={translate('selectOccupationRole')}
-            icon="badge"
           />
         </View>
       </View>
@@ -1312,29 +1593,13 @@ function BiodataDateRow({
           style={[styles.dateFieldInput, dense && styles.dateFieldInputDense]}
           value={value}
           onChangeText={handleDateChange}
+          onFocus={Platform.OS !== 'web' ? openDatePicker : undefined}
           editable={editable}
           placeholder={placeholder}
           placeholderTextColor={PLACEHOLDER}
           keyboardType="number-pad"
           maxLength={14}
         />
-        <Pressable
-          onPress={openDatePicker}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={translate('biodataFieldDateOfBirth')}
-          style={({ pressed }) => [
-            styles.dateFieldIconButton,
-            dense && styles.dateFieldIconButtonDense,
-            pressed && styles.iconFieldBadgePressed,
-          ]}
-        >
-          <MaterialIcons
-            name={icon ?? 'calendar-today'}
-            size={dense ? 16 : 18}
-            color={colors.primary}
-          />
-        </Pressable>
       </View>
       {Platform.OS === 'web'
         ? createElement('input', {
@@ -1496,25 +1761,13 @@ function BiodataTimeRow({
           style={[styles.dateFieldInput, dense && styles.dateFieldInputDense]}
           value={value}
           onChangeText={handleTimeChange}
+          onFocus={Platform.OS !== 'web' ? openTimePicker : undefined}
           editable={editable}
           placeholder={placeholder}
           placeholderTextColor={PLACEHOLDER}
           keyboardType="number-pad"
           maxLength={8}
         />
-        <Pressable
-          onPress={openTimePicker}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          style={({ pressed }) => [
-            styles.dateFieldIconButton,
-            dense && styles.dateFieldIconButtonDense,
-            pressed && styles.iconFieldBadgePressed,
-          ]}
-        >
-          <MaterialIcons name="access-time" size={dense ? 16 : 18} color={colors.primary} />
-        </Pressable>
       </View>
       {Platform.OS === 'web'
         ? createElement('input', {
@@ -1609,7 +1862,7 @@ function BiodataNameDegreeRow({
   return (
     <View style={[styles.fieldGroup, dense && styles.fieldGroupDense, styles.selectFieldGroup]}>
       <Text style={[styles.fieldLabel, dense && styles.fieldLabelDense]}>{label}</Text>
-      <IconFieldShell icon="person" dense={dense}>
+      <IconFieldShell dense={dense}>
         <View style={styles.nameDegreeRow}>
           <TextInput
             style={[
@@ -1668,9 +1921,7 @@ function BiodataRow({
   const input = (
     <TextInput
       style={[
-        styles.fieldInput,
-        styles.fieldInputWithIcon,
-        narrow && styles.narrowFieldInput,
+        narrow ? styles.narrowFieldInput : [styles.fieldInput, styles.textFieldFullWidth],
         dense && styles.fieldInputDense,
         multiline && styles.fieldInputMultiline,
         multiline && dense && styles.fieldInputMultilineDense,
@@ -1703,10 +1954,6 @@ function BiodataRow({
       </Text>
       {narrow ? (
         <View style={[styles.narrowSelectShell, dense && styles.narrowSelectShellDense]}>{input}</View>
-      ) : icon ? (
-        <IconFieldShell icon={icon} dense={dense}>
-          {input}
-        </IconFieldShell>
       ) : (
         input
       )}
@@ -2404,12 +2651,6 @@ function reviewDisplayValue(value: string): string {
   return value.trim();
 }
 
-const REVIEW_LABEL_WIDTH = 108;
-const REVIEW_LABEL_WIDTH_EXPANDED = 132;
-const REVIEW_COLON_WIDTH = 12;
-const REVIEW_INLINE_LABEL_WIDTH = 50;
-const REVIEW_SIBLING_LABEL_WIDTH = 96;
-
 function reviewUniqueJoin(parts: string[], separator = ' — '): string {
   const seen = new Set<string>();
 
@@ -2470,21 +2711,12 @@ function ReviewDataRow({
   value: string;
   expanded?: boolean;
 }) {
-  const labelWidth = expanded ? REVIEW_LABEL_WIDTH_EXPANDED : REVIEW_LABEL_WIDTH;
-
   return (
     <View style={[reviewStyles.dataRow, expanded && reviewStyles.dataRowExpanded]}>
-      <View
-        style={[
-          reviewStyles.dataLabelColumn,
-          { width: labelWidth, minWidth: labelWidth, maxWidth: labelWidth },
-        ]}
-      >
+      <View style={reviewStyles.dataLabelColonGroup}>
         <Text style={reviewStyles.dataLabel} numberOfLines={2}>
           {label}
         </Text>
-      </View>
-      <View style={reviewStyles.dataColonColumn}>
         <Text style={reviewStyles.dataColon}>:</Text>
       </View>
       <View style={reviewStyles.dataValueColumn}>
@@ -2507,12 +2739,12 @@ function ReviewInlinePair({
 }) {
   const renderHalf = (label: string, value: string) => (
     <View style={reviewStyles.inlineHalf}>
-      <View style={[reviewStyles.dataLabelColumn, { width: REVIEW_INLINE_LABEL_WIDTH }]}>
+      <View style={reviewStyles.dataLabelColonGroup}>
         <Text style={reviewStyles.inlineHalfLabel} numberOfLines={2}>
           {label}
         </Text>
+        <Text style={reviewStyles.dataColon}>:</Text>
       </View>
-      <Text style={reviewStyles.dataColon}>:</Text>
       <Text style={reviewStyles.inlineHalfValue} numberOfLines={2}>
         {reviewDisplayValue(value)}
       </Text>
@@ -2545,31 +2777,22 @@ function ReviewSiblingBox({
   title,
   rows,
   wide = false,
+  wideBoxStyle,
 }: {
   title: string;
   rows: Array<{ label: string; value: string }>;
   wide?: boolean;
+  wideBoxStyle?: object;
 }) {
   return (
-    <View style={[reviewStyles.siblingBox, wide && reviewStyles.siblingBoxWide]}>
+    <View style={[reviewStyles.siblingBox, wide && reviewStyles.siblingBoxWide, wide && wideBoxStyle]}>
       <Text style={[reviewStyles.siblingBoxTitle, wide && reviewStyles.siblingBoxTitleWide]}>{title}</Text>
       {rows.map((row) => (
         <View key={row.label} style={[reviewStyles.siblingRow, wide && reviewStyles.siblingRowWide]}>
-          <View
-            style={[
-              reviewStyles.dataLabelColumn,
-              {
-                width: wide ? REVIEW_SIBLING_LABEL_WIDTH + 4 : REVIEW_SIBLING_LABEL_WIDTH,
-                minWidth: wide ? REVIEW_SIBLING_LABEL_WIDTH + 4 : REVIEW_SIBLING_LABEL_WIDTH,
-                maxWidth: wide ? REVIEW_SIBLING_LABEL_WIDTH + 4 : REVIEW_SIBLING_LABEL_WIDTH,
-              },
-            ]}
-          >
+          <View style={reviewStyles.dataLabelColonGroup}>
             <Text style={[reviewStyles.siblingLabel, wide && reviewStyles.siblingLabelWide]} numberOfLines={2}>
               {row.label}
             </Text>
-          </View>
-          <View style={reviewStyles.dataColonColumn}>
             <Text style={reviewStyles.siblingColon}>:</Text>
           </View>
           <View style={reviewStyles.siblingValueColumn}>
@@ -2604,7 +2827,7 @@ function BiodataLetterheadHeader({
   const logoUri = Platform.OS === 'web' ? getLogoUri() : undefined;
 
   return (
-    <View style={reviewStyles.letterhead}>
+    <View nativeID="biodata-print-letterhead" style={reviewStyles.letterhead}>
       <View nativeID="biodata-print-logo" style={reviewStyles.letterheadLogoWrap}>
         {Platform.OS === 'web' && logoUri ? (
           createElement('img', {
@@ -2689,7 +2912,7 @@ function ChristianBiodataReviewSheet({
   registrationCommunity: RegistrationCommunityId;
 }) {
   const { getValue } = useProfileForm();
-  const nativePlace = getValue('nativePlace').trim();
+  const nativePlace = form.nativePlace.trim();
   const expectations = getValue('expectations').trim() || getValue('partnerExpectations').trim();
 
   const degreeLabel = reviewDisplayOption('degreeDetail', form.education, language);
@@ -2728,12 +2951,9 @@ function ChristianBiodataReviewSheet({
       style={[reviewStyles.sheet, christianReviewStyles.sheetFullScreen]}
     >
       <BiodataLetterheadHeader registrationNumber={form.registrationNumber} translate={translate} />
-      <ScrollView
+      <View
         nativeID="biodata-print-christian-body"
-        style={christianReviewStyles.bodyScroll}
-        contentContainerStyle={christianReviewStyles.bodyScrollContent}
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
+        style={christianReviewStyles.bodyContent}
       >
         <View
           nativeID="biodata-print-christian-body-row"
@@ -2743,41 +2963,36 @@ function ChristianBiodataReviewSheet({
           nativeID="biodata-print-christian-left-pane"
           style={[reviewStyles.leftPane, christianReviewStyles.leftPaneFullScreen]}
         >
-          <ReviewDataRow expanded label={translate('biodataReviewName')} value={form.fullName} />
+          <ReviewDataRow label={translate('biodataReviewName')} value={form.fullName} />
           <ReviewDataRow
-            expanded
             label={translate('gender')}
             value={reviewDisplayOption('gender', form.gender, language)}
           />
-          <ReviewDataRow expanded label={translate('biodataReviewDob')} value={form.dateOfBirth} />
-          <ReviewDataRow expanded label={translate('biodataReviewEducation')} value={degreeLabel} />
-          <ReviewDataRow expanded label={translate('biodataReviewOccupation')} value={occupationDisplay} />
+          <ReviewDataRow label={translate('biodataReviewDob')} value={form.dateOfBirth} />
+          <ReviewDataRow label={translate('biodataReviewEducation')} value={degreeLabel} />
+          <ReviewDataRow label={translate('biodataReviewOccupation')} value={occupationDisplay} />
           <ReviewDataRow
-            expanded
             label={translate('biodataReviewIncome')}
             value={reviewDisplayOption('monthlyIncome', form.monthlyIncome, language)}
           />
-          <ReviewDataRow expanded label={translate('biodataReviewProperty')} value={propertyLine} />
-          <ReviewDataRow expanded label={translate('biodataReviewNativePlace')} value={nativePlace} />
-          <ReviewDataRow expanded label={translate('biodataReviewResidence')} value={form.irupidam} />
-          <ReviewDataRow expanded label={translate('biodataReviewFather')} value={form.fatherName} />
-          <ReviewDataRow expanded label={translate('biodataReviewMother')} value={form.motherName} />
+          <ReviewDataRow label={translate('biodataReviewProperty')} value={propertyLine} />
+          <ReviewDataRow label={translate('biodataReviewNativePlace')} value={nativePlace} />
+          <ReviewDataRow label={translate('biodataReviewResidence')} value={form.irupidam} />
+          <ReviewDataRow label={translate('biodataReviewFather')} value={form.fatherName} />
+          <ReviewDataRow label={translate('biodataReviewMother')} value={form.motherName} />
           <ReviewDataRow
-            expanded
             label={translate('biodataReviewSeervarisai')}
             value={reviewDisplayOption('seervarisai', form.seervarisai, language)}
           />
           <ReviewDataRow
-            expanded
             label={translate('biodataReviewHeight')}
             value={reviewDisplayOption('height', form.height, language)}
           />
           <ReviewDataRow
-            expanded
             label={translate('biodataReviewComplexion')}
             value={reviewDisplayOption('complexionBiodata', form.complexion, language)}
           />
-          <ReviewDataRow expanded label={translate('biodataReviewExpectation')} value={expectations} />
+          <ReviewDataRow label={translate('biodataReviewExpectation')} value={expectations} />
         </View>
 
         <View
@@ -2797,17 +3012,27 @@ function ChristianBiodataReviewSheet({
             <Text style={christianReviewStyles.locationValue}>{reviewDisplayValue(form.irupidam)}</Text>
           </View>
           <View style={christianReviewStyles.siblingSectionExpanded}>
-            <ReviewSiblingBox wide title={translate('biodataReviewMarried')} rows={marriedRows} />
+            <ReviewSiblingBox
+              wide
+              wideBoxStyle={christianReviewStyles.siblingBoxWide}
+              title={translate('biodataReviewMarried')}
+              rows={marriedRows}
+            />
           </View>
           <View style={christianReviewStyles.siblingSectionExpanded}>
-            <ReviewSiblingBox wide title={translate('biodataReviewUnmarried')} rows={unmarriedRows} />
+            <ReviewSiblingBox
+              wide
+              wideBoxStyle={christianReviewStyles.siblingBoxWide}
+              title={translate('biodataReviewUnmarried')}
+              rows={unmarriedRows}
+            />
           </View>
         </View>
         </View>
-      </ScrollView>
 
-      <View nativeID="biodata-print-christian-footer" style={christianReviewStyles.footer}>
-        <Text style={christianReviewStyles.feeText}>{translate('biodataChristianRegistrationFee')}</Text>
+        <View nativeID="biodata-print-christian-footer" style={christianReviewStyles.footer}>
+          <Text style={christianReviewStyles.feeText}>{translate('biodataChristianRegistrationFee')}</Text>
+        </View>
       </View>
     </View>
   );
@@ -2889,8 +3114,8 @@ function BiodataReviewSheet({
   return (
     <View nativeID="biodata-print-root" style={reviewStyles.sheet}>
       <BiodataLetterheadHeader registrationNumber={form.registrationNumber} translate={translate} />
-      <View style={reviewStyles.bodyRow}>
-        <View style={reviewStyles.leftPane}>
+      <View nativeID="biodata-print-body-row" style={reviewStyles.bodyRow}>
+        <View nativeID="biodata-print-left-pane" style={reviewStyles.leftPane}>
           <ReviewDataRow label={translate('biodataReviewName')} value={nameDisplay} />
           {degreeLabel ? (
             <ReviewDataRow label={translate('biodataReviewEducation')} value={degreeLabel} />
@@ -2922,13 +3147,24 @@ function BiodataReviewSheet({
           <ReviewDataRow label={translate('biodataReviewFather')} value={form.fatherName} />
           <ReviewDataRow label={translate('biodataReviewMother')} value={form.motherName} />
           <ReviewDataRow label={translate('biodataReviewResidence')} value={form.irupidam} />
+          <ReviewDataRow label={translate('biodataReviewNativePlace')} value={form.nativePlace} />
         </View>
 
-        <View style={reviewStyles.rightPane}>
-          <ReviewSidebarBox
-            label={translate('biodataReviewTotalMembers')}
-            value={reviewDisplayOption('siblingCount', form.totalFamilyMembers, language)}
-          />
+        <View nativeID="biodata-print-right-pane" style={reviewStyles.rightPane}>
+          <View style={reviewStyles.sidebarPairRow}>
+            <View style={reviewStyles.sidebarPairItem}>
+              <ReviewSidebarBox
+                label={translate('biodataReviewTotalMembers')}
+                value={reviewDisplayOption('siblingCount', form.totalFamilyMembers, language)}
+              />
+            </View>
+            <View style={reviewStyles.sidebarPairItem}>
+              <ReviewSidebarBox
+                label={translate('biodataReviewTotalSiblings')}
+                value={reviewDisplayOption('siblingCount', form.numSiblings, language)}
+              />
+            </View>
+          </View>
           <ReviewSidebarBox
             label={translate('biodataReviewBirthOrder')}
             value={reviewDisplayOption('birthOrder', form.birthOrder, language)}
@@ -2956,7 +3192,10 @@ function BiodataReviewSheet({
         </View>
       </View>
 
-      <View style={[styles.horoscopeSection, dense && styles.horoscopeSectionDense, reviewStyles.horoscopeSection]}>
+      <View
+        nativeID="biodata-print-horoscope-section"
+        style={[styles.horoscopeSection, dense && styles.horoscopeSectionDense, reviewStyles.horoscopeSection]}
+      >
         <View nativeID="biodata-print-charts" style={[styles.chartsRow, dense && styles.chartsRowDense]}>
           <HoroscopeChart
             centerLabel={translate('biodataChartRasi')}
@@ -3160,12 +3399,20 @@ const reviewStyles = StyleSheet.create({
     borderBottomColor: 'rgba(87, 0, 0, 0.12)',
     minHeight: 30,
     paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingLeft: 6,
+    paddingRight: 8,
   },
   dataRowExpanded: {
     flex: 1,
     minHeight: 0,
     alignItems: 'flex-start',
+  },
+  dataLabelColonGroup: {
+    flexDirection: 'row',
+    flexShrink: 0,
+    alignItems: 'flex-start',
+    maxWidth: '52%',
+    paddingTop: 1,
   },
   dataLabelColumn: {
     flexGrow: 0,
@@ -3179,34 +3426,25 @@ const reviewStyles = StyleSheet.create({
     fontFamily: fonts.interSemi,
     fontSize: 12,
     lineHeight: 16,
-    textAlign: 'right',
-    width: '100%',
+    textAlign: 'left',
+    flexShrink: 1,
   },
   dataLabelExpanded: {
     flexShrink: 0,
-  },
-  dataColonColumn: {
-    width: REVIEW_COLON_WIDTH,
-    minWidth: REVIEW_COLON_WIDTH,
-    maxWidth: REVIEW_COLON_WIDTH,
-    flexGrow: 0,
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 1,
   },
   dataColon: {
     color: colors.primary,
     fontFamily: fonts.interSemi,
     fontSize: 12,
     lineHeight: 16,
-    textAlign: 'center',
+    flexShrink: 0,
+    marginLeft: 2,
   },
   dataValueColumn: {
     flex: 1,
     flexShrink: 1,
     minWidth: 0,
-    paddingLeft: 6,
+    paddingLeft: 10,
     paddingTop: 1,
   },
   dataValue: {
@@ -3234,7 +3472,7 @@ const reviewStyles = StyleSheet.create({
     fontFamily: fonts.interSemi,
     fontSize: 12,
     lineHeight: 16,
-    textAlign: 'right',
+    textAlign: 'left',
   },
   inlineHalfValue: {
     flex: 1,
@@ -3322,7 +3560,7 @@ const reviewStyles = StyleSheet.create({
     fontFamily: fonts.inter,
     fontSize: 9,
     lineHeight: 12,
-    textAlign: 'right',
+    textAlign: 'left',
   },
   siblingLabelWide: {
     fontSize: 10,
@@ -3333,13 +3571,14 @@ const reviewStyles = StyleSheet.create({
     color: colors.primary,
     fontSize: 9,
     lineHeight: 12,
-    textAlign: 'center',
+    flexShrink: 0,
+    marginLeft: 2,
   },
   siblingValueColumn: {
     flex: 1,
     flexShrink: 1,
     minWidth: 0,
-    paddingLeft: 4,
+    paddingLeft: 8,
     paddingTop: 1,
   },
   siblingValue: {
@@ -3362,34 +3601,20 @@ const reviewStyles = StyleSheet.create({
 
 const christianReviewStyles = StyleSheet.create({
   sheetFullScreen: {
-    flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
     borderRadius: 14,
-    minHeight: 0,
-    ...Platform.select({
-      web: { minHeight: '100%' },
-      default: {},
-    }),
+    overflow: 'hidden',
   },
-  bodyScroll: {
-    flex: 1,
-    minHeight: 0,
-  },
-  bodyScrollContent: {
-    flexGrow: 1,
-    minHeight: '100%',
+  bodyContent: {
+    width: '100%',
   },
   bodyRowFullScreen: {
-    flexGrow: 1,
-    alignItems: 'stretch',
-    ...Platform.select({
-      web: { minHeight: '100%' },
-      default: { minHeight: 520 },
-    }),
+    alignItems: 'flex-start',
   },
   leftPaneFullScreen: {
     flex: 1.35,
     minWidth: 0,
-    flexDirection: 'column',
   },
   rightPane: {
     gap: 6,
@@ -3402,6 +3627,7 @@ const christianReviewStyles = StyleSheet.create({
     maxWidth: '100%',
     paddingHorizontal: 8,
     flexDirection: 'column',
+    justifyContent: 'flex-start',
   },
   locationBox: {
     borderWidth: 1,
@@ -3412,10 +3638,11 @@ const christianReviewStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     minHeight: 56,
     gap: 4,
+    flexShrink: 0,
   },
   locationBoxCompact: {
-    flex: 1,
-    flexShrink: 1,
+    flexShrink: 0,
+    flexGrow: 0,
     minHeight: 52,
     paddingVertical: 7,
     paddingHorizontal: 8,
@@ -3435,10 +3662,17 @@ const christianReviewStyles = StyleSheet.create({
     lineHeight: 17,
   },
   siblingSectionExpanded: {
-    flex: 1.65,
-    minHeight: 100,
-    justifyContent: 'center',
+    flexShrink: 0,
+    flexGrow: 0,
     width: '100%',
+    marginTop: 2,
+  },
+  siblingBoxWide: {
+    flex: 0,
+    flexGrow: 0,
+    flexShrink: 0,
+    minHeight: 88,
+    justifyContent: 'flex-start',
   },
   footer: {
     borderTopWidth: 1,
@@ -3446,6 +3680,7 @@ const christianReviewStyles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 14,
+    marginTop: 8,
     flexShrink: 0,
     backgroundColor: '#FFFBF8',
   },
@@ -3509,6 +3744,7 @@ export function CreateProfileBiodataForm({
     fatherName: '',
     motherName: '',
     irupidam: '',
+    nativePlace: '',
     totalFamilyMembers: '',
     birthOrder: '',
     marriedBrother: '',
@@ -3570,7 +3806,8 @@ export function CreateProfileBiodataForm({
       propertyHouseCount: readValue('propertyHouseCount'),
       fatherName: readValue('fatherName'),
       motherName: readValue('motherName'),
-      irupidam: readValue('irupidam') || readValue('nativePlace'),
+      irupidam: readValue('irupidam'),
+      nativePlace: readValue('nativePlace'),
       totalFamilyMembers: readValue('totalFamilyMembers'),
       birthOrder: readValue('birthOrder'),
       marriedBrother: readValue('marriedBrother'),
@@ -3625,7 +3862,7 @@ export function CreateProfileBiodataForm({
     setValue('fatherName', form.fatherName.trim());
     setValue('motherName', form.motherName.trim());
     setValue('irupidam', form.irupidam.trim());
-    setValue('nativePlace', form.irupidam.trim());
+    setValue('nativePlace', form.nativePlace.trim());
     setValue('totalFamilyMembers', form.totalFamilyMembers.trim());
     setValue('birthOrder', form.birthOrder.trim());
     setValue('marriedBrother', form.marriedBrother.trim());
@@ -3701,6 +3938,35 @@ export function CreateProfileBiodataForm({
     Alert.alert(translate('print'), translate('downloadPdfAlertBody'));
   }, [translate]);
 
+  const handleSharePress = useCallback(async () => {
+    const lines = [
+      `${translate('biodataBrandAyya')} ${translate('biodataBrandThunai')}`,
+      `${translate('biodataRegistrationNumberLabel')}: ${form.registrationNumber || '—'}`,
+      `${translate('biodataReviewName')}: ${form.fullName || '—'}`,
+      `${translate('biodataReviewDob')}: ${form.dateOfBirth || '—'}`,
+      `${translate('gender')}: ${getOptionLabel('gender', form.gender, language, form.gender) || '—'}`,
+      `${translate('biodataReviewOccupation')}: ${form.occupationDesignation || getOptionLabel('occupation', form.occupation, language, form.occupation) || '—'}`,
+      `${translate('biodataReviewResidence')}: ${form.irupidam || '—'}`,
+    ].filter(Boolean);
+
+    const message = lines.join('\n');
+    const encoded = encodeURIComponent(message);
+    const webUrl = `https://wa.me/?text=${encoded}`;
+    const nativeUrl = `whatsapp://send?text=${encoded}`;
+
+    try {
+      if (Platform.OS === 'web') {
+        window.open(webUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      const canOpenNative = await Linking.canOpenURL(nativeUrl);
+      await Linking.openURL(canOpenNative ? nativeUrl : webUrl);
+    } catch {
+      Alert.alert(translate('share'), translate('shareWhatsappUnavailable'));
+    }
+  }, [form, language, translate]);
+
   useEffect(() => {
     onStepChange?.(step);
   }, [onStepChange, step]);
@@ -3737,15 +4003,30 @@ export function CreateProfileBiodataForm({
                 namePlaceholder={translate('biodataPlaceholderName')}
                 degreePlaceholder={translate('selectDegree')}
               />
-              <BiodataSelectRow
-                label={translate('gender')}
-                value={form.gender}
-                onValueChange={(text) => updateField('gender', text)}
-                optionsKey="gender"
-                editable={editable}
-                dense={dense}
-                placeholder={translate('selectGender')}
-              />
+              <View style={styles.fieldPairRow}>
+                <View style={styles.fieldPairItem}>
+                  <BiodataSelectRow
+                    label={translate('biodataFieldGender')}
+                    value={form.gender}
+                    onValueChange={(text) => updateField('gender', text)}
+                    optionsKey="gender"
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('selectGender')}
+                  />
+                </View>
+                <View style={styles.fieldPairItem}>
+                  <BiodataSelectRow
+                    label={translate('biodataFieldMaritalStatus')}
+                    value={form.maritalStatus}
+                    onValueChange={(text) => updateField('maritalStatus', text)}
+                    optionsKey="maritalStatusBiodata"
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('selectMaritalStatus')}
+                  />
+                </View>
+              </View>
               <View style={styles.fieldPairRow}>
                 <View style={styles.fieldPairItem}>
                   <BiodataDateRow
@@ -3754,7 +4035,6 @@ export function CreateProfileBiodataForm({
                     onValueChange={(text) => updateField('dateOfBirth', text)}
                     editable={editable}
                     dense={dense}
-                    icon="calendar-today"
                     placeholder={translate('biodataDatePlaceholder')}
                     required
                   />
@@ -3824,7 +4104,7 @@ export function CreateProfileBiodataForm({
                 dense={dense}
               />
               <View style={styles.fieldPairRow}>
-                <View style={[styles.fieldPairItem, styles.fieldPairItemWide]}>
+                <View style={styles.fieldPairItem}>
                   <BiodataRow
                     label={translate('biodataOccupationPosition')}
                     value={form.occupationDesignation}
@@ -3832,10 +4112,9 @@ export function CreateProfileBiodataForm({
                     editable={editable}
                     dense={dense}
                     placeholder={translate('occupationPositionPlaceholder')}
-                    icon="title"
                   />
                 </View>
-                <View style={[styles.fieldPairItem, styles.fieldPairItemCompact]}>
+                <View style={styles.fieldPairItem}>
                   <BiodataSelectRow
                     label={translate('biodataFieldIncome')}
                     value={form.monthlyIncome}
@@ -3843,8 +4122,6 @@ export function CreateProfileBiodataForm({
                     optionsKey="monthlyIncome"
                     editable={editable}
                     dense={dense}
-                    icon="payments"
-                    narrow
                   />
                 </View>
               </View>
@@ -3880,7 +4157,7 @@ export function CreateProfileBiodataForm({
                     onChangeText={(text) => updateField('fatherName', text)}
                     editable={editable}
                     dense={dense}
-                    icon="person"
+                    placeholder={translate('biodataPlaceholderFather')}
                   />
                 </View>
                 <View style={styles.fieldPairItem}>
@@ -3890,21 +4167,40 @@ export function CreateProfileBiodataForm({
                     onChangeText={(text) => updateField('motherName', text)}
                     editable={editable}
                     dense={dense}
-                    icon="person"
+                    placeholder={translate('biodataPlaceholderMother')}
                   />
                 </View>
               </View>
             </SectionCard>
 
             <SectionCard dense={dense}>
-              <BiodataRow
-                label={translate('biodataFieldResidence')}
-                value={form.irupidam}
-                onChangeText={(text) => updateField('irupidam', text)}
-                editable={editable}
-                dense={dense}
-                icon="location-on"
-              />
+              <View
+                style={[
+                  styles.fieldPairRow,
+                  stacked && !isReviewStep && styles.fieldPairRowStacked,
+                ]}
+              >
+                <View style={styles.fieldPairItem}>
+                  <BiodataRow
+                    label={translate('biodataFieldResidence')}
+                    value={form.irupidam}
+                    onChangeText={(text) => updateField('irupidam', text)}
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('biodataPlaceholderResidence')}
+                  />
+                </View>
+                <View style={styles.fieldPairItem}>
+                  <BiodataRow
+                    label={translate('biodataFieldNativePlace')}
+                    value={form.nativePlace}
+                    onChangeText={(text) => updateField('nativePlace', text)}
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('biodataPlaceholderNativePlace')}
+                  />
+                </View>
+              </View>
             </SectionCard>
     </>
   );
@@ -3912,15 +4208,28 @@ export function CreateProfileBiodataForm({
   const rightColumn = (
     <View style={[styles.leftColumn, styles.leftColumnFull]}>
       <SectionCard dense={dense}>
-        <BiodataSelectRow
-          label={translate('biodataFieldTotalMembers')}
-          value={form.totalFamilyMembers}
-          onValueChange={(text) => updateField('totalFamilyMembers', text)}
-          optionsKey="siblingCount"
-          editable={editable}
-          dense={dense}
-          icon="groups"
-        />
+        <View style={styles.fieldPairRow}>
+          <View style={styles.fieldPairItem}>
+            <BiodataSelectRow
+              label={translate('biodataFieldTotalMembers')}
+              value={form.totalFamilyMembers}
+              onValueChange={(text) => updateField('totalFamilyMembers', text)}
+              optionsKey="siblingCount"
+              editable={editable}
+              dense={dense}
+            />
+          </View>
+          <View style={styles.fieldPairItem}>
+            <BiodataSelectRow
+              label={translate('biodataFieldTotalSiblings')}
+              value={form.numSiblings}
+              onValueChange={(text) => updateField('numSiblings', text)}
+              optionsKey="siblingCount"
+              editable={editable}
+              dense={dense}
+            />
+          </View>
+        </View>
         <RadioOptionGroup
           label={translate('biodataFieldBirthOrder')}
           value={form.birthOrder}
@@ -3990,7 +4299,6 @@ export function CreateProfileBiodataForm({
               editable={editable}
               dense={dense}
               placeholder={translate('selectHeight')}
-              icon="straighten"
             />
           </View>
           <View style={styles.fieldPairItem}>
@@ -4001,7 +4309,6 @@ export function CreateProfileBiodataForm({
               optionsKey="seervarisai"
               editable={editable}
               dense={dense}
-              icon="diamond"
             />
           </View>
         </View>
@@ -4046,7 +4353,15 @@ export function CreateProfileBiodataForm({
   return (
     <View style={[styles.wrapper, isChristianReview && styles.wrapperFullScreen]}>
       {isChristianReview ? (
-        <View style={styles.fullScreenReviewContainer}>{biodataSheet}</View>
+        <ScrollView
+          style={styles.christianReviewScroll}
+          contentContainerStyle={styles.christianReviewScrollContent}
+          showsVerticalScrollIndicator
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {biodataSheet}
+        </ScrollView>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -4064,66 +4379,111 @@ export function CreateProfileBiodataForm({
         style={[styles.actionBar, isChristianReview && styles.actionBarFullScreen]}
       >
         {viewOnly ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionButtonPrint,
-              styles.actionButtonPrintFull,
-              pressed && styles.actionButtonPressed,
-            ]}
-            onPress={handlePrintPress}
-          >
-            <MaterialIcons name="print" size={16} color={SHEET_BORDER} />
-            <Text style={styles.actionButtonPrintText}>{translate('print')}</Text>
-          </Pressable>
+          <>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButtonPrint,
+                styles.actionButtonCompact,
+                pressed && styles.actionButtonPressed,
+              ]}
+              onPress={handlePrintPress}
+            >
+              <MaterialIcons name="print" size={14} color={SHEET_BORDER} />
+              <Text style={styles.actionButtonPrintText} numberOfLines={1}>
+                {translate('print')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButtonPrint,
+                styles.actionButtonCompact,
+                pressed && styles.actionButtonPressed,
+              ]}
+              onPress={handleSharePress}
+            >
+              <MaterialCommunityIcons name="whatsapp" size={14} color="#25D366" />
+              <Text style={styles.actionButtonPrintText} numberOfLines={1}>
+                {translate('share')}
+              </Text>
+            </Pressable>
+          </>
         ) : (
           <>
         {step > 1 ? (
           <Pressable
             style={({ pressed }) => [
               styles.actionButtonOutline,
-              styles.actionButtonHalf,
+              styles.actionButtonCompact,
               pressed && styles.actionButtonPressed,
             ]}
             onPress={goToPreviousStep}
           >
-            <MaterialIcons name="arrow-back" size={18} color={SHEET_BORDER} />
-            <Text style={styles.actionButtonOutlineText}>{translate('back')}</Text>
+            <MaterialIcons name="arrow-back" size={14} color={SHEET_BORDER} />
+            <Text style={styles.actionButtonOutlineText} numberOfLines={1}>
+              {translate('back')}
+            </Text>
           </Pressable>
         ) : null}
         {step < 3 ? (
           <Pressable
             style={({ pressed }) => [
               styles.actionButtonPrimary,
-              step > 1 ? styles.actionButtonHalf : styles.actionButtonFull,
+              styles.actionButtonCompact,
+              step > 1 ? undefined : styles.actionButtonFull,
               pressed && styles.actionButtonPressed,
             ]}
             onPress={goToNextStep}
           >
-            <Text style={styles.actionButtonPrimaryText}>{translate('next')}</Text>
-            <MaterialIcons name="arrow-forward" size={18} color={colors.onPrimary} />
+            <Text style={styles.actionButtonPrimaryText} numberOfLines={1}>
+              {translate('next')}
+            </Text>
+            <MaterialIcons name="arrow-forward" size={14} color={colors.onPrimary} />
           </Pressable>
         ) : (
           <>
             <Pressable
               style={({ pressed }) => [
                 styles.actionButtonPrint,
+                styles.actionButtonCompact,
                 pressed && styles.actionButtonPressed,
               ]}
               onPress={handlePrintPress}
             >
-              <MaterialIcons name="print" size={16} color={SHEET_BORDER} />
-              <Text style={styles.actionButtonPrintText}>{translate('print')}</Text>
+              <MaterialIcons name="print" size={14} color={SHEET_BORDER} />
+              <Text style={styles.actionButtonPrintText} numberOfLines={1}>
+                {translate('print')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButtonPrint,
+                styles.actionButtonCompact,
+                pressed && styles.actionButtonPressed,
+              ]}
+              onPress={handleSharePress}
+            >
+              <MaterialCommunityIcons name="whatsapp" size={14} color="#25D366" />
+              <Text style={styles.actionButtonPrintText} numberOfLines={1}>
+                {translate('share')}
+              </Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 styles.actionButtonPrimary,
-                styles.actionButtonHalf,
+                styles.actionButtonCompact,
                 pressed && styles.actionButtonPressed,
               ]}
               onPress={handleSavePress}
             >
-              <MaterialIcons name="check-circle" size={18} color={colors.onPrimary} />
-              <Text style={styles.actionButtonPrimaryText}>{translate('saveAndContinue')}</Text>
+              <MaterialIcons name="check-circle" size={14} color={colors.onPrimary} />
+              <Text
+                style={styles.actionButtonPrimaryText}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {translate('saveAndContinue')}
+              </Text>
             </Pressable>
           </>
         )}
@@ -4148,6 +4508,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     paddingBottom: Platform.OS === 'ios' ? 88 : 80,
+  },
+  christianReviewScroll: {
+    flex: 1,
+  },
+  christianReviewScrollContent: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: Platform.OS === 'ios' ? 96 : 88,
+    flexGrow: 1,
   },
   scrollContent: {
     paddingHorizontal: spacing.md,
@@ -4192,7 +4561,6 @@ const styles = StyleSheet.create({
     }),
   },
   sheetCardFullScreen: {
-    flex: 1,
     width: '100%',
     maxWidth: undefined,
     alignSelf: 'stretch',
@@ -4201,7 +4569,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(87, 0, 0, 0.08)',
     backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
     ...Platform.select({
       web: { boxShadow: '0 8px 24px rgba(87, 0, 0, 0.08)' },
       default: {
@@ -4358,6 +4725,10 @@ const styles = StyleSheet.create({
   fieldPairItem: {
     flex: 1,
     minWidth: 0,
+  },
+  textFieldFullWidth: {
+    width: '100%',
+    alignSelf: 'stretch',
   },
   fieldPairItemWide: {
     flex: 2.2,
@@ -4535,9 +4906,9 @@ const styles = StyleSheet.create({
   fieldLabel: {
     color: colors.primary,
     fontSize: 11,
-    fontFamily: fonts.interSemi,
+    fontFamily: fonts.interBold,
     letterSpacing: 0.35,
-    opacity: 0.88,
+    opacity: 1,
   },
   fieldLabelMobile: {
     fontSize: 9,
@@ -4998,14 +5369,14 @@ const styles = StyleSheet.create({
   },
   chartDoubleOuter: {
     borderWidth: 2,
-    borderColor: HOROSCOPE_RED,
+    borderColor: HOROSCOPE_GRID_LINE,
     padding: 2,
     backgroundColor: '#fff',
     overflow: 'visible',
   },
   chartDoubleInner: {
-    borderWidth: 1,
-    borderColor: HOROSCOPE_RED,
+    borderWidth: 2,
+    borderColor: HOROSCOPE_GRID_LINE,
     backgroundColor: '#fff',
     overflow: 'visible',
   },
@@ -5014,8 +5385,8 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     minHeight: Platform.OS === 'web' ? 170 : undefined,
     flexDirection: 'column',
-    backgroundColor: HOROSCOPE_RED,
-    gap: 1,
+    backgroundColor: HOROSCOPE_GRID_LINE,
+    gap: 0,
     overflow: 'visible',
   },
   chartGridCompact: {
@@ -5028,21 +5399,23 @@ const styles = StyleSheet.create({
   chartGridRow: {
     flex: 1,
     flexDirection: 'row',
-    gap: 1,
+    gap: 0,
   },
   chartGridRowDouble: {
     flex: 2,
     flexDirection: 'row',
-    gap: 1,
+    gap: 0,
   },
   chartSideStack: {
     flex: 1,
     flexDirection: 'column',
-    gap: 1,
+    gap: 0,
   },
   chartCellWrap: {
     flex: 1,
     backgroundColor: '#fff',
+    borderWidth: HOROSCOPE_CELL_BORDER,
+    borderColor: HOROSCOPE_GRID_LINE,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 0,
@@ -5199,6 +5572,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
+    borderWidth: HOROSCOPE_CELL_BORDER,
+    borderColor: HOROSCOPE_GRID_LINE,
     paddingHorizontal: 2,
     paddingVertical: 4,
     gap: 2,
@@ -5357,10 +5732,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 8,
     backgroundColor: 'rgba(255, 255, 255, 0.97)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(87, 0, 0, 0.08)',
@@ -5389,6 +5764,15 @@ const styles = StyleSheet.create({
   actionButtonHalf: {
     flex: 1,
   },
+  actionButtonCompact: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 36,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 4,
+  },
   actionButtonPrint: {
     flexShrink: 0,
     flexDirection: 'row',
@@ -5398,17 +5782,18 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(87, 0, 0, 0.22)',
     borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     backgroundColor: colors.surfaceContainerLowest,
-    minHeight: 40,
+    minHeight: 36,
     ...fieldShadow,
   },
   actionButtonPrintText: {
     color: SHEET_BORDER,
     fontFamily: fonts.interSemi,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 11,
+    lineHeight: 14,
+    flexShrink: 1,
   },
   actionButtonPrintFull: {
     flex: 1,
@@ -5423,15 +5808,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
     borderWidth: 1.5,
     borderColor: 'rgba(87, 0, 0, 0.22)',
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     backgroundColor: colors.surfaceContainerLowest,
     minWidth: 0,
-    minHeight: 48,
+    minHeight: 36,
     ...fieldShadow,
   },
   actionButtonOutlineMobile: {
@@ -5444,7 +5829,8 @@ const styles = StyleSheet.create({
   actionButtonOutlineText: {
     color: SHEET_BORDER,
     fontFamily: fonts.interSemi,
-    fontSize: 13,
+    fontSize: 11,
+    lineHeight: 14,
     flexShrink: 1,
   },
   actionButtonOutlineTextMobile: {
@@ -5455,13 +5841,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    gap: 4,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     backgroundColor: colors.primary,
     minWidth: 0,
-    minHeight: 48,
+    minHeight: 36,
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.35)',
     ...Platform.select({
@@ -5813,7 +6199,8 @@ const styles = StyleSheet.create({
   actionButtonPrimaryText: {
     color: colors.onPrimary,
     fontFamily: fonts.interSemi,
-    fontSize: 14,
+    fontSize: 11,
+    lineHeight: 14,
     flexShrink: 1,
   },
   actionButtonPrimaryTextCompact: {

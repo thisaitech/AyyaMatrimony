@@ -6,6 +6,22 @@ export function isRemotePhotoUri(uri: string): boolean {
   return uri.startsWith('http://') || uri.startsWith('https://');
 }
 
+export function isLocalPhotoUri(uri: string): boolean {
+  return Boolean(uri.trim()) && !isRemotePhotoUri(uri);
+}
+
+/** Keep only cloud URLs in persisted profile storage — never base64/blob/file paths. */
+export function photosForPersistence(photos: string[]): string[] {
+  return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+    const photo = photos[index] ?? '';
+    return isRemotePhotoUri(photo) ? photo : '';
+  });
+}
+
+export function serializePersistedProfilePhotos(photos: string[]): string {
+  return serializeProfilePhotos(photosForPersistence(photos));
+}
+
 export function parseProfilePhotos(raw: string): string[] {
   if (!raw) {
     return Array.from({ length: MAX_PROFILE_PHOTOS }, () => '');

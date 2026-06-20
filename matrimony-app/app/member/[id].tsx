@@ -38,17 +38,17 @@ export default function MemberProfileScreen() {
     () => getMemberBiodataValues(profileId, published),
     [profileId, published],
   );
-  const showFullProfile = isPaidMember && canViewFullProfile(profileId);
+  const showFullProfile = isReady && canViewFullProfile(profileId);
 
   useEffect(() => {
-    if (!isReady || !member || !profileId) {
+    if (!isReady || !member || !profileId || !showFullProfile) {
       return;
     }
 
     void recordProfileView(profileId);
-  }, [isReady, member, profileId, recordProfileView]);
+  }, [isReady, member, profileId, recordProfileView, showFullProfile]);
 
-  if (!directoryReady) {
+  if (!directoryReady || !isReady) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <AppHeader showBack onBack={() => router.back()} />

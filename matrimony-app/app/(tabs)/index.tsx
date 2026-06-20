@@ -20,7 +20,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useMatchActions } from '@/context/MatchActionsContext';
-import { useOpenMemberProfile } from '@/hooks/useOpenMemberProfile';
+import { useOpenMemberProfile, useRequirePaidContact } from '@/hooks/useOpenMemberProfile';
 import {
   getProfileAvatarSource,
   getProfileFirstName,
@@ -34,7 +34,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { translate, translateFormat, toggleLanguage } = useLanguage();
   const { values } = useProfileForm();
-  const { isPaidMember, isPrimeViewActive, membershipViewMode, setMembershipViewMode, profilesAllowed } =
+  const { isPaidMember, isPrimeViewActive, membershipViewMode, setMembershipViewMode, profilesAllowed, canViewFullProfile } =
     useSubscription();
   const recommendedMatches = useBrowsableMembers();
   const profileName = getProfileFirstName(values.fullName ?? '') || translate('profile');
@@ -136,7 +136,11 @@ export default function HomeScreen() {
             contentContainerStyle={styles.horizontalList}
           >
             {homeMatches.map((match) => (
-              <HomeRecommendationCard key={match.id} match={match} locked={!isPrimeViewActive} />
+              <HomeRecommendationCard
+                key={match.id}
+                match={match}
+                locked={!canViewFullProfile(match.id)}
+              />
             ))}
           </ScrollView>
         </View>
@@ -162,7 +166,7 @@ export default function HomeScreen() {
               <HomeAllMatchPreviewCard
                 key={`all-${match.id}`}
                 match={match}
-                locked={!isPrimeViewActive}
+                locked={!canViewFullProfile(match.id)}
               />
             ))}
           </ScrollView>
@@ -200,6 +204,7 @@ function HomeAllMatchPreviewCard({ match, locked }: { match: HomeMatch; locked: 
 function HomeRecommendationCard({ match, locked }: { match: HomeMatch; locked: boolean }) {
   const router = useRouter();
   const openProfile = useOpenMemberProfile();
+  const requirePaidContact = useRequirePaidContact();
   const { translate, translateFormat } = useLanguage();
   const { isShortlisted, hasSentInterest, toggleShortlist, sendInterest } = useMatchActions();
 
@@ -207,6 +212,10 @@ function HomeRecommendationCard({ match, locked }: { match: HomeMatch; locked: b
   const interestSent = hasSentInterest(match.id);
 
   const handleShortlist = () => {
+    if (!requirePaidContact()) {
+      return;
+    }
+
     void toggleShortlist(match.id).then((result) => {
       Alert.alert(
         translate('shortlist'),
@@ -218,6 +227,10 @@ function HomeRecommendationCard({ match, locked }: { match: HomeMatch; locked: b
   };
 
   const handleInterest = () => {
+    if (!requirePaidContact()) {
+      return;
+    }
+
     if (interestSent) {
       Alert.alert(translate('interest'), translateFormat('interestAlreadySentFormat', { name: match.name }));
       router.push({ pathname: '/(tabs)/interests', params: { direction: 'sent' } });

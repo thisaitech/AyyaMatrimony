@@ -42,6 +42,7 @@ export const fonts = {
   inter: 'Inter_400Regular',
   interMedium: 'Inter_500Medium',
   interSemi: 'Inter_600SemiBold',
+  interBold: 'Inter_700Bold',
 };
 
 export const typography = {

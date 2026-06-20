@@ -4,24 +4,75 @@ import { useSubscription } from '@/context/SubscriptionContext';
 
 export function useOpenMemberProfile() {
   const router = useRouter();
-  const { canOpenNewFullProfile, isPaidMember, recordProfileView } = useSubscription();
+  const {
+    canOpenNewFullProfile,
+    canViewFullProfile,
+    isPaidMember,
+    isReady,
+    recordProfileView,
+  } = useSubscription();
+
+  const openPayment = useCallback(
+    (reason: 'initial' | 'batch') => {
+      router.push({
+        pathname: '/payment-access',
+        params: { reason },
+      });
+    },
+    [router],
+  );
 
   return useCallback(
     (profileId: string) => {
-      if (isPaidMember && !canOpenNewFullProfile(profileId)) {
-        router.push({
-          pathname: '/payment-access',
-          params: { reason: 'batch' },
-        });
+      if (!isReady) {
         return;
       }
 
-      if (isPaidMember) {
+      if (!isPaidMember) {
+        openPayment('initial');
+        return;
+      }
+
+      if (!canOpenNewFullProfile(profileId)) {
+        openPayment('batch');
+        return;
+      }
+
+      if (canViewFullProfile(profileId)) {
         void recordProfileView(profileId);
       }
 
       router.push({ pathname: '/member/[id]', params: { id: profileId } });
     },
-    [canOpenNewFullProfile, isPaidMember, recordProfileView, router],
+    [
+      canOpenNewFullProfile,
+      canViewFullProfile,
+      isPaidMember,
+      isReady,
+      openPayment,
+      recordProfileView,
+      router,
+    ],
   );
+}
+
+export function useRequirePaidContact() {
+  const router = useRouter();
+  const { isPaidMember, isReady } = useSubscription();
+
+  return useCallback(() => {
+    if (!isReady) {
+      return false;
+    }
+
+    if (!isPaidMember) {
+      router.push({
+        pathname: '/payment-access',
+        params: { reason: 'initial' },
+      });
+      return false;
+    }
+
+    return true;
+  }, [isPaidMember, isReady, router]);
 }

@@ -15,7 +15,7 @@ import { ProtectedProfileImage } from '@/components/ProtectedProfileImage';
 import { useLanguage } from '@/context/LanguageContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useMatchActions } from '@/context/MatchActionsContext';
-import { useOpenMemberProfile } from '@/hooks/useOpenMemberProfile';
+import { useOpenMemberProfile, useRequirePaidContact } from '@/hooks/useOpenMemberProfile';
 import { borderRadius, colors, fonts, spacing, typography } from '@/constants/theme';
 
 type DirectionTab = 'received' | 'sent';
@@ -47,6 +47,7 @@ function formatProfileSummary(age: string, community: string) {
 
 function InterestCard({ item, locked }: { item: InterestItem; locked: boolean }) {
   const openProfile = useOpenMemberProfile();
+  const requirePaidContact = useRequirePaidContact();
   const { translate } = useLanguage();
 
   return (
@@ -86,11 +87,25 @@ function InterestCard({ item, locked }: { item: InterestItem; locked: boolean })
 
       {item.direction === 'received' && item.filterStatus === 'pending' ? (
         <View style={styles.cardActions}>
-          <Pressable style={styles.declineBtn}>
+          <Pressable
+            style={styles.declineBtn}
+            onPress={() => {
+              if (!requirePaidContact()) {
+                return;
+              }
+            }}
+          >
             <MaterialIcons name="thumb-down-alt" size={18} color={colors.onSurfaceVariant} />
             <Text style={styles.declineText}>{translate('decline')}</Text>
           </Pressable>
-          <Pressable style={styles.acceptBtn}>
+          <Pressable
+            style={styles.acceptBtn}
+            onPress={() => {
+              if (!requirePaidContact()) {
+                return;
+              }
+            }}
+          >
             <MaterialIcons name="thumb-up-alt" size={18} color={colors.onPrimary} />
             <Text style={styles.acceptText}>{translate('acceptInterest')}</Text>
           </Pressable>
@@ -103,7 +118,7 @@ function InterestCard({ item, locked }: { item: InterestItem; locked: boolean })
 export default function InterestsScreen() {
   const { direction } = useLocalSearchParams<{ direction?: string | string[] }>();
   const { translate } = useLanguage();
-  const { isPrimeViewActive } = useSubscription();
+  const { canViewFullProfile } = useSubscription();
   const { sentInterests } = useMatchActions();
   const [directionTab, setDirectionTab] = useState<DirectionTab>('received');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
@@ -244,7 +259,7 @@ export default function InterestsScreen() {
           </View>
         ) : (
           visibleInterests.map((item) => (
-            <InterestCard key={item.id} item={item} locked={!isPrimeViewActive} />
+            <InterestCard key={item.id} item={item} locked={!canViewFullProfile(item.id)} />
           ))
         )}
       </ScrollView>

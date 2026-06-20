@@ -16,6 +16,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { resolveMemberListing } from '@/constants/memberDirectory';
 import { getDefaultChatSeed, useChat } from '@/context/ChatContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { useOpenMemberProfile } from '@/hooks/useOpenMemberProfile';
 import { useMemberDirectory } from '@/hooks/useMemberDirectory';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
 
@@ -35,6 +37,8 @@ export default function ChatConversationScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { translate } = useLanguage();
+  const { isPaidMember, isReady: subscriptionReady } = useSubscription();
+  const openProfile = useOpenMemberProfile();
   const params = useLocalSearchParams<{
     id?: string | string[];
     name?: string | string[];
@@ -67,6 +71,17 @@ export default function ChatConversationScreen() {
 
   const thread = threads.find((entry) => entry.memberId === memberId);
   const messages = thread?.messages ?? [];
+
+  useEffect(() => {
+    if (!subscriptionReady || isPaidMember) {
+      return;
+    }
+
+    router.replace({
+      pathname: '/payment-access',
+      params: { reason: 'initial' },
+    });
+  }, [isPaidMember, router, subscriptionReady]);
 
   useEffect(() => {
     if (!isReady || !memberId || initializedRef.current === memberId) {
@@ -104,7 +119,7 @@ export default function ChatConversationScreen() {
     }
   }, [draft, memberId, sendMessage, sending]);
 
-  const canSend = draft.trim().length > 0 && !sending;
+  const canSend = draft.trim().length > 0 && !sending && isPaidMember;
 
   if (!memberId) {
     return (
@@ -114,6 +129,19 @@ export default function ChatConversationScreen() {
             <MaterialIcons name="arrow-back" size={24} color={colors.primary} />
           </Pressable>
           <Text style={styles.headerName}>{translate('profileNotFound')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (subscriptionReady && !isPaidMember) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <MaterialIcons name="arrow-back" size={24} color={colors.primary} />
+          </Pressable>
+          <Text style={styles.headerName}>{translate('detailsLocked')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -140,7 +168,7 @@ export default function ChatConversationScreen() {
         </View>
         <Pressable
           style={styles.profileBtn}
-          onPress={() => router.push({ pathname: '/member/[id]', params: { id: memberId } })}
+          onPress={() => openProfile(memberId)}
           hitSlop={8}
         >
           <MaterialIcons name="visibility" size={22} color={colors.primary} />

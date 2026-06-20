@@ -14,6 +14,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { SelectField } from '@/components/FormControls';
 import {
   formatPropertyDetailsSummary,
+  getPropertyCountLabelKey,
   getPropertyDisplayValue,
   needsCommercialType,
   needsHouseCount,
@@ -71,19 +72,15 @@ function BottomSheetModal({
 }
 
 function IconFieldShell({
-  icon,
   children,
   dense,
 }: {
-  icon: keyof typeof MaterialIcons.glyphMap;
+  icon?: keyof typeof MaterialIcons.glyphMap;
   children: ReactNode;
   dense?: boolean;
 }) {
   return (
     <View style={[styles.iconFieldShell, dense && styles.iconFieldShellDense]}>
-      <View style={[styles.iconFieldBadge, dense && styles.iconFieldBadgeDense]}>
-        <MaterialIcons name={icon} size={dense ? 11 : 13} color={colors.primary} />
-      </View>
       <View style={styles.iconFieldBody}>{children}</View>
     </View>
   );
@@ -208,7 +205,7 @@ export function BiodataPropertyField({
       <View style={[styles.fieldGroup, dense && styles.fieldGroupDense]}>
         <Text style={[styles.fieldLabel, dense && styles.fieldLabelDense]}>{label}</Text>
         <Pressable onPress={openSheet}>
-          <IconFieldShell icon="home" dense={dense}>
+          <IconFieldShell dense={dense}>
             <View style={[styles.propertyFieldTrigger, dense && styles.fieldInputDense]}>
               <Text
                 style={displayValue ? styles.propertyFieldValue : styles.propertyFieldPlaceholder}
@@ -259,7 +256,9 @@ export function BiodataPropertyField({
                     exiting={FadeOutUp.duration(160)}
                     style={styles.conditionalBlock}
                   >
-                    <Text style={styles.conditionalLabel}>{translate('propertyHouseCount')}</Text>
+                    <Text style={styles.conditionalLabel}>
+                      {translate(getPropertyCountLabelKey(option.id))}
+                    </Text>
                     <View style={styles.chipRow}>
                       {houseCountOptions.map((countOption) => {
                         const active = selected.houseCount === countOption.value;
@@ -392,26 +391,29 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: colors.primary,
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: fonts.playfairSemi,
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: fonts.interBold,
+    letterSpacing: 0.35,
+    opacity: 1,
   },
   fieldLabelDense: {
     fontSize: 11,
-    lineHeight: 14,
+    lineHeight: 15,
+    opacity: 1,
   },
   fieldInput: {
     borderWidth: 1,
     borderColor: FIELD_BORDER,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: FIELD_BG,
-    minHeight: 40,
+    minHeight: 38,
     paddingHorizontal: 10,
     justifyContent: 'center',
     ...fieldShadow,
   },
   fieldInputDense: {
-    minHeight: 42,
+    minHeight: 38,
   },
   fieldInputReadonly: {
     backgroundColor: 'rgba(255, 248, 246, 0.7)',
@@ -427,15 +429,15 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     borderWidth: 1,
     borderColor: FIELD_BORDER,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: FIELD_BG,
     overflow: 'hidden',
-    minHeight: 40,
+    minHeight: 38,
     ...fieldShadow,
   },
   iconFieldShellDense: {
-    minHeight: 42,
-    borderRadius: 12,
+    minHeight: 38,
+    borderRadius: 10,
   },
   iconFieldBadge: {
     width: 34,
@@ -457,7 +459,7 @@ const styles = StyleSheet.create({
   propertyFieldTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 40,
+    minHeight: 38,
     paddingVertical: 8,
     paddingHorizontal: 10,
     gap: 6,
@@ -465,16 +467,16 @@ const styles = StyleSheet.create({
   propertyFieldValue: {
     flex: 1,
     color: colors.onSurface,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: fonts.interMedium,
   },
   propertyFieldPlaceholder: {
     flex: 1,
     color: PLACEHOLDER,
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: fonts.inter,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: fonts.interMedium,
   },
   bottomSheetRoot: {
     flex: 1,

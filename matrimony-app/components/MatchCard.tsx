@@ -1,9 +1,11 @@
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { ProtectedProfileImage } from '@/components/ProtectedProfileImage';
 import { useLanguage } from '@/context/LanguageContext';
 import { useMatchActions } from '@/context/MatchActionsContext';
-import { useOpenMemberProfile } from '@/hooks/useOpenMemberProfile';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { useOpenMemberProfile, useRequirePaidContact } from '@/hooks/useOpenMemberProfile';
 import { borderRadius, colors, fonts, spacing, typography } from '@/constants/theme';
 
 type MatchCardProps = {
@@ -31,16 +33,23 @@ export function MatchCard({
 }: MatchCardProps) {
   const router = useRouter();
   const openProfile = useOpenMemberProfile();
+  const requirePaidContact = useRequirePaidContact();
+  const { canViewFullProfile } = useSubscription();
   const { translate, translateFormat } = useLanguage();
   const { hasSentInterest, sendInterest } = useMatchActions();
 
   const interestSent = hasSentInterest(id);
+  const profileLocked = !canViewFullProfile(id);
 
   const handleViewProfile = () => {
     openProfile(id);
   };
 
   const handleInterest = () => {
+    if (!requirePaidContact()) {
+      return;
+    }
+
     if (interestSent) {
       Alert.alert(translate('interest'), translateFormat('interestAlreadySentFormat', { name }));
       router.push({ pathname: '/(tabs)/interests', params: { direction: 'sent' } });
@@ -69,7 +78,12 @@ export function MatchCard({
     <View style={styles.card}>
       <View style={styles.row}>
         <Pressable style={styles.photoWrap} onPress={handleViewProfile}>
-          <Image source={{ uri: image }} style={styles.image} resizeMode="cover" />
+          <ProtectedProfileImage
+            imageUri={image}
+            locked={profileLocked}
+            style={styles.photoWrap}
+            imageStyle={styles.image}
+          />
           {online ? (
             <View style={styles.onlineBadge}>
               <View style={styles.onlineDot} />

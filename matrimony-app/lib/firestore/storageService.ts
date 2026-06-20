@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { getFirebaseStorage } from '@/lib/firebase';
 import { isRemotePhotoUri } from '@/constants/profilePhotos';
@@ -8,14 +9,24 @@ async function uriToBlob(uri: string): Promise<Blob> {
     return new Blob();
   }
 
-  if (uri.startsWith('data:') || uri.startsWith('http://') || uri.startsWith('https://')) {
+  if (uri.startsWith('data:') || uri.startsWith('blob:') || isRemotePhotoUri(uri)) {
     const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error('Unable to read selected photo.');
+    }
     return response.blob();
   }
 
-  if (Platform.OS === 'web') {
-    const response = await fetch(uri);
-    return response.blob();
+  if (Platform.OS !== 'web' && uri.startsWith('file://')) {
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return new Blob([bytes], { type: 'image/jpeg' });
   }
 
   const response = await fetch(uri);
@@ -40,14 +51,18 @@ export async function uploadProfilePhoto(
 
   const storage = await getFirebaseStorage();
   if (!storage) {
-    return localUri;
+    throw new Error('Photo storage is unavailable.');
   }
 
   const digits = phone.replace(/\D/g, '');
+  if (!digits) {
+    throw new Error('Phone number is required to upload photos.');
+  }
+
   const objectRef = ref(storage, `profiles/${digits}/photos/photo_${slotIndex}.jpg`);
   const blob = await uriToBlob(localUri);
   if (!blob.size) {
-    return localUri;
+    throw new Error('Selected photo is empty or unreadable.');
   }
 
   await uploadBytes(objectRef, blob, { contentType: 'image/jpeg' });

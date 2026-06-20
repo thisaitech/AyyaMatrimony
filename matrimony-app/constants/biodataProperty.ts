@@ -43,7 +43,7 @@ export const PROPERTY_OPTIONS: { id: PropertyOptionId; labelKey: TranslationKey 
 const LAND_OPTION_IDS: PropertyOptionId[] = ['own-land', 'agricultural-land', 'residential-plot'];
 
 export function needsHouseCount(id: PropertyOptionId): boolean {
-  return id === 'own-house';
+  return id === 'own-house' || id === 'rental-house' || id === 'car-owner' || id === 'bike-owner';
 }
 
 export function needsLandFields(id: PropertyOptionId): boolean {
@@ -52,6 +52,32 @@ export function needsLandFields(id: PropertyOptionId): boolean {
 
 export function needsCommercialType(id: PropertyOptionId): boolean {
   return id === 'commercial-property';
+}
+
+export function getPropertyCountLabelKey(id: PropertyOptionId): TranslationKey {
+  switch (id) {
+    case 'rental-house':
+      return 'propertyRentalCount';
+    case 'car-owner':
+      return 'propertyCarCount';
+    case 'bike-owner':
+      return 'propertyBikeCount';
+    default:
+      return 'propertyHouseCount';
+  }
+}
+
+export function getPropertyCountValidationKey(id: PropertyOptionId): TranslationKey {
+  switch (id) {
+    case 'rental-house':
+      return 'propertyValidationRentalCount';
+    case 'car-owner':
+      return 'propertyValidationCarCount';
+    case 'bike-owner':
+      return 'propertyValidationBikeCount';
+    default:
+      return 'propertyValidationHouseCount';
+  }
 }
 
 export function isSimplePropertyOption(id: PropertyOptionId): boolean {
@@ -75,7 +101,7 @@ function migrateLegacyProperty(
     selections: [
       {
         id,
-        houseCount: id === 'own-house' ? houseCount : undefined,
+        houseCount: houseCount || undefined,
       },
     ],
   };
@@ -193,7 +219,7 @@ export function validatePropertySelections(
 
   for (const item of state.selections) {
     if (needsHouseCount(item.id) && !item.houseCount) {
-      return translate('propertyValidationHouseCount');
+      return translate(getPropertyCountValidationKey(item.id));
     }
     if (needsLandFields(item.id) && (!item.landSize?.trim() || !item.landUnit)) {
       return translate('propertyValidationLandSize');

@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
+import {
+  parseProfilePhotos,
+  PROFILE_PHOTOS_KEY,
+  serializePersistedProfilePhotos,
+} from '@/constants/profilePhotos';
 import { hydrateLocalProfileFromFirestore, upsertProfileFromValues } from '@/lib/firestore/profileService';
 
 const PROFILE_STORAGE_KEY = 'user_profile';
@@ -71,8 +76,12 @@ export function ProfileFormProvider({ children }: { children: ReactNode }) {
   const setValue = useCallback(
     (key: string, nextValue: string) => {
       setValues((current) => {
-        const next = { ...current, [key]: nextValue };
-        void persistValues(next);
+        const storedValue =
+          key === PROFILE_PHOTOS_KEY
+            ? serializePersistedProfilePhotos(parseProfilePhotos(nextValue))
+            : nextValue;
+        const next = { ...current, [key]: storedValue };
+        void persistValues(next).catch(() => undefined);
         return next;
       });
     },

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import {
   parseProfilePhotos,
   PHOTO_SKIP_KEY,
   PROFILE_PHOTOS_KEY,
-  serializeProfilePhotos,
+  serializePersistedProfilePhotos,
   serializeRemotePhotoUrls,
 } from '@/constants/profilePhotos';
 import { colors, spacing, typography } from '@/constants/theme';
@@ -32,6 +32,8 @@ export default function AddPhotosScreen() {
   const { getValue, setValue, isReady } = useProfileForm();
   const [photos, setPhotos] = useState<string[]>(() => parseProfilePhotos(''));
   const [skipped, setSkipped] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const hydratedRef = useRef(false);
   const uploadVersionRef = useRef(0);
 
@@ -47,19 +49,20 @@ export default function AddPhotosScreen() {
 
   const handlePhotosChange = useCallback(
     (nextPhotos: string[]) => {
-      const serialized = serializeProfilePhotos(nextPhotos);
       setPhotos(nextPhotos);
       setSkipped(false);
+      setUploadError('');
       setValue(PHOTO_SKIP_KEY, 'false');
-      setValue(PROFILE_PHOTOS_KEY, serialized);
 
       const phone = getValue(CONTACT_PHONE_KEY).replace(/\D/g, '');
       if (!phone) {
+        setUploadError(translate('photoUploadNeedsPhone'));
         return;
       }
 
       const uploadVersion = uploadVersionRef.current + 1;
       uploadVersionRef.current = uploadVersion;
+      setUploading(true);
 
       void (async () => {
         try {
@@ -70,7 +73,7 @@ export default function AddPhotosScreen() {
 
           const mergedPhotos = mergeUploadedPhotos(nextPhotos, uploaded);
           const remoteUrls = serializeRemotePhotoUrls(mergedPhotos);
-          const mergedSerialized = serializeProfilePhotos(mergedPhotos);
+          const mergedSerialized = serializePersistedProfilePhotos(mergedPhotos);
 
           setPhotos(mergedPhotos);
           setValue(PROFILE_PHOTOS_KEY, mergedSerialized);
@@ -99,12 +102,30 @@ export default function AddPhotosScreen() {
               uploadPhotos: false,
             }).catch(() => undefined);
           }
-        } catch {
-          // Keep the locally selected photo even if upload/sync fails.
+        } catch (error) {
+          if (uploadVersionRef.current !== uploadVersion) {
+            return;
+          }
+
+          const message =
+            error instanceof Error && error.message.trim()
+              ? error.message
+              : translate('photoUploadFailed');
+          setUploadError(message);
+
+          if (Platform.OS === 'web') {
+            window.alert(message);
+          } else {
+            Alert.alert(translate('addPhotos'), message);
+          }
+        } finally {
+          if (uploadVersionRef.current === uploadVersion) {
+            setUploading(false);
+          }
         }
       })();
     },
-    [getValue, setValue],
+    [getValue, setValue, translate],
   );
 
   return (
@@ -117,6 +138,13 @@ export default function AddPhotosScreen() {
       />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.hint}>{translate('addPhotosHint')}</Text>
+        {uploading ? (
+          <View style={styles.uploadRow}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.uploadText}>{translate('photoUploading')}</Text>
+          </View>
+        ) : null}
+        {uploadError ? <Text style={styles.errorText}>{uploadError}</Text> : null}
         <ProfilePhotoUploadStep
           photos={photos}
           skipped={skipped}
@@ -149,5 +177,20 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  uploadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  uploadText: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+  },
+  errorText: {
+    ...typography.bodyMd,
+    color: colors.error,
+    textAlign: 'center',
   },
 });

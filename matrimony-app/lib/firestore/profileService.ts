@@ -19,7 +19,7 @@ import {
   profileDocIdFromPhone,
 } from '@/lib/firestore/collections';
 import { uploadProfilePhotos } from '@/lib/firestore/storageService';
-import { parseProfilePhotos, PROFILE_PHOTOS_KEY, serializeProfilePhotos, biodataForFirestore, isRemotePhotoUri, mergeUploadedPhotos, serializeRemotePhotoUrls, MAX_PROFILE_PHOTOS } from '@/constants/profilePhotos';
+import { parseProfilePhotos, PROFILE_PHOTOS_KEY, serializeProfilePhotos, biodataForFirestore, isRemotePhotoUri, isLocalPhotoUri, mergeUploadedPhotos, serializeRemotePhotoUrls, MAX_PROFILE_PHOTOS } from '@/constants/profilePhotos';
 
 function listingIdFromValues(values: Record<string, string>): string {
   const registration = values.registrationNumber?.trim();
@@ -148,7 +148,7 @@ export async function upsertProfileFromValues(
   let nextValues = { ...values };
   if (options.uploadPhotos !== false) {
     const localPhotos = parseProfilePhotos(values[PROFILE_PHOTOS_KEY] ?? '');
-    const needsUpload = localPhotos.some((uri) => uri && !uri.startsWith('http'));
+    const needsUpload = localPhotos.some((uri) => isLocalPhotoUri(uri));
     if (needsUpload) {
       const uploaded = await uploadProfilePhotos(phone, localPhotos);
       const merged = mergeUploadedPhotos(localPhotos, uploaded);

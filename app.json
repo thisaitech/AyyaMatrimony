@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "588c5f16-48a4-496e-840f-18f8fe2e3f0e"
+      }
+    },
+    "android": {
+      "package": "com.thisai.matrimonyworkspace"
+    }
+  }
+}

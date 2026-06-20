@@ -5,6 +5,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChat } from '@/context/ChatContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { useRequirePaidContact } from '@/hooks/useOpenMemberProfile';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { useBrowsableMembers } from '@/hooks/useBrowsableMembers';
 
@@ -62,6 +64,8 @@ function MessageRow({ item, onPress }: { item: MessageItem; onPress: () => void 
 export default function ChatScreen() {
   const router = useRouter();
   const { translate } = useLanguage();
+  const { isPaidMember } = useSubscription();
+  const requirePaidContact = useRequirePaidContact();
   const { threads } = useChat();
   const [activeTab, setActiveTab] = useState<MessageTab>('received');
   const recommendedMatches = useBrowsableMembers();
@@ -94,6 +98,10 @@ export default function ChatScreen() {
   );
 
   const openChat = (item: MessageItem) => {
+    if (!requirePaidContact()) {
+      return;
+    }
+
     router.push({
       pathname: '/conversation/[id]',
       params: {
@@ -137,6 +145,12 @@ export default function ChatScreen() {
           })}
         </View>
       </View>
+
+      {!isPaidMember ? (
+        <View style={styles.upgradeBanner}>
+          <Text style={styles.upgradeBannerText}>{translate('upgradeMembershipBanner')}</Text>
+        </View>
+      ) : null}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {visibleMessages.map((item) => (
@@ -284,5 +298,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontFamily: fonts.interSemi,
+  },
+  upgradeBanner: {
+    marginHorizontal: spacing.containerMargin,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: '#FFF3E0',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 124, 0, 0.25)',
+  },
+  upgradeBannerText: {
+    ...typography.bodyMd,
+    color: colors.onSurface,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
