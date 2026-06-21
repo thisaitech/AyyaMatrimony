@@ -150,7 +150,8 @@ export const formOptionLists: Record<FormOptionsKey, FormOption[]> = {
   ],
   religion: [
     opt('hindu', 'Hindu', 'இந்து'),
-    opt('christian', 'Christian', 'கிறிஸ்தவர்'),
+    opt('rc-christian', 'RC Christian', 'RC கிறிஸ்தவர்'),
+    opt('csi-christian', 'CSI Christian', 'CSI கிறிஸ்தவர்'),
   ],
   community: [
     opt('adi-dravidar', 'Adi Dravidar', 'ஆதி திராவிடர்'),
@@ -481,12 +482,16 @@ export const formOptionLists: Record<FormOptionsKey, FormOption[]> = {
     opt('other', 'Other', 'பிற'),
   ],
   siblingCount: [
-    opt('0', 'None', 'இல்லை'),
+    opt('0', '-', '-'),
     opt('1', '1', '1'),
     opt('2', '2', '2'),
     opt('3', '3', '3'),
     opt('4', '4', '4'),
-    opt('5+', '5 or more', '5 அல்லது அதற்கு மேல்'),
+    opt('5', '5', '5'),
+    opt('6', '6', '6'),
+    opt('7', '7', '7'),
+    opt('8', '8', '8'),
+    opt('9', '9', '9'),
   ],
   birthOrderRelation: [
     opt('elder-brother', 'Elder Brother', 'அண்ணன்'),

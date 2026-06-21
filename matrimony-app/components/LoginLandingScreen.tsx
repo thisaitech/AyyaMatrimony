@@ -15,6 +15,17 @@ import { useRouter, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  withSequence,
+  Easing,
+} from 'react-native-reanimated';
 import { LanguageLogoToggle } from '@/components/LanguageLogoToggle';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import {
@@ -85,7 +96,20 @@ export function LoginLandingScreen() {
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const scale = useSharedValue(1);
+  const animatedBackgroundStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 12000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 12000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
     void import('@/lib/firebase').then(({ initFirebaseAnalytics }) => initFirebaseAnalytics());
   }, []);
 
@@ -195,7 +219,7 @@ export function LoginLandingScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <View style={styles.wallpaperLayer} pointerEvents="none">
+      <Animated.View style={[styles.wallpaperLayer, animatedBackgroundStyle]} pointerEvents="none">
         <Image
           source={{ uri: images.loginWallpapers.hindu }}
           style={styles.wallpaperFull}
@@ -206,7 +230,7 @@ export function LoginLandingScreen() {
           style={[styles.wallpaperFull, styles.wallpaperBlend]}
           resizeMode="cover"
         />
-      </View>
+      </Animated.View>
 
       <LinearGradient
         colors={[
@@ -241,7 +265,7 @@ export function LoginLandingScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.branding}>
+            <Animated.View style={styles.branding} entering={FadeInUp.duration(1200).springify()}>
               <View style={styles.logoRing}>
                 <View style={styles.logoWrap}>
                   <Image source={images.logo} style={styles.logo} resizeMode="contain" />
@@ -264,48 +288,56 @@ export function LoginLandingScreen() {
                   <Text style={styles.communityChipText}>{translate('christian')}</Text>
                 </View>
               </View>
-            </View>
+            </Animated.View>
 
-            <View style={styles.formCard}>
-              <Text style={styles.cardTitle}>{translate('welcomeBack')}</Text>
+            <Animated.View entering={FadeInDown.duration(1200).springify().delay(300)}>
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 50 : 90}
+                tint="light"
+                style={styles.formCard}
+                experimentalBlurMethod="dimezisBlurView"
+              >
+                <Text style={styles.cardTitle}>{translate('welcomeBack')}</Text>
 
-              <View style={styles.fieldBlock}>
-                <Text style={styles.fieldLabel}>{translate('phoneNumber')}</Text>
-                <View style={styles.phoneRow}>
-                  <View style={styles.countryCode}>
-                    <Text style={styles.countryCodeText}>+91</Text>
+                <View style={styles.fieldBlock}>
+                  <Text style={styles.fieldLabel}>{translate('phoneNumber')}</Text>
+                  <View style={styles.phoneRow}>
+                    <View style={styles.countryCode}>
+                      <Text style={styles.countryCodeText}>+91</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.input, styles.phoneInput]}
+                      placeholder={translate('enterPhone')}
+                      placeholderTextColor="rgba(90, 65, 61, 0.5)"
+                      keyboardType="phone-pad"
+                      maxLength={PHONE_DIGIT_LENGTH}
+                      value={phone}
+                      onChangeText={(text) => setPhone(normalizePhoneDigits(text))}
+                    />
                   </View>
-                  <TextInput
-                    style={[styles.input, styles.phoneInput]}
-                    placeholder={translate('enterPhone')}
-                    placeholderTextColor="rgba(90, 65, 61, 0.42)"
-                    keyboardType="phone-pad"
-                    maxLength={PHONE_DIGIT_LENGTH}
-                    value={phone}
-                    onChangeText={(text) => setPhone(normalizePhoneDigits(text))}
+                </View>
+
+                <View style={styles.actions}>
+                  <PrimaryButton
+                    label={translate('registerFree')}
+                    icon="arrow-forward"
+                    variant="gold"
+                    onPress={handleRegister}
+                    disabled={busy}
+                    style={styles.registerButton}
+                    labelStyle={styles.registerLabelPrimary}
+                  />
+                  <PrimaryButton
+                    label={translate('login')}
+                    variant="outline"
+                    onPress={handleLogin}
+                    disabled={busy}
+                    style={styles.loginButton}
+                    labelStyle={styles.loginLabelOutline}
                   />
                 </View>
-              </View>
-
-              <View style={styles.actions}>
-                <PrimaryButton
-                  label={translate('login')}
-                  icon="arrow-forward"
-                  variant="gold"
-                  onPress={handleLogin}
-                  disabled={busy}
-                  style={styles.loginButton}
-                />
-                <PrimaryButton
-                  label={translate('registerFree')}
-                  variant="outline"
-                  onPress={handleRegister}
-                  disabled={busy}
-                  style={styles.registerButton}
-                  labelStyle={styles.registerLabel}
-                />
-              </View>
-            </View>
+              </BlurView>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -476,13 +508,14 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
-    backgroundColor: 'rgba(255, 251, 247, 0.97)',
-    borderRadius: 20,
+    backgroundColor: 'rgba(255, 251, 247, 0.75)',
+    borderRadius: 24,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 224, 136, 0.35)',
+    paddingBottom: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    overflow: 'hidden',
     ...cardShadow,
   },
   cardTitle: {
@@ -508,54 +541,75 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   countryCode: {
-    backgroundColor: INPUT_BG,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 14,
     paddingHorizontal: 12,
     minWidth: 58,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: INPUT_BORDER,
-    height: 48,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    height: 52,
+    ...Platform.select({
+      web: { boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' },
+    }),
   },
   countryCodeText: {
-    ...typography.bodyMd,
-    color: colors.onSurface,
+    ...typography.bodyLg,
+    color: '#3C1611',
     fontFamily: fonts.interSemi,
   },
   input: {
-    backgroundColor: INPUT_BG,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 14,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
-    height: 48,
-    ...typography.bodyMd,
-    color: colors.onSurface,
+    height: 52,
+    ...typography.bodyLg,
+    color: '#3C1611',
     borderWidth: 1,
-    borderColor: INPUT_BORDER,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
     width: '100%',
+    ...Platform.select({
+      web: { boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' },
+    }),
   },
   phoneInput: {
     flex: 1,
     minWidth: 0,
   },
   actions: {
-    gap: 10,
-    marginTop: spacing.sm,
-  },
-  loginButton: {
-    minHeight: 48,
+    gap: 12,
+    marginTop: spacing.md,
   },
   registerButton: {
-    minHeight: 48,
+    minHeight: 52,
     borderRadius: 9999,
-    borderColor: colors.primary,
-    borderWidth: 1.5,
-    backgroundColor: '#FFFFFF',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    ...Platform.select({
+      web: { boxShadow: '0 8px 24px rgba(122, 74, 68, 0.3)' },
+    }),
   },
-  registerLabel: {
+  registerLabelPrimary: {
+    fontFamily: fonts.interSemi,
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  loginButton: {
+    minHeight: 52,
+    borderRadius: 9999,
+    borderColor: 'rgba(122, 74, 68, 0.4)',
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  loginLabelOutline: {
     color: colors.primary,
     fontFamily: fonts.interSemi,
+    fontSize: 16,
   },
   bottomLine: {
     position: 'absolute',

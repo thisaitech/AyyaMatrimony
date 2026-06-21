@@ -54,9 +54,9 @@ const stepContent: Record<Language, Record<string, StepContent>> = {
       subtitle: '',
       options: [
         { key: 'Never Married', icon: 'favorite' },
-        { key: 'Widowed', icon: 'heart_broken' },
+        { key: 'Widowed', icon: 'heart-broken' },
         { key: 'Divorced', icon: 'splitscreen' },
-        { key: 'Awaiting Divorce', icon: 'hourglass_empty' },
+        { key: 'Awaiting Divorce', icon: 'hourglass-empty' },
       ],
     },
     '13': {
@@ -171,9 +171,9 @@ const stepContent: Record<Language, Record<string, StepContent>> = {
       subtitle: '',
       options: [
         { key: 'திருமணமாகாதவர்', icon: 'favorite' },
-        { key: 'விதவை/விதவர்', icon: 'heart_broken' },
+        { key: 'விதவை/விதவர்', icon: 'heart-broken' },
         { key: 'விவாகரத்து பெற்றவர்', icon: 'splitscreen' },
-        { key: 'விவாகரத்துக்காக காத்திருப்பவர்', icon: 'hourglass_empty' },
+        { key: 'விவாகரத்துக்காக காத்திருப்பவர்', icon: 'hourglass-empty' },
       ],
     },
     '13': {

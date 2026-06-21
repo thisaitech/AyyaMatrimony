@@ -104,7 +104,7 @@ async function compressWebImage(uri: string, maxWidth = 1200): Promise<string> {
   }
 
   return new Promise((resolve) => {
-    const image = new Image();
+    const image = new window.Image();
     image.onload = () => {
       const scale = Math.min(1, maxWidth / image.width);
       const width = Math.round(image.width * scale);

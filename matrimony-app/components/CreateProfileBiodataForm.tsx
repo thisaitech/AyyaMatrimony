@@ -21,7 +21,7 @@ import { BiodataPropertyField } from '@/components/BiodataPropertyField';
 import { getPropertyDisplayValue } from '@/constants/biodataProperty';
 import { FormOptionsKey, getFormOptions, getOptionLabel } from '@/constants/formOptions';
 import { getLogoUri, images } from '@/constants/images';
-import { Language } from '@/constants/i18n';
+import { Language, t, translations } from '@/constants/i18n';
 import { isChristianRegistration, type RegistrationCommunityId } from '@/constants/registrationCommunities';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -50,8 +50,8 @@ const fieldShadow = Platform.select({
 });
 
 const HOROSCOPE_SIZE = 4;
-const DETAIL_GRID_COUNT = 33;
-const DETAIL_GRID_ROW_SIZES = [17, 16] as const;
+const DETAIL_GRID_COUNT = 34;
+const DETAIL_GRID_ROW_SIZES = [17, 17] as const;
 const BIODATA_PRINT_STYLE_ID = 'biodata-print-style';
 
 const BIODATA_PRINT_CSS = `
@@ -630,6 +630,7 @@ type BiodataState = {
   education: string;
   dateOfBirth: string;
   birthTiming: string;
+  religion: string;
   natchathiram: string;
   rasi: string;
   lagnam: string;
@@ -1237,14 +1238,23 @@ function DasaBalanceFields({
         <Text style={[styles.dasaBalanceTitle, dense && styles.dasaBalanceTitleDense]} numberOfLines={1}>
           {translate('biodataDasaBalanceShort')}
         </Text>
-        <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense]} numberOfLines={1}>
+        <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense, { color: 'red', fontWeight: 'bold', flexShrink: 0 }]} numberOfLines={1}>
           {getOptionLabel('dasaPlanet', resolvedPlanet, language, dasaBalance) || '—'}
+        </Text>
+        <Text style={[styles.dasaReadonlyLabel, dense && styles.dasaReadonlyLabelDense]} numberOfLines={1}>
+          {translate('selectDasaYear')}
         </Text>
         <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense]} numberOfLines={1}>
           {getOptionLabel('dasaYear', resolvedYear, language, dasaYear) || '—'}
         </Text>
+        <Text style={[styles.dasaReadonlyLabel, dense && styles.dasaReadonlyLabelDense]} numberOfLines={1}>
+          {translate('selectDasaMonth')}
+        </Text>
         <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense]} numberOfLines={1}>
           {getOptionLabel('dasaMonth', resolvedMonth, language, dasaMonth) || '—'}
+        </Text>
+        <Text style={[styles.dasaReadonlyLabel, dense && styles.dasaReadonlyLabelDense]} numberOfLines={1}>
+          {translate('selectDasaDay')}
         </Text>
         <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense]} numberOfLines={1}>
           {getOptionLabel('dasaDay', resolvedDay, language, dasaDay) || '—'}
@@ -1254,78 +1264,82 @@ function DasaBalanceFields({
   }
 
   return (
-    <View style={[styles.dasaBalanceRow, dense && styles.dasaBalanceRowDense]}>
-      <Text style={[styles.dasaBalanceTitle, dense && styles.dasaBalanceTitleDense]} numberOfLines={1}>
-        {translate('biodataDasaBalanceShort')}
-      </Text>
-      <View style={[styles.dasaInlineSelect, styles.dasaPlanetSelectWrap, styles.selectFieldGroup]}>
-        <SelectField
-          label={translate('biodataDasaBalance')}
-          value={resolvedPlanet}
-          onValueChange={(value) => onFieldChange('dasaBalance', value)}
-          options={planetOptions}
-          placeholder={translate('selectDasaPlanet')}
-          showLabel={false}
-          compact
-          variant="premium"
-          embedded
-        />
-      </View>
-      <View style={styles.dasaDateField}>
-        <Text style={[styles.dasaDatePrefix, dense && styles.dasaDatePrefixDense]} numberOfLines={1}>
-          {translate('selectDasaYear')}
+    <View style={{ flexDirection: 'column', gap: dense ? 6 : 8, width: '100%' }}>
+      <View style={[styles.dasaBalanceRow, dense && styles.dasaBalanceRowDense]}>
+        <Text style={[styles.dasaBalanceTitle, dense && styles.dasaBalanceTitleDense]} numberOfLines={1}>
+          {translate('biodataDasaBalanceShort')}
         </Text>
-        <View style={[styles.dasaInlineSelect, styles.dasaYearSelectWrap, styles.selectFieldGroup]}>
+        <View style={[styles.dasaInlineSelect, styles.dasaPlanetSelectWrap, styles.selectFieldGroup, { maxWidth: '100%' }]}>
           <SelectField
-            label={translate('biodataYear')}
-            value={resolvedYear}
-            onValueChange={(value) => onFieldChange('dasaYear', value)}
-            options={yearOptions}
-            placeholder="—"
+            label={translate('biodataDasaBalance')}
+            value={resolvedPlanet}
+            onValueChange={(value) => onFieldChange('dasaBalance', value)}
+            options={planetOptions}
+            placeholder={translate('selectDasaPlanet')}
             showLabel={false}
             compact
             variant="premium"
             embedded
-            tight
           />
         </View>
       </View>
-      <View style={styles.dasaDateField}>
-        <Text style={[styles.dasaDatePrefix, dense && styles.dasaDatePrefixDense]} numberOfLines={1}>
-          {translate('selectDasaMonth')}
-        </Text>
-        <View style={[styles.dasaInlineSelect, styles.dasaMonthSelectWrap, styles.selectFieldGroup]}>
-          <SelectField
-            label={translate('biodataMonth')}
-            value={resolvedMonth}
-            onValueChange={(value) => onFieldChange('dasaMonth', value)}
-            options={monthOptions}
-            placeholder="—"
-            showLabel={false}
-            compact
-            variant="premium"
-            embedded
-            tight
-          />
+      <View style={[styles.dasaBalanceRow, dense && styles.dasaBalanceRowDense]}>
+        <View style={styles.dasaDateField}>
+          <Text style={[styles.dasaDatePrefix, dense && styles.dasaDatePrefixDense]} numberOfLines={1}>
+            {translate('selectDasaYear')}
+          </Text>
+          <View style={[styles.dasaInlineSelect, styles.dasaYearSelectWrap, styles.selectFieldGroup]}>
+            <SelectField
+              label={translate('biodataYear')}
+              value={resolvedYear}
+              onValueChange={(value) => onFieldChange('dasaYear', value)}
+              options={yearOptions}
+              placeholder="—"
+              showLabel={false}
+              compact
+              variant="premium"
+              embedded
+              tight
+            />
+          </View>
         </View>
-      </View>
-      <View style={styles.dasaDateField}>
-        <Text style={[styles.dasaDatePrefix, dense && styles.dasaDatePrefixDense]} numberOfLines={1}>
-          {translate('selectDasaDay')}
-        </Text>
-        <View style={[styles.dasaInlineSelect, styles.dasaDaySelectWrap, styles.selectFieldGroup]}>
-          <SelectField
-            label={translate('biodataDay')}
-            value={resolvedDay}
-            onValueChange={(value) => onFieldChange('dasaDay', value)}
-            options={dayOptions}
-            placeholder="—"
-            showLabel={false}
-            compact
-            variant="premium"
-            embedded
-            tight
-          />
+        <View style={styles.dasaDateField}>
+          <Text style={[styles.dasaDatePrefix, dense && styles.dasaDatePrefixDense]} numberOfLines={1}>
+            {translate('selectDasaMonth')}
+          </Text>
+          <View style={[styles.dasaInlineSelect, styles.dasaMonthSelectWrap, styles.selectFieldGroup]}>
+            <SelectField
+              label={translate('biodataMonth')}
+              value={resolvedMonth}
+              onValueChange={(value) => onFieldChange('dasaMonth', value)}
+              options={monthOptions}
+              placeholder="—"
+              showLabel={false}
+              compact
+              variant="premium"
+              embedded
+              tight
+            />
+          </View>
+        </View>
+        <View style={styles.dasaDateField}>
+          <Text style={[styles.dasaDatePrefix, dense && styles.dasaDatePrefixDense]} numberOfLines={1}>
+            {translate('selectDasaDay')}
+          </Text>
+          <View style={[styles.dasaInlineSelect, styles.dasaDaySelectWrap, styles.selectFieldGroup]}>
+            <SelectField
+              label={translate('biodataDay')}
+              value={resolvedDay}
+              onValueChange={(value) => onFieldChange('dasaDay', value)}
+              options={dayOptions}
+              placeholder="—"
+              showLabel={false}
+              compact
+              variant="premium"
+              embedded
+              tight
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -2564,6 +2578,7 @@ function HoroscopeCellPicker({
 function HoroscopeChart({
   cells,
   centerLabel,
+  centerSubtitle,
   editable,
   onCellChange,
   compact,
@@ -2572,6 +2587,7 @@ function HoroscopeChart({
 }: {
   cells: string[][];
   centerLabel: string;
+  centerSubtitle?: string;
   editable: boolean;
   onCellChange: (row: number, col: number, value: string) => void;
   compact?: boolean;
@@ -2627,6 +2643,16 @@ function HoroscopeChart({
                 >
                   {centerLabel}
                 </Text>
+                {centerSubtitle ? (
+                  <Text
+                    style={[styles.chartCenterSubtitle, compact && styles.chartCenterSubtitleCompact]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {centerSubtitle}
+                  </Text>
+                ) : null}
               </View>
               <View style={styles.chartSideStack}>
                 {renderCell(1, 3)}
@@ -2969,6 +2995,7 @@ function ChristianBiodataReviewSheet({
             value={reviewDisplayOption('gender', form.gender, language)}
           />
           <ReviewDataRow label={translate('biodataReviewDob')} value={form.dateOfBirth} />
+          <ReviewDataRow label={translate('religion')} value={reviewDisplayOption('religion', form.religion, language)} />
           <ReviewDataRow label={translate('biodataReviewEducation')} value={degreeLabel} />
           <ReviewDataRow label={translate('biodataReviewOccupation')} value={occupationDisplay} />
           <ReviewDataRow
@@ -3028,20 +3055,14 @@ function ChristianBiodataReviewSheet({
             />
           </View>
         </View>
-        </View>
-
-        <View nativeID="biodata-print-christian-footer" style={christianReviewStyles.footer}>
-          <Text style={christianReviewStyles.feeText}>{translate('biodataChristianRegistrationFee')}</Text>
-        </View>
+      </View>
       </View>
     </View>
   );
 }
 
-function BiodataReviewSheet({
+export function HoroscopeSection({
   form,
-  language,
-  translate,
   rasiChart,
   amsamChart,
   detailGrid,
@@ -3051,12 +3072,215 @@ function BiodataReviewSheet({
   onDetailGridChange,
   editable,
   dense,
-  registrationCommunity = 'hindu',
-  religion = '',
+  translate,
+  language,
+  hideBasicInputs,
 }: {
   form: BiodataState;
-  language: Language;
-  translate: (key: string) => string;
+  rasiChart: string[][];
+  amsamChart: string[][];
+  detailGrid: string[];
+  onFieldChange: (field: keyof BiodataState, value: string) => void;
+  onRasiChartChange: (updater: (current: string[][]) => string[][]) => void;
+  onAmsamChartChange: (updater: (current: string[][]) => string[][]) => void;
+  onDetailGridChange: (updater: (current: string[]) => string[]) => void;
+  editable: boolean;
+  dense?: boolean;
+  translate: any;
+  language: any;
+  hideBasicInputs?: boolean;
+}) {
+  return (
+    <>
+      {!hideBasicInputs && (
+        <View style={[styles.chartsContainer, { paddingHorizontal: 16, marginBottom: 16, marginTop: 16 }]}>
+        <View style={[styles.fieldPairRow, { marginTop: 16 }]}>
+          <View style={styles.fieldPairItem}>
+            <BiodataDateRow
+              label={translate('biodataFieldDateOfBirth')}
+              value={form.dateOfBirth}
+              onValueChange={(text) => onFieldChange('dateOfBirth', text)}
+              editable={editable}
+              dense={dense}
+              placeholder={translate('biodataDatePlaceholder')}
+              required
+            />
+          </View>
+          <View style={styles.fieldPairItem}>
+            <BiodataTimeRow
+              label={translate('biodataFieldBirthTiming')}
+              value={form.birthTiming}
+              onValueChange={(text) => onFieldChange('birthTiming', text)}
+              editable={editable}
+              dense={dense}
+              placeholder={translate('biodataTimePlaceholder')}
+            />
+          </View>
+        </View>
+        <View style={styles.fieldPairRow}>
+          <View style={styles.fieldPairItem}>
+            <BiodataSelectRow
+              label={translate('biodataFieldNatchathiramShort')}
+              value={form.natchathiram}
+              onValueChange={(text) => onFieldChange('natchathiram', text)}
+              optionsKey="nakshatra"
+              editable={editable}
+              dense={dense}
+              placeholder={translate('selectNatchathiram')}
+              narrow
+            />
+          </View>
+          <View style={styles.fieldPairItem}>
+            <BiodataSelectRow
+              label={translate('biodataFieldRasi')}
+              value={form.rasi}
+              onValueChange={(text) => onFieldChange('rasi', text)}
+              optionsKey="rasi"
+              editable={editable}
+              dense={dense}
+              placeholder={translate('selectRasi')}
+              narrow
+            />
+          </View>
+        </View>
+        <View style={[styles.fieldPairRow, { marginTop: 12 }]}>
+          <View style={styles.fieldPairItem}>
+            <BiodataSelectRow
+              label={translate('biodataFieldLaknam')}
+              value={form.lagnam}
+              onValueChange={(text) => onFieldChange('lagnam', text)}
+              optionsKey="rasi"
+              editable={editable}
+              dense={dense}
+              placeholder={translate('selectLaknam')}
+              narrow
+            />
+          </View>
+          <View style={styles.fieldPairItem} />
+        </View>
+        </View>
+      )}
+      <View style={[styles.chartsRow, dense && styles.chartsRowDense]}>
+        <HoroscopeChart
+          centerLabel={translate('biodataChartRasi')}
+          centerSubtitle={formatLetterheadPhone(translate('biodataOrgPhone2'))}
+          cells={rasiChart}
+          editable={editable}
+          compact={dense}
+          dense
+          printNativeID="biodata-print-chart-rasi"
+          onCellChange={(row, col, value) => {
+            onRasiChartChange((current) =>
+              current.map((cells, rowIndex) =>
+                cells.map((cell, colIndex) => (rowIndex === row && colIndex === col ? value : cell)),
+              ),
+            );
+          }}
+        />
+        <HoroscopeChart
+          centerLabel={translate('biodataChartAmsam')}
+          centerSubtitle={formatLetterheadPhone(translate('biodataOrgPhone1'))}
+          cells={amsamChart}
+          editable={editable}
+          compact={dense}
+          dense
+          printNativeID="biodata-print-chart-amsam"
+          onCellChange={(row, col, value) => {
+            onAmsamChartChange((current) =>
+              current.map((cells, rowIndex) =>
+                cells.map((cell, colIndex) => (rowIndex === row && colIndex === col ? value : cell)),
+              ),
+            );
+          }}
+        />
+      </View>
+
+      <View style={[styles.dasaBalanceContainer, dense && styles.dasaBalanceContainerDense]}>
+        <DasaBalanceFields
+          dasaBalance={form.dasaBalance}
+          dasaYear={form.dasaYear}
+          dasaMonth={form.dasaMonth}
+          dasaDay={form.dasaDay}
+          onFieldChange={onFieldChange}
+          editable={editable}
+          dense={dense}
+        />
+      </View>
+
+      <DetailGrid cells={detailGrid} onCellChange={(index, value) => {
+        onDetailGridChange((prev) => {
+          const next = [...prev];
+          next[index] = value;
+          return next;
+        });
+      }} editable={editable} dense={dense} />
+    </>
+  );
+}
+
+export function HoroscopeStepView({
+  form,
+  rasiChart,
+  amsamChart,
+  detailGrid,
+  onFieldChange,
+  onRasiChartChange,
+  onAmsamChartChange,
+  onDetailGridChange,
+  editable,
+  dense,
+}: {
+  form: BiodataState;
+  rasiChart: string[][];
+  amsamChart: string[][];
+  detailGrid: string[];
+  onFieldChange: (field: keyof BiodataState, value: string) => void;
+  onRasiChartChange: (updater: (current: string[][]) => string[][]) => void;
+  onAmsamChartChange: (updater: (current: string[][]) => string[][]) => void;
+  onDetailGridChange: (updater: (current: string[]) => string[]) => void;
+  editable: boolean;
+  dense?: boolean;
+}) {
+  const { language } = useLanguage();
+  const translate = useCallback((key: keyof typeof translations.en) => t(language, key), [language]);
+
+  return (
+    <View style={styles.horoscopeStepContainer}>
+      <Text style={styles.horoscopeStepTitle}>{translate('biodataReviewHoroscope')}</Text>
+      <HoroscopeSection
+        form={form}
+        rasiChart={rasiChart}
+        amsamChart={amsamChart}
+        detailGrid={detailGrid}
+        onFieldChange={onFieldChange}
+        onRasiChartChange={onRasiChartChange}
+        onAmsamChartChange={onAmsamChartChange}
+        onDetailGridChange={onDetailGridChange}
+        editable={editable}
+        dense={dense}
+        translate={translate}
+        language={language}
+      />
+    </View>
+  );
+}
+
+function BiodataReviewSheet({
+  form,
+  rasiChart,
+  amsamChart,
+  detailGrid,
+  onFieldChange,
+  onRasiChartChange,
+  onAmsamChartChange,
+  onDetailGridChange,
+  editable,
+  dense,
+  registrationCommunity,
+  religion,
+  isInitiallyChristian,
+}: {
+  form: BiodataState;
   rasiChart: string[][];
   amsamChart: string[][];
   detailGrid: string[];
@@ -3068,7 +3292,10 @@ function BiodataReviewSheet({
   dense?: boolean;
   registrationCommunity?: string;
   religion?: string;
+  isInitiallyChristian?: boolean;
 }) {
+  const { translate, language } = useLanguage();
+
   if (isChristianRegistration(registrationCommunity, religion)) {
     return (
       <ChristianBiodataReviewSheet
@@ -3111,149 +3338,94 @@ function BiodataReviewSheet({
     { label: translate('biodataRelationYoungerSister'), value: reviewDisplayOption('siblingCount', form.unmarriedYoungerSister, language) },
   ];
 
+  const nameAndEducation = degreeLabel ? `${nameDisplay} ${degreeLabel}` : nameDisplay;
+
   return (
     <View nativeID="biodata-print-root" style={reviewStyles.sheet}>
       <BiodataLetterheadHeader registrationNumber={form.registrationNumber} translate={translate} />
       <View nativeID="biodata-print-body-row" style={reviewStyles.bodyRow}>
         <View nativeID="biodata-print-left-pane" style={reviewStyles.leftPane}>
-          <ReviewDataRow label={translate('biodataReviewName')} value={nameDisplay} />
-          {degreeLabel ? (
-            <ReviewDataRow label={translate('biodataReviewEducation')} value={degreeLabel} />
-          ) : null}
-          <ReviewDataRow
-            label={translate('gender')}
-            value={reviewDisplayOption('gender', form.gender, language)}
-          />
-          <ReviewDataRow label={translate('biodataReviewDob')} value={form.dateOfBirth} />
-          <ReviewDataRow label={translate('biodataReviewBirthTiming')} value={form.birthTiming} />
-          <ReviewDataRow
-            label={translate('biodataReviewStar')}
-            value={reviewDisplayOption('nakshatra', form.natchathiram, language)}
-          />
-          <ReviewDataRow
-            label={translate('biodataReviewRasi')}
-            value={reviewDisplayOption('rasi', form.rasi, language)}
-          />
-          <ReviewDataRow
-            label={translate('biodataReviewLagnam')}
-            value={reviewDisplayOption('rasi', form.lagnam, language)}
-          />
-          <ReviewDataRow label={translate('biodataReviewOccupation')} value={occupationDisplay} />
-          <ReviewDataRow
-            label={translate('biodataReviewIncome')}
-            value={reviewDisplayOption('monthlyIncome', form.monthlyIncome, language)}
-          />
-          <ReviewDataRow label={translate('biodataReviewProperty')} value={propertyLine} />
-          <ReviewDataRow label={translate('biodataReviewFather')} value={form.fatherName} />
-          <ReviewDataRow label={translate('biodataReviewMother')} value={form.motherName} />
-          <ReviewDataRow label={translate('biodataReviewResidence')} value={form.irupidam} />
-          <ReviewDataRow label={translate('biodataReviewNativePlace')} value={form.nativePlace} />
-        </View>
+            <ReviewDataRow label={translate('biodataReviewName')} value={nameAndEducation} />
+            <ReviewDataRow
+              label={translate('gender')}
+              value={reviewDisplayOption('gender', form.gender, language)}
+            />
+            <ReviewDataRow
+              label={translate('maritalStatus')}
+              value={reviewDisplayOption('maritalStatusBiodata', form.maritalStatus, language)}
+            />
+            <ReviewDataRow label={translate('biodataReviewDob')} value={form.dateOfBirth} />
+            <ReviewDataRow
+              label={translate('religion')}
+              value={reviewDisplayOption('religion', form.religion, language)}
+            />
+            <ReviewDataRow
+              label={translate('biodataReviewStar')}
+              value={reviewDisplayOption('nakshatra', form.natchathiram, language)}
+            />
+            <ReviewInlinePair
+              leftLabel={translate('biodataReviewRasi')}
+              leftValue={reviewDisplayOption('rasi', form.rasi, language)}
+              rightLabel={translate('biodataReviewLagnam')}
+              rightValue={reviewDisplayOption('rasi', form.lagnam, language)}
+            />
+            <ReviewDataRow label={translate('biodataReviewOccupation')} value={occupationDisplay} />
+            <ReviewDataRow
+              label={translate('biodataReviewIncome')}
+              value={reviewDisplayOption('monthlyIncome', form.monthlyIncome, language)}
+            />
+            <ReviewDataRow label={translate('biodataReviewProperty')} value={propertyLine} />
+            <ReviewDataRow label={translate('biodataReviewFather')} value={form.fatherName} />
+            <ReviewDataRow label={translate('biodataReviewMother')} value={form.motherName} />
+            <ReviewDataRow label={translate('biodataReviewResidence')} value={form.irupidam} />
+            <ReviewDataRow label={translate('biodataReviewNativePlace')} value={form.nativePlace.trim()} />
+          </View>
 
-        <View nativeID="biodata-print-right-pane" style={reviewStyles.rightPane}>
-          <View style={reviewStyles.sidebarPairRow}>
-            <View style={reviewStyles.sidebarPairItem}>
-              <ReviewSidebarBox
-                label={translate('biodataReviewTotalMembers')}
-                value={reviewDisplayOption('siblingCount', form.totalFamilyMembers, language)}
-              />
-            </View>
-            <View style={reviewStyles.sidebarPairItem}>
-              <ReviewSidebarBox
-                label={translate('biodataReviewTotalSiblings')}
-                value={reviewDisplayOption('siblingCount', form.numSiblings, language)}
-              />
-            </View>
-          </View>
-          <ReviewSidebarBox
-            label={translate('biodataReviewBirthOrder')}
-            value={reviewDisplayOption('birthOrder', form.birthOrder, language)}
-          />
-          <ReviewSiblingBox wide title={translate('biodataReviewUnmarried')} rows={unmarriedRows} />
-          <ReviewSiblingBox wide title={translate('biodataReviewMarried')} rows={marriedRows} />
-          <ReviewSidebarBox
-            label={translate('biodataReviewComplexion')}
-            value={reviewDisplayOption('complexionBiodata', form.complexion, language)}
-          />
-          <View style={reviewStyles.sidebarPairRow}>
-            <View style={reviewStyles.sidebarPairItem}>
-              <ReviewSidebarBox
-                label={translate('biodataReviewHeight')}
-                value={reviewDisplayOption('height', form.height, language)}
-              />
-            </View>
-            <View style={reviewStyles.sidebarPairItem}>
-              <ReviewSidebarBox
-                label={translate('biodataReviewSeervarisai')}
-                value={reviewDisplayOption('seervarisai', form.seervarisai, language)}
-              />
-            </View>
+          <View nativeID="biodata-print-right-pane" style={reviewStyles.rightPane}>
+            <ReviewSidebarBox
+              label={translate('biodataReviewTotalMembers')}
+              value={reviewDisplayOption('siblingCount', form.totalFamilyMembers, language)}
+            />
+            <ReviewSidebarBox
+              label={translate('biodataReviewBirthOrder')}
+              value={reviewDisplayOption('birthOrder', form.birthOrder, language)}
+            />
+            <ReviewSiblingBox wide title={translate('biodataReviewMarried')} rows={marriedRows} />
+            <ReviewSiblingBox wide title={translate('biodataReviewUnmarried')} rows={unmarriedRows} />
+            <ReviewSidebarBox
+              label={translate('biodataReviewComplexion')}
+              value={reviewDisplayOption('complexionBiodata', form.complexion, language)}
+            />
+            <ReviewSidebarBox
+              label={translate('biodataReviewHeight')}
+              value={reviewDisplayOption('height', form.height, language)}
+            />
+            <ReviewSidebarBox
+              label={translate('biodataReviewSeervarisai')}
+              value={reviewDisplayOption('seervarisai', form.seervarisai, language)}
+            />
           </View>
         </View>
-      </View>
 
       <View
         nativeID="biodata-print-horoscope-section"
         style={[styles.horoscopeSection, dense && styles.horoscopeSectionDense, reviewStyles.horoscopeSection]}
       >
-        <View nativeID="biodata-print-charts" style={[styles.chartsRow, dense && styles.chartsRowDense]}>
-          <HoroscopeChart
-            centerLabel={translate('biodataChartRasi')}
-            cells={rasiChart}
-            editable={editable}
-            compact={dense}
-            dense
-            printNativeID="biodata-print-chart-rasi"
-            onCellChange={(row, col, value) => {
-              onRasiChartChange((current) =>
-                current.map((cells, rowIndex) =>
-                  cells.map((cell, colIndex) => (rowIndex === row && colIndex === col ? value : cell)),
-                ),
-              );
-            }}
-          />
-          <HoroscopeChart
-            centerLabel={translate('biodataChartAmsam')}
-            cells={amsamChart}
-            editable={editable}
-            compact={dense}
-            dense
-            printNativeID="biodata-print-chart-amsam"
-            onCellChange={(row, col, value) => {
-              onAmsamChartChange((current) =>
-                current.map((cells, rowIndex) =>
-                  cells.map((cell, colIndex) => (rowIndex === row && colIndex === col ? value : cell)),
-                ),
-              );
-            }}
-          />
-        </View>
-
-        <View
-          nativeID="biodata-print-horoscope-footer"
-          style={[styles.horoscopeFooterCard, dense && styles.horoscopeFooterCardDense]}
-        >
-          <DasaBalanceFields
-            dasaBalance={form.dasaBalance}
-            dasaYear={form.dasaYear}
-            dasaMonth={form.dasaMonth}
-            dasaDay={form.dasaDay}
-            onFieldChange={onFieldChange}
-            editable={editable}
-            dense={dense}
-          />
-
-          <DetailGrid
-            cells={detailGrid}
-            editable={editable}
-            dense={dense}
-            onCellChange={(index, value) => {
-              onDetailGridChange((current) =>
-                current.map((cell, cellIndex) => (cellIndex === index ? value : cell)),
-              );
-            }}
-          />
-        </View>
+        <HoroscopeSection
+          form={form}
+          rasiChart={rasiChart}
+          amsamChart={amsamChart}
+          detailGrid={detailGrid}
+          onFieldChange={onFieldChange}
+          onRasiChartChange={onRasiChartChange}
+          onAmsamChartChange={onAmsamChartChange}
+          onDetailGridChange={onDetailGridChange}
+          editable={false}
+          dense={dense}
+          translate={translate}
+          language={language}
+          hideBasicInputs={true}
+        />
       </View>
     </View>
   );
@@ -3381,15 +3553,15 @@ const reviewStyles = StyleSheet.create({
     borderBottomColor: colors.primary,
   },
   leftPane: {
-    flex: 1.55,
+    flex: 4,
     minWidth: 200,
   },
   rightPane: {
     flex: 1,
-    minWidth: 150,
-    maxWidth: '42%',
-    padding: 6,
-    gap: 4,
+    minWidth: 100,
+    maxWidth: '25%',
+    padding: 2,
+    gap: 2,
     backgroundColor: '#ffffff',
   },
   dataRow: {
@@ -3487,24 +3659,24 @@ const reviewStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(87, 0, 0, 0.12)',
     borderRadius: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
     backgroundColor: '#FFFFFF',
-    minHeight: 34,
+    minHeight: 24,
     justifyContent: 'center',
     flexShrink: 0,
   },
   sidebarBoxLabel: {
     color: colors.primary,
     fontFamily: fonts.interSemi,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 8,
+    lineHeight: 11,
   },
   sidebarBoxValue: {
     color: colors.onSurface,
     fontFamily: fonts.interMedium,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 8,
+    lineHeight: 11,
     marginTop: 1,
   },
   sidebarPairRow: {
@@ -3524,53 +3696,73 @@ const reviewStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     gap: 2,
   },
+  horoscopeSection: {
+    padding: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
   siblingBoxWide: {
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    gap: 2,
     flex: 1,
-    minHeight: 88,
+    minHeight: 50,
     justifyContent: 'center',
   },
   siblingBoxTitle: {
     color: colors.primary,
     fontFamily: fonts.interSemi,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 8,
+    lineHeight: 11,
+    textAlign: 'center',
     marginBottom: 2,
   },
   siblingBoxTitleWide: {
-    fontSize: 11,
-    lineHeight: 15,
-    marginBottom: 4,
+    fontSize: 8,
+    lineHeight: 11,
+    marginBottom: 2,
   },
   siblingRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    minHeight: 18,
-    gap: 0,
+    justifyContent: 'space-between',
+    paddingHorizontal: 0,
   },
   siblingRowWide: {
     alignItems: 'flex-start',
-    minHeight: 22,
+    minHeight: 16,
     gap: 0,
   },
   siblingLabel: {
     color: colors.primary,
     fontFamily: fonts.inter,
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 8,
+    lineHeight: 11,
+    textAlign: 'left',
+  },
+  siblingBoxLabel: {
+    color: colors.primary,
+    fontFamily: fonts.interMedium,
+    fontSize: 8,
+    lineHeight: 11,
+    textAlign: 'left',
+  },
+  siblingBoxValue: {
+    color: colors.onSurface,
+    fontFamily: fonts.interSemi,
+    fontSize: 8,
+    lineHeight: 11,
     textAlign: 'left',
   },
   siblingLabelWide: {
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 8,
+    lineHeight: 11,
     fontFamily: fonts.interMedium,
   },
   siblingColon: {
     color: colors.primary,
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 8,
+    lineHeight: 11,
     flexShrink: 0,
     marginLeft: 2,
   },
@@ -3584,18 +3776,14 @@ const reviewStyles = StyleSheet.create({
   siblingValue: {
     color: colors.onSurface,
     fontFamily: fonts.interMedium,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 8,
+    lineHeight: 11,
     textAlign: 'left',
   },
   siblingValueWide: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 8,
+    lineHeight: 11,
     textAlign: 'left',
-  },
-  horoscopeSection: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
   },
 });
 
@@ -3723,14 +3911,15 @@ export function CreateProfileBiodataForm({
   const [rasiChart, setRasiChart] = useState(emptyHoroscope);
   const [amsamChart, setAmsamChart] = useState(emptyHoroscope);
   const [detailGrid, setDetailGrid] = useState<string[]>(createDefaultDetailGrid);
-  const [stepState, setStep] = useState<1 | 2 | 3>(1);
-  const step = viewOnly ? 3 : stepState;
+  const [stepState, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const step = viewOnly ? 4 : stepState;
   const [form, setForm] = useState<BiodataState>({
     fullName: '',
     gender: '',
     education: '',
     dateOfBirth: '',
     birthTiming: '',
+    religion: '',
     natchathiram: '',
     rasi: '',
     lagnam: '',
@@ -3794,6 +3983,7 @@ export function CreateProfileBiodataForm({
       education: readValue('education'),
       dateOfBirth: readValue('dateOfBirth'),
       birthTiming: readValue('birthTiming'),
+      religion: readValue('religion'),
       natchathiram: readValue('natchathiram'),
       rasi: readValue('rasi'),
       lagnam: readValue('lagnam'),
@@ -3844,6 +4034,7 @@ export function CreateProfileBiodataForm({
     setValue('education', form.education.trim());
     setValue('dateOfBirth', form.dateOfBirth.trim());
     setValue('birthTiming', form.birthTiming.trim());
+    setValue('religion', form.religion);
     setValue('natchathiram', form.natchathiram.trim());
     setValue('rasi', form.rasi.trim());
     setValue('lagnam', form.lagnam.trim());
@@ -3971,22 +4162,29 @@ export function CreateProfileBiodataForm({
     onStepChange?.(step);
   }, [onStepChange, step]);
 
+  const registrationCommunity = profileValues?.registrationCommunity ?? getValue('registrationCommunity');
+  const contextReligion = profileValues?.religion ?? getValue('religion');
+  const currentReligion = form.religion || contextReligion;
+  const isInitiallyChristian = isChristianRegistration(registrationCommunity, '');
+  const isCurrentChristian = isChristianRegistration(registrationCommunity, currentReligion);
+  
+  const totalSteps = isInitiallyChristian && !isCurrentChristian ? 4 : 3;
+
   const goToNextStep = useCallback(() => {
     if (step === 1 && !validateOccupationFields()) {
       return;
     }
-    setStep((current) => (current < 3 ? ((current + 1) as 1 | 2 | 3) : current));
-  }, [step, validateOccupationFields]);
+    setStep((current) => (current < totalSteps ? ((current + 1) as 1 | 2 | 3 | 4) : current));
+  }, [step, validateOccupationFields, totalSteps]);
 
   const goToPreviousStep = useCallback(() => {
-    setStep((current) => (current > 1 ? ((current - 1) as 1 | 2 | 3) : current));
+    setStep((current) => (current > 1 ? ((current - 1) as 1 | 2 | 3 | 4) : current));
   }, []);
 
-  const isReviewStep = step === 3;
-  const registrationCommunity = profileValues?.registrationCommunity ?? getValue('registrationCommunity');
-  const religion = profileValues?.religion ?? getValue('religion');
-  const isChristianReview = isReviewStep && isChristianRegistration(registrationCommunity, religion);
-  const showHoroscopeIdentityFields = !isChristianRegistration(registrationCommunity, religion);
+  const isReviewStep = step === totalSteps;
+  const isHoroscopeStep = step === 3 && totalSteps === 4;
+  const isChristianReview = isReviewStep && isCurrentChristian;
+  const showHoroscopeIdentityFields = !isCurrentChristian;
   const reviewEditable = viewOnly ? false : editable;
 
   const leftColumn = (
@@ -4040,17 +4238,29 @@ export function CreateProfileBiodataForm({
                   />
                 </View>
                 <View style={styles.fieldPairItem}>
-                  <BiodataTimeRow
-                    label={translate('biodataFieldBirthTiming')}
-                    value={form.birthTiming}
-                    onValueChange={(text) => updateField('birthTiming', text)}
-                    editable={editable}
-                    dense={dense}
-                    placeholder={translate('biodataTimePlaceholder')}
-                  />
+                  {isInitiallyChristian ? (
+                    <BiodataSelectRow
+                      label={translate('religion')}
+                      value={form.religion}
+                      onValueChange={(text) => updateField('religion', text)}
+                      optionsKey="religion"
+                      editable={editable}
+                      dense={dense}
+                      placeholder={translate('selectReligion')}
+                    />
+                  ) : (
+                    <BiodataTimeRow
+                      label={translate('biodataFieldBirthTiming')}
+                      value={form.birthTiming}
+                      onValueChange={(text) => updateField('birthTiming', text)}
+                      editable={editable}
+                      dense={dense}
+                      placeholder={translate('biodataTimePlaceholder')}
+                    />
+                  )}
                 </View>
               </View>
-              {showHoroscopeIdentityFields ? (
+              {showHoroscopeIdentityFields && !isInitiallyChristian ? (
               <View style={styles.fieldPairRow}>
                 <View style={styles.fieldPairItem}>
                   <BiodataSelectRow
@@ -4322,18 +4532,30 @@ export function CreateProfileBiodataForm({
         styles.sheetCard,
         dense && styles.sheetCardDense,
         isChristianReview && styles.sheetCardFullScreen,
-        step === 3 && styles.sheetCardReviewStep,
+        isReviewStep && styles.sheetCardReviewStep,
       ]}
     >
       {step === 1 ? (
         <View style={[styles.leftColumn, styles.leftColumnFull]}>{leftColumn}</View>
       ) : null}
       {step === 2 ? rightColumn : null}
-      {step === 3 ? (
+      {isHoroscopeStep ? (
+        <HoroscopeStepView
+          form={form}
+          rasiChart={rasiChart}
+          amsamChart={amsamChart}
+          detailGrid={detailGrid}
+          onFieldChange={updateField}
+          onRasiChartChange={setRasiChart}
+          onAmsamChartChange={setAmsamChart}
+          onDetailGridChange={setDetailGrid}
+          editable={editable}
+          dense={dense}
+        />
+      ) : null}
+      {isReviewStep ? (
         <BiodataReviewSheet
           form={form}
-          language={language}
-          translate={translate}
           rasiChart={rasiChart}
           amsamChart={amsamChart}
           detailGrid={detailGrid}
@@ -4344,7 +4566,8 @@ export function CreateProfileBiodataForm({
           editable={reviewEditable}
           dense={dense}
           registrationCommunity={registrationCommunity}
-          religion={religion}
+          religion={currentReligion}
+          isInitiallyChristian={isInitiallyChristian}
         />
       ) : null}
     </View>
@@ -4424,7 +4647,7 @@ export function CreateProfileBiodataForm({
             </Text>
           </Pressable>
         ) : null}
-        {step < 3 ? (
+        {step < totalSteps ? (
           <Pressable
             style={({ pressed }) => [
               styles.actionButtonPrimary,
@@ -5227,6 +5450,51 @@ const styles = StyleSheet.create({
     fontSize: 9,
     paddingHorizontal: 2,
   },
+  chartsContainer: {
+    width: '100%',
+    paddingVertical: spacing.sm,
+    backgroundColor: '#FFF5F5',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(122, 74, 68, 0.1)',
+  },
+
+  horoscopeStepContainer: {
+    padding: spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(122, 74, 68, 0.1)',
+    marginBottom: spacing.lg,
+  },
+  horoscopeStepTitle: {
+    color: colors.primary,
+    fontFamily: fonts.playfairSemi,
+    fontSize: 20,
+    lineHeight: 24,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  chartsContainerDense: {
+    paddingVertical: spacing.xs,
+  },
+  chartSectionTitle: {
+    color: colors.primary,
+    fontFamily: fonts.playfairSemi,
+    fontSize: 16,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  chartSectionSubtitle: {
+    color: colors.primary,
+    fontFamily: fonts.inter,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+    opacity: 0.8,
+    marginBottom: spacing.sm,
+  },
   chartsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -5293,6 +5561,14 @@ const styles = StyleSheet.create({
   dasaBalanceRowDense: {
     gap: 4,
   },
+  dasaBalanceContainer: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  dasaBalanceContainerDense: {
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
   dasaBalanceTitle: {
     color: colors.onSurface,
     fontSize: 11,
@@ -5307,10 +5583,10 @@ const styles = StyleSheet.create({
     maxWidth: 36,
   },
   dasaDateField: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    flexShrink: 0,
   },
   dasaDatePrefix: {
     color: colors.onSurface,
@@ -5337,26 +5613,37 @@ const styles = StyleSheet.create({
     maxWidth: 110,
   },
   dasaYearSelectWrap: {
-    width: 60,
+    flex: 1,
     minWidth: 60,
   },
   dasaMonthSelectWrap: {
-    width: 48,
+    flex: 1,
     minWidth: 48,
   },
   dasaDaySelectWrap: {
-    width: 48,
+    flex: 1,
     minWidth: 48,
   },
   dasaReadonlyValue: {
     color: colors.onSurface,
     fontSize: 12,
     fontFamily: fonts.inter,
-    minWidth: 40,
+    minWidth: 0,
+    flexShrink: 1,
     textAlign: 'center',
   },
   dasaReadonlyValueDense: {
     fontSize: 11,
+  },
+  dasaReadonlyLabel: {
+    color: colors.onSurface,
+    fontSize: 10,
+    fontFamily: fonts.inter,
+    opacity: 0.6,
+    flexShrink: 1,
+  },
+  dasaReadonlyLabelDense: {
+    fontSize: 9,
   },
   chartBox: {
     flex: 1,
@@ -5590,8 +5877,18 @@ const styles = StyleSheet.create({
     fontFamily: fonts.playfairSemi,
     textAlign: 'center',
   },
+  chartCenterSubtitle: {
+    fontFamily: fonts.interSemi,
+    fontSize: 13,
+    color: HOROSCOPE_RED,
+    textAlign: 'center',
+    marginTop: 4,
+  },
   chartCenterLabelCompact: {
     fontSize: 12,
+  },
+  chartCenterSubtitleCompact: {
+    fontSize: 11,
   },
   dasaRow: {
     flexDirection: 'row',

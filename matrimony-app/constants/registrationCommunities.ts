@@ -13,6 +13,13 @@ export const REGISTRATION_COMMUNITIES: RegistrationCommunityOption[] = [
 ];
 
 export function isChristianRegistration(community: string, religion = ''): boolean {
+  if (religion === 'hindu') {
+    return false;
+  }
+  if (religion === 'christian') {
+    return true;
+  }
+
   if (community === 'rc-christian' || community === 'csi-christian') {
     return true;
   }
