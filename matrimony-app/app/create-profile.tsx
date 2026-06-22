@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, Image, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, Redirect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CreateProfileBiodataForm, RegistrationNumberBar } from '@/components/CreateProfileBiodataForm';
@@ -15,6 +16,7 @@ import { hasCompletedProfile } from '@/constants/profileCompletion';
 import { useLanguage } from '@/context/LanguageContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useSubscription } from '@/context/SubscriptionContext';
+import { useLogout } from '@/hooks/useLogout';
 
 export default function CreateProfileScreen() {
   const router = useRouter();
@@ -25,17 +27,19 @@ export default function CreateProfileScreen() {
   const { translate } = useLanguage();
   const { values, isReady: profileReady, setValue } = useProfileForm();
   const { isReady: subscriptionReady, isLoggedIn, chooseUnpaidAccess } = useSubscription();
+  const logout = useLogout();
   const communityApplied = useRef(false);
   const isSaving = useRef(false);
 
   useEffect(() => {
     if (communityApplied.current) return;
-    if (typeof community !== 'string' || !community.trim()) return;
 
     communityApplied.current = true;
-    setValue('registrationCommunity', community);
+    if (typeof community === 'string' && community.trim()) {
+      setValue('registrationCommunity', community.trim());
+    }
     if (typeof religion === 'string' && religion.trim()) {
-      setValue('religion', religion);
+      setValue('religion', religion.trim());
     }
   }, [community, religion, setValue]);
 
@@ -73,6 +77,10 @@ export default function CreateProfileScreen() {
     })();
   }, [chooseUnpaidAccess, router, values]);
 
+  const handleBackToLogin = useCallback(() => {
+    void logout();
+  }, [logout]);
+
   if (!profileReady || !subscriptionReady) {
     return (
       <View style={styles.loading}>
@@ -99,6 +107,15 @@ export default function CreateProfileScreen() {
           style={styles.pageHeader}
         >
           <View style={styles.pageHeaderRow}>
+            <Pressable
+              onPress={handleBackToLogin}
+              hitSlop={10}
+              style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={translate('back')}
+            >
+              <MaterialIcons name="arrow-back" size={20} color={colors.primary} />
+            </Pressable>
             <View style={styles.brandBlock}>
               <View style={styles.brandLogoWrap}>
                 <Image source={images.logo} style={styles.brandLogo} resizeMode="contain" />
@@ -160,6 +177,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(87, 0, 0, 0.1)',
+    flexShrink: 0,
+  },
+  backButtonPressed: {
+    opacity: 0.8,
   },
   brandBlock: {
     flex: 1,

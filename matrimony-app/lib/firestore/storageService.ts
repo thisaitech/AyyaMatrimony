@@ -4,6 +4,23 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { getFirebaseStorage } from '@/lib/firebase';
 import { isRemotePhotoUri } from '@/constants/profilePhotos';
 
+const UPLOAD_TIMEOUT_MS = 20000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 async function uriToBlob(uri: string): Promise<Blob> {
   if (!uri.trim()) {
     return new Blob();
@@ -65,7 +82,11 @@ export async function uploadProfilePhoto(
     throw new Error('Selected photo is empty or unreadable.');
   }
 
-  await uploadBytes(objectRef, blob, { contentType: 'image/jpeg' });
+  await withTimeout(
+    uploadBytes(objectRef, blob, { contentType: 'image/jpeg' }),
+    UPLOAD_TIMEOUT_MS,
+    'Photo upload timed out. Please try again.',
+  );
   return getDownloadURL(objectRef);
 }
 

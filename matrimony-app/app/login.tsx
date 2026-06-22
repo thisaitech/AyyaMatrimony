@@ -1,5 +1,5 @@
-import { Redirect } from 'expo-router';
+import { LoginLandingScreen } from '@/components/LoginLandingScreen';
 
 export default function LoginScreen() {
-  return <Redirect href="/" />;
+  return <LoginLandingScreen />;
 }

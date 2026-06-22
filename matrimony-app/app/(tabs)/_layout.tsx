@@ -47,7 +47,7 @@ export default function TabLayout() {
       return;
     }
     sentToRegistration.current = true;
-    router.replace('/select-community' as Href);
+    router.replace('/create-profile' as Href);
   }, [isLoggedIn, isReady, profileComplete, profileReady, router]);
 
   useEffect(() => {

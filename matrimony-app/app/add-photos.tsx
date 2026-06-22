@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import {
   parseProfilePhotos,
   PHOTO_SKIP_KEY,
   PROFILE_PHOTOS_KEY,
-  serializePersistedProfilePhotos,
+  serializeProfilePhotos,
   serializeRemotePhotoUrls,
 } from '@/constants/profilePhotos';
 import { colors, spacing, typography } from '@/constants/theme';
@@ -53,10 +53,10 @@ export default function AddPhotosScreen() {
       setSkipped(false);
       setUploadError('');
       setValue(PHOTO_SKIP_KEY, 'false');
+      setValue(PROFILE_PHOTOS_KEY, serializeProfilePhotos(nextPhotos));
 
       const phone = getValue(CONTACT_PHONE_KEY).replace(/\D/g, '');
       if (!phone) {
-        setUploadError(translate('photoUploadNeedsPhone'));
         return;
       }
 
@@ -73,7 +73,7 @@ export default function AddPhotosScreen() {
 
           const mergedPhotos = mergeUploadedPhotos(nextPhotos, uploaded);
           const remoteUrls = serializeRemotePhotoUrls(mergedPhotos);
-          const mergedSerialized = serializePersistedProfilePhotos(mergedPhotos);
+          const mergedSerialized = serializeProfilePhotos(mergedPhotos);
 
           setPhotos(mergedPhotos);
           setValue(PROFILE_PHOTOS_KEY, mergedSerialized);
@@ -102,22 +102,11 @@ export default function AddPhotosScreen() {
               uploadPhotos: false,
             }).catch(() => undefined);
           }
-        } catch (error) {
+        } catch {
           if (uploadVersionRef.current !== uploadVersion) {
             return;
           }
-
-          const message =
-            error instanceof Error && error.message.trim()
-              ? error.message
-              : translate('photoUploadFailed');
-          setUploadError(message);
-
-          if (Platform.OS === 'web') {
-            window.alert(message);
-          } else {
-            Alert.alert(translate('addPhotos'), message);
-          }
+          // Keep the selected local photos; cloud upload retries later.
         } finally {
           if (uploadVersionRef.current === uploadVersion) {
             setUploading(false);
@@ -125,7 +114,7 @@ export default function AddPhotosScreen() {
         }
       })();
     },
-    [getValue, setValue, translate],
+    [getValue, setValue],
   );
 
   return (

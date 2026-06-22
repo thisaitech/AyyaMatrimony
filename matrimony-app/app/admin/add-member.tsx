@@ -66,7 +66,7 @@ export default function AdminAddMemberScreen() {
       </View>
 
       <View style={styles.stepRow}>
-        {[1, 2, 3].map((item) => (
+        {[1, 2, 3, 4].map((item) => (
           <View
             key={item}
             style={[styles.stepDot, item <= step && styles.stepDotActive]}

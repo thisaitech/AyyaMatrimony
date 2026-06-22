@@ -44,7 +44,7 @@ import { useProfileForm } from '@/context/ProfileFormContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { images } from '@/constants/images';
-import { hasCompletedProfile } from '@/constants/profileCompletion';
+import { hasCompletedProfile, applyDefaultRegistrationCommunity } from '@/constants/profileCompletion';
 import {
   mergeLoginProfile,
   phoneOnlyProfile,
@@ -132,7 +132,7 @@ export function LoginLandingScreen() {
     mergedProfile: Record<string, string>,
     source: 'login' | 'register',
   ) => {
-    await replaceValues(mergedProfile);
+    await replaceValues(applyDefaultRegistrationCommunity(mergedProfile));
     await login();
 
     await submitLoginApproval(digits, {
@@ -147,7 +147,7 @@ export function LoginLandingScreen() {
       return;
     }
 
-    router.replace('/select-community');
+    router.replace('/create-profile');
   };
 
   const handleLogin = () => {

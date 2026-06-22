@@ -16,15 +16,16 @@ export function isChristianRegistration(community: string, religion = ''): boole
   if (religion === 'hindu') {
     return false;
   }
-  if (religion === 'christian') {
+
+  if (
+    religion === 'christian' ||
+    religion === 'rc-christian' ||
+    religion === 'csi-christian'
+  ) {
     return true;
   }
 
   if (community === 'rc-christian' || community === 'csi-christian') {
-    return true;
-  }
-
-  if (!community && religion === 'christian') {
     return true;
   }
 

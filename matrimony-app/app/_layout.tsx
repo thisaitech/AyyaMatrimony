@@ -72,7 +72,6 @@ export default function RootLayout() {
           <Stack.Screen name="welcome" />
           <Stack.Screen name="login" />
           <Stack.Screen name="otp" />
-          <Stack.Screen name="select-community" />
           <Stack.Screen name="create-profile" />
           <Stack.Screen name="profile-setup" />
           <Stack.Screen name="(tabs)" />

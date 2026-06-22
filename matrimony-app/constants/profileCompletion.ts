@@ -21,13 +21,28 @@ export function hasCompletedProfile(values: Record<string, string>): boolean {
   return hasSavedBiodata(values);
 }
 
-export type AuthRedirectPath = '/' | '/select-community' | '/(tabs)';
+export const DEFAULT_REGISTRATION_COMMUNITY = 'rc-christian';
+
+const REGISTRATION_RELIGION_VALUES = new Set(['hindu', 'rc-christian', 'csi-christian']);
+
+export function applyDefaultRegistrationCommunity(values: Record<string, string>): Record<string, string> {
+  const religion = values.religion?.trim() ?? '';
+  const registrationCommunity = values.registrationCommunity?.trim() ?? '';
+
+  if (REGISTRATION_RELIGION_VALUES.has(religion) && !registrationCommunity) {
+    return { ...values, registrationCommunity: religion };
+  }
+
+  return { ...values };
+}
+
+export type AuthRedirectPath = '/' | '/create-profile' | '/(tabs)';
 
 export function getAuthRedirectPath(
   isLoggedIn: boolean,
   values: Record<string, string>,
 ): AuthRedirectPath {
   if (!isLoggedIn) return '/';
-  if (!hasCompletedProfile(values)) return '/select-community';
+  if (!hasCompletedProfile(values)) return '/create-profile';
   return '/(tabs)';
 }

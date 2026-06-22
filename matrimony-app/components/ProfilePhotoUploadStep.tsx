@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,6 +36,8 @@ type ProfilePhotoUploadStepProps = {
   openLibraryOnMount?: boolean;
   libraryOnly?: boolean;
   showSkip?: boolean;
+  compact?: boolean;
+  layoutWidth?: number;
 };
 
 async function ensurePermission(source: 'camera' | 'library'): Promise<boolean> {
@@ -253,6 +256,23 @@ function WebCameraCaptureModal({ visible, labels, onCapture, onClose }: WebCamer
   );
 }
 
+const DEFAULT_SLOT_SIZE = Platform.OS === 'web' ? 108 : 100;
+const COMPACT_SLOT_MIN = 48;
+const COMPACT_SLOT_MAX = 72;
+const COMPACT_SLOT_GAP = 12;
+/** Compact biodata step uses nearly-square slots to save vertical space; uploads still crop to 3:4. */
+const COMPACT_HEIGHT_RATIO = 1.05;
+
+function resolveCompactSlotSize(layoutWidth: number): number {
+  const sidePadding = 24;
+  const gaps = COMPACT_SLOT_GAP * 2;
+  const available = Math.max(layoutWidth - sidePadding, 180);
+  return Math.max(
+    COMPACT_SLOT_MIN,
+    Math.min(COMPACT_SLOT_MAX, Math.floor((available - gaps) / 3)),
+  );
+}
+
 export function ProfilePhotoUploadStep({
   photos,
   skipped,
@@ -262,7 +282,11 @@ export function ProfilePhotoUploadStep({
   openLibraryOnMount = false,
   libraryOnly = false,
   showSkip = true,
+  compact = false,
+  layoutWidth,
 }: ProfilePhotoUploadStepProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const baseWidth = layoutWidth ?? windowWidth;
   const [sourcePickerSlot, setSourcePickerSlot] = useState<number | null>(null);
   const [webCameraSlot, setWebCameraSlot] = useState<number | null>(null);
   const openedLibraryOnMountRef = useRef(false);
@@ -394,26 +418,46 @@ export function ProfilePhotoUploadStep({
   );
 
   const slots = Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => photos[index] ?? '');
+  const slotSize = compact ? resolveCompactSlotSize(baseWidth) : DEFAULT_SLOT_SIZE;
+  const slotHeight = compact
+    ? Math.round(slotSize * COMPACT_HEIGHT_RATIO)
+    : Math.round(slotSize * (4 / 3));
 
   return (
-    <View style={styles.container}>
-      <View style={styles.grid}>
+    <View style={[styles.container, compact && styles.containerCompact]}>
+      <View style={[styles.grid, compact && styles.gridCompact]}>
         {slots.map((uri, index) => (
-          <View key={`photo-slot-${index}`} style={styles.slotWrap}>
+          <View
+            key={`photo-slot-${index}`}
+            style={[
+              styles.slotWrap,
+              compact ? styles.slotWrapFlex : styles.slotWrapRow,
+              compact && { width: slotSize, height: slotHeight, flexBasis: slotSize, maxWidth: slotSize },
+            ]}
+          >
             {uri ? (
-              <View style={styles.filledSlot}>
-                <Image source={{ uri }} style={styles.photo} />
-                <Pressable style={styles.removeButton} onPress={() => removePhoto(index)}>
-                  <MaterialIcons name="close" size={16} color={colors.onPrimary} />
+              <View style={[styles.filledSlot, compact && styles.filledSlotCompact]}>
+                <Image source={{ uri }} style={styles.photo} resizeMode="cover" />
+                <Pressable
+                  style={[styles.removeButton, compact && styles.removeButtonCompact]}
+                  onPress={() => removePhoto(index)}
+                >
+                  <MaterialIcons name="close" size={compact ? 14 : 16} color={colors.onPrimary} />
                 </Pressable>
-                <Pressable style={styles.replaceOverlay} onPress={() => openPicker(index)}>
-                  <MaterialIcons name="edit" size={18} color={colors.onPrimary} />
+                <Pressable
+                  style={[styles.replaceOverlay, compact && styles.replaceOverlayCompact]}
+                  onPress={() => openPicker(index)}
+                >
+                  <MaterialIcons name="edit" size={compact ? 14 : 18} color={colors.onPrimary} />
                 </Pressable>
               </View>
             ) : (
-              <Pressable style={styles.emptySlot} onPress={() => openPicker(index)}>
-                <View style={styles.iconCircle}>
-                  <MaterialIcons name="add-a-photo" size={28} color={colors.primary} />
+              <Pressable
+                style={[styles.emptySlot, compact && styles.emptySlotCompact]}
+                onPress={() => openPicker(index)}
+              >
+                <View style={[styles.iconCircle, compact && styles.iconCircleCompact]}>
+                  <MaterialIcons name="add-a-photo" size={compact ? 18 : 28} color={colors.primary} />
                 </View>
               </Pressable>
             )}
@@ -463,23 +507,40 @@ export function ProfilePhotoUploadStep({
   );
 }
 
-const slotSize = Platform.OS === 'web' ? 108 : 100;
-
 const styles = StyleSheet.create({
   container: {
     gap: spacing.lg,
     alignItems: 'center',
   },
+  containerCompact: {
+    gap: 0,
+    paddingBottom: 0,
+    marginBottom: 0,
+  },
   grid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     justifyContent: 'center',
     gap: spacing.md,
     width: '100%',
   },
-  slotWrap: {
-    width: slotSize,
-    height: Math.round(slotSize * (4 / 3)),
+  gridCompact: {
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    gap: COMPACT_SLOT_GAP,
+    width: '100%',
+    minWidth: 0,
+  },
+  slotWrap: {},
+  slotWrapRow: {
+    flex: 1,
+    minWidth: 0,
+    maxWidth: DEFAULT_SLOT_SIZE,
+    aspectRatio: 3 / 4,
+  },
+  slotWrapFlex: {
+    flexGrow: 0,
+    flexShrink: 0,
   },
   emptySlot: {
     flex: 1,
@@ -491,6 +552,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : {}),
   },
+  emptySlotCompact: {
+    borderRadius: 8,
+  },
   iconCircle: {
     width: 48,
     height: 48,
@@ -499,12 +563,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconCircleCompact: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
   filledSlot: {
     flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.primary,
+  },
+  filledSlotCompact: {
+    borderRadius: 8,
   },
   photo: {
     width: '100%',
@@ -521,6 +593,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  removeButtonCompact: {
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
   replaceOverlay: {
     position: 'absolute',
     bottom: 6,
@@ -531,6 +610,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  replaceOverlayCompact: {
+    bottom: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
   skipButton: {
     paddingVertical: spacing.sm,
