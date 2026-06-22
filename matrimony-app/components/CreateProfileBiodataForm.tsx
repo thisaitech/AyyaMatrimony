@@ -68,7 +68,7 @@ const BIODATA_PRINT_CSS = `
   @media print {
     @page {
       size: A4 portrait;
-      margin: 4mm;
+      margin: 2mm;
     }
 
     html, body {
@@ -187,9 +187,9 @@ const BIODATA_PRINT_CSS = `
     }
 
     body.biodata-print-hindu #biodata-print-photo-box {
-      width: 15mm !important;
-      min-width: 15mm !important;
-      min-height: 18mm !important;
+      width: 20mm !important;
+      min-width: 20mm !important;
+      min-height: 22mm !important;
       border: 1px solid #570000 !important;
       background: #d9d9d9 !important;
       display: flex !important;
@@ -205,7 +205,7 @@ const BIODATA_PRINT_CSS = `
       flex: 0 0 auto !important;
       display: flex !important;
       flex-direction: row !important;
-      max-height: 88mm !important;
+      max-height: 100mm !important;
       overflow: hidden !important;
       border-bottom: 1px solid #570000 !important;
     }
@@ -225,15 +225,25 @@ const BIODATA_PRINT_CSS = `
     }
 
     body.biodata-print-hindu #biodata-print-body-row * {
+      font-size: 17px !important;
+      line-height: 22px !important;
+      word-break: normal !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-left-pane * {
+      font-size: 17px !important;
+      line-height: 22px !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-right-pane * {
       font-size: 14px !important;
       line-height: 18px !important;
-      word-break: normal !important;
     }
 
     body.biodata-print-hindu #biodata-print-left-pane > div,
     body.biodata-print-hindu #biodata-print-right-pane > div {
-      padding-top: 2px !important;
-      padding-bottom: 2px !important;
+      padding-top: 3px !important;
+      padding-bottom: 3px !important;
       border-bottom: 1px solid rgba(87, 0, 0, 0.12) !important;
     }
 
@@ -242,8 +252,10 @@ const BIODATA_PRINT_CSS = `
       min-height: 0 !important;
       display: flex !important;
       flex-direction: column !important;
-      justify-content: space-between !important;
-      padding: 2mm 4mm 2mm !important;
+      justify-content: flex-end !important;
+      align-items: stretch !important;
+      padding: 6mm 4mm 2mm !important;
+      gap: 2mm !important;
       overflow: hidden !important;
     }
 
@@ -252,42 +264,43 @@ const BIODATA_PRINT_CSS = `
       flex-direction: row !important;
       align-items: center !important;
       justify-content: center !important;
-      flex: 1 1 auto !important;
+      flex: 0 0 auto !important;
       width: 100% !important;
-      gap: 14mm !important;
-      padding: 4mm 0 !important;
+      gap: 10mm !important;
+      margin-top: 4mm !important;
+      padding: 0 !important;
     }
 
     body.biodata-print-hindu #biodata-print-charts > div {
       flex: 0 0 auto !important;
-      width: 42mm !important;
-      min-width: 42mm !important;
-      max-width: 42mm !important;
+      width: 70mm !important;
+      min-width: 70mm !important;
+      max-width: 70mm !important;
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi,
     body.biodata-print-hindu #biodata-print-chart-amsam {
-      width: 42mm !important;
-      min-width: 42mm !important;
-      max-width: 42mm !important;
+      width: 70mm !important;
+      min-width: 70mm !important;
+      max-width: 70mm !important;
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi > div,
     body.biodata-print-hindu #biodata-print-chart-amsam > div,
     body.biodata-print-hindu #biodata-print-chart-rasi > div > div,
     body.biodata-print-hindu #biodata-print-chart-amsam > div > div {
-      width: 42mm !important;
-      min-width: 42mm !important;
-      max-width: 42mm !important;
+      width: 70mm !important;
+      min-width: 70mm !important;
+      max-width: 70mm !important;
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div,
     body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div {
-      width: 38mm !important;
-      min-width: 38mm !important;
-      max-width: 38mm !important;
-      height: 38mm !important;
-      max-height: 38mm !important;
+      width: 66mm !important;
+      min-width: 66mm !important;
+      max-width: 66mm !important;
+      height: 66mm !important;
+      max-height: 66mm !important;
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div > div,
@@ -302,8 +315,8 @@ const BIODATA_PRINT_CSS = `
 
     body.biodata-print-hindu #biodata-print-chart-rasi *,
     body.biodata-print-hindu #biodata-print-chart-amsam * {
-      font-size: 10px !important;
-      line-height: 12px !important;
+      font-size: 13px !important;
+      line-height: 15px !important;
     }
 
     body.biodata-print-hindu #biodata-print-horoscope-footer {
@@ -313,14 +326,14 @@ const BIODATA_PRINT_CSS = `
       flex-direction: column !important;
       justify-content: flex-end !important;
       padding: 0 0 2mm !important;
-      gap: 2mm !important;
-      margin-top: auto !important;
+      gap: 1.5mm !important;
+      margin-top: 0 !important;
       overflow: hidden !important;
     }
 
     body.biodata-print-hindu #biodata-print-horoscope-footer * {
-      font-size: 14px !important;
-      line-height: 18px !important;
+      font-size: 16px !important;
+      line-height: 20px !important;
     }
 
     body.biodata-print-hindu #biodata-print-footer-box {
@@ -342,9 +355,9 @@ const BIODATA_PRINT_CSS = `
     }
 
     body.biodata-print-hindu #biodata-print-detail-grid > div > div > div > div {
-      min-height: 8mm !important;
-      height: 8mm !important;
-      max-height: 8mm !important;
+      min-height: 8.5mm !important;
+      height: 8.5mm !important;
+      max-height: 8.5mm !important;
     }
 
     body.biodata-print-hindu #biodata-print-detail-grid > div > div > div > div * {
@@ -1078,7 +1091,7 @@ function BiodataSelectRow({
         )}
         <View style={[styles.fieldInput, styles.fieldInputReadonly, dense && styles.fieldInputDense]}>
           <Text style={styles.fieldReadonlyText} numberOfLines={1}>
-            {display || 'ÔÇö'}
+            {display || ''}
           </Text>
         </View>
       </View>
@@ -1176,7 +1189,7 @@ function BiodataOccupationFields({
         </Text>
         <View style={[styles.fieldInput, styles.fieldInputReadonly, dense && styles.fieldInputDense]}>
           <Text style={styles.fieldReadonlyText}>
-            {[occupationDisplay, roleDisplay, occupationDesignation.trim()].filter(Boolean).join(' ┬À ') || 'ÔÇö'}
+            {[occupationDisplay, roleDisplay, occupationDesignation.trim()].filter(Boolean).join(' ┬À ') || ''}
           </Text>
         </View>
       </View>
@@ -1286,37 +1299,37 @@ function DasaBalanceFields({
           {translate('biodataDasaBalanceShort')}
         </Text>
         <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense, { color: 'red', fontWeight: 'bold', flexShrink: 0 }]} numberOfLines={1}>
-          {getOptionLabel('dasaPlanet', resolvedPlanet, language, dasaBalance) || 'ÔÇö'}
+          {getOptionLabel('dasaPlanet', resolvedPlanet, language, dasaBalance) || ''}
         </Text>
         <Text style={[styles.dasaReadonlyLabel, dense && styles.dasaReadonlyLabelDense]} numberOfLines={1}>
           {translate('selectDasaYear')}
         </Text>
         <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense]} numberOfLines={1}>
-          {getOptionLabel('dasaYear', resolvedYear, language, dasaYear) || 'ÔÇö'}
+          {getOptionLabel('dasaYear', resolvedYear, language, dasaYear) || ''}
         </Text>
         <Text style={[styles.dasaReadonlyLabel, dense && styles.dasaReadonlyLabelDense]} numberOfLines={1}>
           {translate('selectDasaMonth')}
         </Text>
         <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense]} numberOfLines={1}>
-          {getOptionLabel('dasaMonth', resolvedMonth, language, dasaMonth) || 'ÔÇö'}
+          {getOptionLabel('dasaMonth', resolvedMonth, language, dasaMonth) || ''}
         </Text>
         <Text style={[styles.dasaReadonlyLabel, dense && styles.dasaReadonlyLabelDense]} numberOfLines={1}>
           {translate('selectDasaDay')}
         </Text>
         <Text style={[styles.dasaReadonlyValue, dense && styles.dasaReadonlyValueDense]} numberOfLines={1}>
-          {getOptionLabel('dasaDay', resolvedDay, language, dasaDay) || 'ÔÇö'}
+          {getOptionLabel('dasaDay', resolvedDay, language, dasaDay) || ''}
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={{ flexDirection: 'column', gap: dense ? 6 : 8, width: '100%' }}>
+    <View style={[styles.dasaBalanceStack, dense && styles.dasaBalanceStackDense]}>
       <View style={[styles.dasaBalanceRow, dense && styles.dasaBalanceRowDense]}>
         <Text style={[styles.dasaBalanceTitle, dense && styles.dasaBalanceTitleDense]} numberOfLines={1}>
           {translate('biodataDasaBalanceShort')}
         </Text>
-        <View style={[styles.dasaInlineSelect, styles.dasaPlanetSelectWrap, styles.selectFieldGroup, { maxWidth: '100%' }]}>
+        <View style={[styles.dasaInlineSelect, styles.dasaPlanetSelectWrap, styles.selectFieldGroup]}>
           <SelectField
             label={translate('biodataDasaBalance')}
             value={resolvedPlanet}
@@ -1327,6 +1340,7 @@ function DasaBalanceFields({
             compact
             variant="premium"
             embedded
+            tight
           />
         </View>
       </View>
@@ -1341,7 +1355,7 @@ function DasaBalanceFields({
               value={resolvedYear}
               onValueChange={(value) => onFieldChange('dasaYear', value)}
               options={yearOptions}
-              placeholder="ÔÇö"
+              placeholder={translate('selectDasaYear')}
               showLabel={false}
               compact
               variant="premium"
@@ -1360,7 +1374,7 @@ function DasaBalanceFields({
               value={resolvedMonth}
               onValueChange={(value) => onFieldChange('dasaMonth', value)}
               options={monthOptions}
-              placeholder="ÔÇö"
+              placeholder={translate('selectDasaMonth')}
               showLabel={false}
               compact
               variant="premium"
@@ -1379,7 +1393,7 @@ function DasaBalanceFields({
               value={resolvedDay}
               onValueChange={(value) => onFieldChange('dasaDay', value)}
               options={dayOptions}
-              placeholder="ÔÇö"
+              placeholder={translate('selectDasaDay')}
               showLabel={false}
               compact
               variant="premium"
@@ -1640,7 +1654,7 @@ function BiodataDateRow({
       <View style={[styles.fieldGroup, dense && styles.fieldGroupDense]}>
         {labelNode}
         <View style={[styles.fieldInput, styles.fieldInputReadonly, dense && styles.fieldInputDense]}>
-          <Text style={styles.fieldReadonlyText}>{value || 'ÔÇö'}</Text>
+          <Text style={styles.fieldReadonlyText}>{value || ''}</Text>
         </View>
       </View>
     );
@@ -1808,7 +1822,7 @@ function BiodataTimeRow({
       <View style={[styles.fieldGroup, dense && styles.fieldGroupDense]}>
         <Text style={[styles.fieldLabel, dense && styles.fieldLabelDense]}>{label}</Text>
         <View style={[styles.fieldInput, styles.fieldInputReadonly, dense && styles.fieldInputDense]}>
-          <Text style={styles.fieldReadonlyText}>{value || 'ÔÇö'}</Text>
+          <Text style={styles.fieldReadonlyText}>{value || ''}</Text>
         </View>
       </View>
     );
@@ -1913,7 +1927,7 @@ function BiodataNameDegreeRow({
         <Text style={[styles.fieldLabel, dense && styles.fieldLabelDense]}>{label}</Text>
         <View style={[styles.fieldInput, styles.fieldInputReadonly, dense && styles.fieldInputDense]}>
           <Text style={styles.fieldReadonlyText}>
-            {[nameValue.trim(), degreeDisplay].filter(Boolean).join(' ┬À ') || 'ÔÇö'}
+            {[nameValue.trim(), degreeDisplay].filter(Boolean).join(' ┬À ') || ''}
           </Text>
         </View>
       </View>
@@ -2148,7 +2162,7 @@ function MetricBox({
               styles.fieldReadonlyText,
             ]}
           >
-            {display || 'ÔÇö'}
+            {display || ''}
           </Text>
         </View>
       );
@@ -2272,7 +2286,7 @@ function RadioOptionGroup({
     return (
       <View style={[styles.radioGroup, dense && styles.radioGroupDense, familyCompact && styles.radioGroupFamilyCompact]}>
         <Text style={[styles.radioGroupLabel, dense && styles.radioGroupLabelDense]}>{label}</Text>
-        <Text style={styles.fieldReadonlyText}>{display || 'ÔÇö'}</Text>
+        <Text style={styles.fieldReadonlyText}>{display || ''}</Text>
       </View>
     );
   }
@@ -2414,7 +2428,7 @@ function MemberBox({
                   resolveStoredOptionValue('siblingCount', field.value, language),
                   language,
                   field.value,
-                ) || 'ÔÇö'}
+                ) || ''}
               </Text>
             )
           ) : (
@@ -3173,8 +3187,8 @@ export function HoroscopeSection({
   return (
     <>
       {!hideBasicInputs && (
-        <View style={[styles.chartsContainer, { paddingHorizontal: 16, marginBottom: 16, marginTop: 16 }]}>
-        <View style={[styles.fieldPairRow, { marginTop: 16 }]}>
+        <View style={[styles.chartsContainer, styles.chartsContainerInputs]}>
+        <View style={styles.fieldPairRow}>
           <View style={styles.fieldPairItem}>
             <BiodataDateRow
               label={translate('biodataFieldDateOfBirth')}
@@ -3222,8 +3236,6 @@ export function HoroscopeSection({
               narrow
             />
           </View>
-        </View>
-        <View style={[styles.fieldPairRow, { marginTop: 12 }]}>
           <View style={styles.fieldPairItem}>
             <BiodataSelectRow
               label={translate('biodataFieldLaknam')}
@@ -3236,7 +3248,6 @@ export function HoroscopeSection({
               narrow
             />
           </View>
-          <View style={styles.fieldPairItem} />
         </View>
         </View>
       )}
@@ -3280,9 +3291,9 @@ export function HoroscopeSection({
 
       <View
         nativeID="biodata-print-horoscope-footer"
-        style={!editable ? styles.horoscopePrintFooter : undefined}
+        style={styles.horoscopePrintFooter}
       >
-      <View style={[styles.dasaBalanceContainer, dense && styles.dasaBalanceContainerDense]}>
+      <View style={[styles.dasaBalanceContainer, dense && styles.dasaBalanceContainerDense, styles.dasaBalanceContainerFlush]}>
         <DasaBalanceFields
           dasaBalance={form.dasaBalance}
           dasaYear={form.dasaYear}
@@ -3721,9 +3732,9 @@ const reviewStyles = StyleSheet.create({
     paddingTop: 2,
   },
   letterheadPhotoBox: {
-    width: 52,
-    minWidth: 52,
-    minHeight: 68,
+    width: 62,
+    minWidth: 62,
+    minHeight: 80,
     flexShrink: 0,
     borderWidth: 1,
     borderColor: colors.primary,
@@ -4385,12 +4396,12 @@ export function CreateProfileBiodataForm({
   const handleSharePress = useCallback(async () => {
     const lines = [
       `${translate('biodataBrandAyya')} ${translate('biodataBrandThunai')}`,
-      `${translate('biodataRegistrationNumberLabel')}: ${form.registrationNumber || 'ÔÇö'}`,
-      `${translate('biodataReviewName')}: ${form.fullName || 'ÔÇö'}`,
-      `${translate('biodataReviewDob')}: ${form.dateOfBirth || 'ÔÇö'}`,
-      `${translate('gender')}: ${getOptionLabel('gender', form.gender, language, form.gender) || 'ÔÇö'}`,
-      `${translate('biodataReviewOccupation')}: ${form.occupationDesignation || getOptionLabel('occupation', form.occupation, language, form.occupation) || 'ÔÇö'}`,
-      `${translate('biodataReviewResidence')}: ${form.irupidam || 'ÔÇö'}`,
+      `${translate('biodataRegistrationNumberLabel')}: ${form.registrationNumber || ''}`,
+      `${translate('biodataReviewName')}: ${form.fullName || ''}`,
+      `${translate('biodataReviewDob')}: ${form.dateOfBirth || ''}`,
+      `${translate('gender')}: ${getOptionLabel('gender', form.gender, language, form.gender) || ''}`,
+      `${translate('biodataReviewOccupation')}: ${form.occupationDesignation || getOptionLabel('occupation', form.occupation, language, form.occupation) || ''}`,
+      `${translate('biodataReviewResidence')}: ${form.irupidam || ''}`,
     ].filter(Boolean);
 
     const message = lines.join('\n');
@@ -5657,11 +5668,18 @@ const styles = StyleSheet.create({
   },
   chartsContainer: {
     width: '100%',
-    paddingVertical: spacing.sm,
+    alignSelf: 'stretch',
+    paddingVertical: spacing.xs,
     backgroundColor: '#FFF5F5',
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: 'rgba(122, 74, 68, 0.1)',
+  },
+  chartsContainerInputs: {
+    paddingHorizontal: 10,
+    marginBottom: spacing.sm,
+    marginTop: 0,
+    paddingTop: spacing.xs,
   },
 
   extrasStepContainer: {
@@ -5741,7 +5759,7 @@ const styles = StyleSheet.create({
   horoscopePrintFooter: {
     width: '100%',
     alignItems: 'stretch',
-    gap: 2,
+    gap: 0,
   },
   detailGridHeader: {
     flexDirection: 'row',
@@ -5797,6 +5815,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
+  dasaBalanceContainerFlush: {
+    marginTop: 0,
+    marginBottom: 0,
+    paddingBottom: 0,
+  },
   dasaBalanceTitle: {
     color: colors.onSurface,
     fontSize: 11,
@@ -5837,8 +5860,8 @@ const styles = StyleSheet.create({
   },
   dasaPlanetSelectWrap: {
     flex: 1,
-    minWidth: 72,
-    maxWidth: 110,
+    minWidth: 100,
+    maxWidth: 220,
   },
   dasaYearSelectWrap: {
     flex: 1,
@@ -6194,13 +6217,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: HOROSCOPE_RED,
     overflow: 'visible',
+    gap: 0,
   },
   detailGridRow: {
     flexDirection: 'row',
     overflow: 'visible',
+    marginTop: 0,
+    marginBottom: 0,
   },
   detailGridContainer: {
     position: 'relative',
+    marginTop: 0,
+    paddingTop: 0,
   },
   detailGridBackdrop: {
     ...StyleSheet.absoluteFillObject,

@@ -457,7 +457,7 @@ export function ProfilePhotoUploadStep({
                 onPress={() => openPicker(index)}
               >
                 <View style={[styles.iconCircle, compact && styles.iconCircleCompact]}>
-                  <MaterialIcons name="add-a-photo" size={compact ? 18 : 28} color={colors.primary} />
+                  <MaterialIcons name="add-a-photo" size={compact ? 18 : 24} color={colors.primary} />
                 </View>
               </Pressable>
             )}
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     maxWidth: DEFAULT_SLOT_SIZE,
-    aspectRatio: 3 / 4,
+    aspectRatio: 1.55,
   },
   slotWrapFlex: {
     flexGrow: 0,
