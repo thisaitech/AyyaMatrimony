@@ -733,7 +733,7 @@ const horoscopeFields: FamilyFieldDefinition[] = [
   {
     config: { fieldKey: 'lagnam', kind: 'select', optionsKey: 'rasi', optional: true },
     display: {
-      en: { label: 'Laknam (Lagnam)', placeholder: 'Select lagnam' },
+      en: { label: 'Laknam', placeholder: 'Select laknam' },
       ta: { label: 'லக்னம்', placeholder: 'லக்னத்தைத் தேர்ந்தெடுக்கவும்' },
     },
   },

@@ -40,7 +40,7 @@ import {
 const SHEET_BORDER = colors.primary;
 const HOROSCOPE_RED = colors.primary;
 const HOROSCOPE_GRID_LINE = '#570000';
-const HOROSCOPE_CELL_BORDER = 1.5;
+const HOROSCOPE_LINE_WIDTH = 1.5;
 
 const FIELD_BG = colors.surfaceContainerLowest;
 const FIELD_BORDER = 'rgba(87, 0, 0, 0.1)';
@@ -205,46 +205,62 @@ const BIODATA_PRINT_CSS = `
       flex: 0 0 auto !important;
       display: flex !important;
       flex-direction: row !important;
-      max-height: 100mm !important;
+      max-height: 112mm !important;
       overflow: hidden !important;
       border-bottom: 1px solid #570000 !important;
     }
 
     body.biodata-print-hindu #biodata-print-left-pane {
-      flex: 1.62 1 0 !important;
+      flex: 1.38 1 0 !important;
       min-width: 0 !important;
       border-right: 1px solid #570000 !important;
     }
 
     body.biodata-print-hindu #biodata-print-right-pane {
       flex: 1 1 0 !important;
-      min-width: 34% !important;
-      max-width: 38% !important;
-      padding: 1.5mm 2mm !important;
-      gap: 1.5mm !important;
+      min-width: 32% !important;
+      max-width: none !important;
+      padding: 0 !important;
+      gap: 0 !important;
     }
 
     body.biodata-print-hindu #biodata-print-body-row * {
-      font-size: 17px !important;
-      line-height: 22px !important;
+      font-size: 18px !important;
+      line-height: 24px !important;
       word-break: normal !important;
     }
 
     body.biodata-print-hindu #biodata-print-left-pane * {
-      font-size: 17px !important;
-      line-height: 22px !important;
+      font-size: 18px !important;
+      line-height: 24px !important;
     }
 
     body.biodata-print-hindu #biodata-print-right-pane * {
-      font-size: 14px !important;
-      line-height: 18px !important;
+      font-size: 18px !important;
+      line-height: 24px !important;
+      font-weight: 600 !important;
     }
 
-    body.biodata-print-hindu #biodata-print-left-pane > div,
-    body.biodata-print-hindu #biodata-print-right-pane > div {
-      padding-top: 3px !important;
-      padding-bottom: 3px !important;
+    body.biodata-print-hindu #biodata-print-left-pane > div {
+      padding-top: 1.4mm !important;
+      padding-bottom: 1.4mm !important;
+      padding-left: 2mm !important;
+      padding-right: 2.5mm !important;
+      min-height: 8mm !important;
       border-bottom: 1px solid rgba(87, 0, 0, 0.12) !important;
+      align-items: center !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-right-pane > div:not(#biodata-print-sibling-married):not(#biodata-print-sibling-unmarried),
+    body.biodata-print-hindu #biodata-print-sibling-married > div,
+    body.biodata-print-hindu #biodata-print-sibling-unmarried > div {
+      padding-top: 1.4mm !important;
+      padding-bottom: 1.4mm !important;
+      padding-left: 2mm !important;
+      padding-right: 2mm !important;
+      min-height: 8mm !important;
+      border-bottom: 1px solid rgba(87, 0, 0, 0.12) !important;
+      align-items: center !important;
     }
 
     body.biodata-print-hindu #biodata-print-horoscope-section {
@@ -286,29 +302,64 @@ const BIODATA_PRINT_CSS = `
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi > div,
-    body.biodata-print-hindu #biodata-print-chart-amsam > div,
-    body.biodata-print-hindu #biodata-print-chart-rasi > div > div,
-    body.biodata-print-hindu #biodata-print-chart-amsam > div > div {
+    body.biodata-print-hindu #biodata-print-chart-amsam > div {
       width: 70mm !important;
       min-width: 70mm !important;
       max-width: 70mm !important;
+      box-sizing: border-box !important;
+      border: 2.5px solid #570000 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-chart-rasi > div > div,
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      border: none !important;
+      padding: 0 !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div,
     body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div {
-      width: 66mm !important;
-      min-width: 66mm !important;
-      max-width: 66mm !important;
-      height: 66mm !important;
-      max-height: 66mm !important;
+      width: 100% !important;
+      height: auto !important;
+      aspect-ratio: 1 / 1 !important;
+      max-width: 100% !important;
+      max-height: none !important;
+      min-height: 0 !important;
+      box-sizing: border-box !important;
+      background-color: #ffffff !important;
+      gap: 0 !important;
+      border-right: 1.5px solid #570000 !important;
+      border-bottom: 1.5px solid #570000 !important;
+      overflow: visible !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div > div,
-    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div > div,
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div > div {
+      border: none !important;
+      gap: 0 !important;
+      background-color: transparent !important;
+    }
+
     body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div > div > div,
-    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div > div > div {
-      border: 1.5px solid #570000 !important;
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div > div > div,
+    body.biodata-print-hindu #biodata-print-chart-rasi > div > div > div > div:nth-child(2) > div:nth-child(2),
+    body.biodata-print-hindu #biodata-print-chart-amsam > div > div > div > div:nth-child(2) > div:nth-child(2) {
+      border-top: 1.5px solid #570000 !important;
+      border-left: 1.5px solid #570000 !important;
+      border-right: none !important;
+      border-bottom: none !important;
       background-color: #ffffff !important;
+      box-sizing: border-box !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
@@ -317,6 +368,9 @@ const BIODATA_PRINT_CSS = `
     body.biodata-print-hindu #biodata-print-chart-amsam * {
       font-size: 13px !important;
       line-height: 15px !important;
+      color: #570000 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     body.biodata-print-hindu #biodata-print-horoscope-footer {
@@ -347,22 +401,41 @@ const BIODATA_PRINT_CSS = `
     }
 
     body.biodata-print-hindu #biodata-print-detail-grid > div,
-    body.biodata-print-hindu #biodata-print-detail-grid > div > div,
+    body.biodata-print-hindu #biodata-print-detail-grid > div > div {
+      width: 100% !important;
+      height: auto !important;
+      flex: none !important;
+      border: none !important;
+    }
+
     body.biodata-print-hindu #biodata-print-detail-grid > div > div > div {
       width: 100% !important;
       height: auto !important;
       flex: none !important;
+      border: 2px solid #570000 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     body.biodata-print-hindu #biodata-print-detail-grid > div > div > div > div {
-      min-height: 8.5mm !important;
-      height: 8.5mm !important;
-      max-height: 8.5mm !important;
+      min-height: 7mm !important;
+      height: 7mm !important;
+      max-height: 7mm !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border: 1.5px solid #570000 !important;
+      box-sizing: border-box !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
 
     body.biodata-print-hindu #biodata-print-detail-grid > div > div > div > div * {
       font-size: 13px !important;
       line-height: 16px !important;
+      text-align: center !important;
+      width: 100% !important;
+      color: #570000 !important;
     }
 
     body.biodata-print-christian #biodata-print-root {
@@ -2793,21 +2866,34 @@ function ReviewDataRow({
   label,
   value,
   expanded = false,
+  sidebar = false,
 }: {
   label: string;
   value: string;
   expanded?: boolean;
+  sidebar?: boolean;
 }) {
   return (
-    <View style={[reviewStyles.dataRow, expanded && reviewStyles.dataRowExpanded]}>
-      <View style={reviewStyles.dataLabelColonGroup}>
-        <Text style={reviewStyles.dataLabel} numberOfLines={2}>
+    <View
+      style={[
+        reviewStyles.dataRow,
+        sidebar && reviewStyles.dataRowSidebar,
+        expanded && reviewStyles.dataRowExpanded,
+      ]}
+    >
+      <View style={[reviewStyles.dataLabelColonGroup, sidebar && reviewStyles.dataLabelColonGroupSidebar]}>
+        <Text
+          style={[reviewStyles.dataLabel, sidebar && reviewStyles.dataLabelSidebar]}
+          numberOfLines={2}
+        >
           {label}
         </Text>
-        <Text style={reviewStyles.dataColon}>:</Text>
+        <Text style={[reviewStyles.dataColon, sidebar && reviewStyles.dataColonSidebar]}>:</Text>
       </View>
-      <View style={reviewStyles.dataValueColumn}>
-        <Text style={reviewStyles.dataValue}>{reviewDisplayValue(value)}</Text>
+      <View style={[reviewStyles.dataValueColumn, sidebar && reviewStyles.dataValueColumnSidebar]}>
+        <Text style={[reviewStyles.dataValue, sidebar && reviewStyles.dataValueSidebar]}>
+          {reviewDisplayValue(value)}
+        </Text>
       </View>
     </View>
   );
@@ -2848,16 +2934,7 @@ function ReviewInlinePair({
 }
 
 function ReviewSidebarBox({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={reviewStyles.sidebarBox}>
-      <Text style={reviewStyles.sidebarBoxLabel} numberOfLines={2}>
-        {label}
-      </Text>
-      <Text style={reviewStyles.sidebarBoxValue} numberOfLines={2}>
-        {reviewDisplayValue(value)}
-      </Text>
-    </View>
-  );
+  return <ReviewDataRow label={label} value={value} sidebar />;
 }
 
 function ReviewSiblingBox({
@@ -2874,28 +2951,14 @@ function ReviewSiblingBox({
   nativeID?: string;
 }) {
   return (
-    <View
-      nativeID={nativeID}
-      style={[reviewStyles.siblingBox, wide && reviewStyles.siblingBoxWide, wide && wideBoxStyle]}
-    >
-      <Text style={[reviewStyles.siblingBoxTitle, wide && reviewStyles.siblingBoxTitleWide]}>{title}</Text>
+    <View nativeID={nativeID} style={[reviewStyles.siblingSection, wide && wideBoxStyle]}>
+      <View style={reviewStyles.siblingSectionTitleRow}>
+        <Text style={[reviewStyles.siblingSectionTitle, wide && reviewStyles.siblingSectionTitleWide]}>
+          {title}
+        </Text>
+      </View>
       {rows.map((row) => (
-        <View key={row.label} style={[reviewStyles.siblingRow, wide && reviewStyles.siblingRowWide]}>
-          <View style={[reviewStyles.dataLabelColonGroup, reviewStyles.siblingLabelColonGroup]}>
-            <Text style={[reviewStyles.siblingLabel, wide && reviewStyles.siblingLabelWide]} numberOfLines={2}>
-              {row.label}
-            </Text>
-            <Text style={[reviewStyles.siblingColon, wide && reviewStyles.siblingColonWide]}>:</Text>
-          </View>
-          <View style={reviewStyles.siblingValueColumn}>
-            <Text
-              style={[reviewStyles.siblingValue, wide && reviewStyles.siblingValueWide]}
-              numberOfLines={1}
-            >
-              {reviewDisplayValue(row.value)}
-            </Text>
-          </View>
-        </View>
+        <ReviewDataRow key={row.label} label={row.label} value={row.value} sidebar />
       ))}
     </View>
   );
@@ -3765,30 +3828,38 @@ const reviewStyles = StyleSheet.create({
     alignItems: 'stretch',
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
+    width: '100%',
   },
   leftPane: {
-    flex: 1.62,
+    flex: 1.38,
     minWidth: 0,
     borderRightWidth: 1,
     borderRightColor: colors.primary,
   },
   rightPane: {
     flex: 1,
-    minWidth: 118,
-    maxWidth: '36%',
-    padding: 4,
-    gap: 3,
+    minWidth: 132,
+    padding: 0,
+    gap: 0,
     backgroundColor: '#ffffff',
+    alignSelf: 'stretch',
   },
   dataRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(87, 0, 0, 0.12)',
     minHeight: 28,
     paddingVertical: 4,
     paddingLeft: 6,
     paddingRight: 8,
+  },
+  dataRowSidebar: {
+    alignItems: 'center',
+    minHeight: 24,
+    paddingVertical: 3,
+    paddingLeft: 6,
+    paddingRight: 6,
   },
   dataRowExpanded: {
     flex: 1,
@@ -3801,6 +3872,33 @@ const reviewStyles = StyleSheet.create({
     alignItems: 'flex-start',
     maxWidth: '52%',
     paddingTop: 1,
+  },
+  dataLabelColonGroupSidebar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    paddingTop: 0,
+  },
+  dataLabelSidebar: {
+    fontFamily: fonts.interBold,
+    fontSize: 11,
+    lineHeight: 14,
+    flexShrink: 0,
+  },
+  dataColonSidebar: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: fonts.interBold,
+  },
+  dataValueColumnSidebar: {
+    flex: 1,
+    minWidth: 0,
+    paddingLeft: 6,
+    paddingTop: 0,
+  },
+  dataValueSidebar: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   dataLabelColumn: {
     flexGrow: 0,
@@ -3871,29 +3969,30 @@ const reviewStyles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 1,
   },
-  sidebarBox: {
-    borderWidth: 1,
-    borderColor: 'rgba(87, 0, 0, 0.12)',
-    borderRadius: 6,
-    paddingVertical: 2,
-    paddingHorizontal: 2,
-    backgroundColor: '#FFFFFF',
-    minHeight: 24,
+  siblingSection: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  siblingSectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(87, 0, 0, 0.12)',
+    minHeight: 24,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
   },
-  sidebarBoxLabel: {
+  siblingSectionTitle: {
     color: colors.primary,
-    fontFamily: fonts.interSemi,
-    fontSize: 8,
-    lineHeight: 11,
+    fontFamily: fonts.interBold,
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
   },
-  sidebarBoxValue: {
-    color: colors.onSurface,
-    fontFamily: fonts.interMedium,
-    fontSize: 8,
-    lineHeight: 11,
-    marginTop: 1,
+  siblingSectionTitleWide: {
+    fontSize: 11,
+    lineHeight: 14,
   },
   sidebarPairRow: {
     flexDirection: 'row',
@@ -3911,6 +4010,8 @@ const reviewStyles = StyleSheet.create({
     padding: 5,
     backgroundColor: '#FFFFFF',
     gap: 2,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   horoscopeSection: {
     padding: 0,
@@ -3918,48 +4019,57 @@ const reviewStyles = StyleSheet.create({
     borderWidth: 0,
   },
   siblingBoxWide: {
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 4,
-    gap: 4,
+    gap: 1,
     flexShrink: 0,
     justifyContent: 'flex-start',
+    width: '100%',
   },
   siblingBoxTitle: {
     color: colors.primary,
-    fontFamily: fonts.interSemi,
-    fontSize: 10,
+    fontFamily: fonts.interBold,
+    fontSize: 11,
     lineHeight: 14,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   siblingBoxTitleWide: {
     fontSize: 11,
-    lineHeight: 15,
-    marginBottom: 6,
+    lineHeight: 14,
+    marginBottom: 2,
   },
   siblingRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 0,
+    width: '100%',
+    gap: 4,
   },
   siblingRowWide: {
-    alignItems: 'flex-start',
-    minHeight: 22,
-    gap: 0,
-    paddingVertical: 2,
+    alignItems: 'center',
+    minHeight: 0,
+    gap: 4,
+    paddingVertical: 0,
+    width: '100%',
   },
   siblingLabelColonGroup: {
-    maxWidth: '72%',
+    flex: 1.15,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    minWidth: 0,
     flexShrink: 1,
   },
   siblingLabel: {
     color: colors.primary,
-    fontFamily: fonts.inter,
+    fontFamily: fonts.interBold,
     fontSize: 10,
-    lineHeight: 14,
+    lineHeight: 13,
     textAlign: 'left',
+    flex: 1,
     flexShrink: 1,
+    minWidth: 0,
   },
   siblingBoxLabel: {
     color: colors.primary,
@@ -3977,38 +4087,40 @@ const reviewStyles = StyleSheet.create({
   },
   siblingLabelWide: {
     fontSize: 10,
-    lineHeight: 14,
-    fontFamily: fonts.interMedium,
+    lineHeight: 13,
+    fontFamily: fonts.interBold,
   },
   siblingColon: {
     color: colors.primary,
     fontSize: 10,
-    lineHeight: 14,
+    lineHeight: 13,
+    fontFamily: fonts.interBold,
     flexShrink: 0,
-    marginLeft: 2,
+    marginLeft: 1,
   },
   siblingColonWide: {
     fontSize: 10,
-    lineHeight: 14,
+    lineHeight: 13,
   },
   siblingValueColumn: {
     flex: 1,
     flexShrink: 1,
     minWidth: 0,
-    paddingLeft: 8,
-    paddingTop: 1,
+    alignItems: 'flex-end',
   },
   siblingValue: {
     color: colors.onSurface,
-    fontFamily: fonts.interMedium,
+    fontFamily: fonts.interSemi,
     fontSize: 10,
-    lineHeight: 14,
-    textAlign: 'left',
+    lineHeight: 13,
+    textAlign: 'right',
+    width: '100%',
   },
   siblingValueWide: {
     fontSize: 10,
-    lineHeight: 14,
-    textAlign: 'left',
+    lineHeight: 13,
+    textAlign: 'right',
+    width: '100%',
   },
 });
 
@@ -4084,7 +4196,6 @@ const christianReviewStyles = StyleSheet.create({
     flex: 0,
     flexGrow: 0,
     flexShrink: 0,
-    minHeight: 88,
     justifyContent: 'flex-start',
   },
   footer: {
@@ -5127,13 +5238,13 @@ const styles = StyleSheet.create({
   },
   siblingSidebarTitle: {
     color: colors.primary,
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: fonts.interSemi,
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: fonts.interBold,
   },
   siblingSidebarTitleDense: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     marginBottom: 2,
   },
   sectionCard: {
@@ -5238,8 +5349,8 @@ const styles = StyleSheet.create({
   },
   radioGroupLabel: {
     color: colors.primary,
-    fontSize: 11,
-    fontFamily: fonts.interSemi,
+    fontSize: 12,
+    fontFamily: fonts.interBold,
     textAlign: 'center',
   },
   radioGroupLabelDesktop: {
@@ -5344,7 +5455,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: colors.primary,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: fonts.interBold,
     letterSpacing: 0.35,
     opacity: 1,
@@ -5759,7 +5870,7 @@ const styles = StyleSheet.create({
   horoscopePrintFooter: {
     width: '100%',
     alignItems: 'stretch',
-    gap: 0,
+    gap: spacing.sm,
   },
   detailGridHeader: {
     flexDirection: 'row',
@@ -5807,6 +5918,13 @@ const styles = StyleSheet.create({
   dasaBalanceRowDense: {
     gap: 4,
   },
+  dasaBalanceStack: {
+    width: '100%',
+    gap: spacing.xs,
+  },
+  dasaBalanceStackDense: {
+    gap: 6,
+  },
   dasaBalanceContainer: {
     marginTop: spacing.sm,
     paddingHorizontal: spacing.sm,
@@ -5817,8 +5935,6 @@ const styles = StyleSheet.create({
   },
   dasaBalanceContainerFlush: {
     marginTop: 0,
-    marginBottom: 0,
-    paddingBottom: 0,
   },
   dasaBalanceTitle: {
     color: colors.onSurface,
@@ -5906,15 +6022,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   chartDoubleOuter: {
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: HOROSCOPE_GRID_LINE,
-    padding: 2,
+    padding: 0,
     backgroundColor: '#fff',
     overflow: 'visible',
   },
   chartDoubleInner: {
-    borderWidth: 2,
-    borderColor: HOROSCOPE_GRID_LINE,
+    borderWidth: 0,
     backgroundColor: '#fff',
     overflow: 'visible',
   },
@@ -5923,9 +6038,12 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     minHeight: Platform.OS === 'web' ? 170 : undefined,
     flexDirection: 'column',
-    backgroundColor: HOROSCOPE_GRID_LINE,
+    backgroundColor: '#fff',
     gap: 0,
     overflow: 'visible',
+    borderRightWidth: HOROSCOPE_LINE_WIDTH,
+    borderBottomWidth: HOROSCOPE_LINE_WIDTH,
+    borderColor: HOROSCOPE_GRID_LINE,
   },
   chartGridCompact: {
     aspectRatio: 1,
@@ -5952,7 +6070,8 @@ const styles = StyleSheet.create({
   chartCellWrap: {
     flex: 1,
     backgroundColor: '#fff',
-    borderWidth: HOROSCOPE_CELL_BORDER,
+    borderTopWidth: HOROSCOPE_LINE_WIDTH,
+    borderLeftWidth: HOROSCOPE_LINE_WIDTH,
     borderColor: HOROSCOPE_GRID_LINE,
     justifyContent: 'center',
     alignItems: 'center',
@@ -6110,7 +6229,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
-    borderWidth: HOROSCOPE_CELL_BORDER,
+    borderTopWidth: HOROSCOPE_LINE_WIDTH,
+    borderLeftWidth: HOROSCOPE_LINE_WIDTH,
     borderColor: HOROSCOPE_GRID_LINE,
     paddingHorizontal: 2,
     paddingVertical: 4,
@@ -6214,21 +6334,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   detailGrid: {
-    borderWidth: 1,
-    borderColor: HOROSCOPE_RED,
+    borderWidth: 2,
+    borderColor: HOROSCOPE_GRID_LINE,
     overflow: 'visible',
     gap: 0,
   },
   detailGridRow: {
     flexDirection: 'row',
     overflow: 'visible',
-    marginTop: 0,
-    marginBottom: 0,
   },
   detailGridContainer: {
     position: 'relative',
-    marginTop: 0,
-    paddingTop: 0,
   },
   detailGridBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -6236,8 +6352,8 @@ const styles = StyleSheet.create({
   },
   detailCellWrap: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: HOROSCOPE_RED,
+    borderWidth: 1.5,
+    borderColor: HOROSCOPE_GRID_LINE,
     borderStyle: 'solid',
     alignItems: 'center',
     justifyContent: 'center',
@@ -6434,11 +6550,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   radioGroupLabelDense: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     textAlign: 'left',
     color: colors.primary,
-    fontFamily: fonts.interSemi,
+    fontFamily: fonts.interBold,
     marginBottom: 4,
   },
   radioGridDense: {
@@ -6497,10 +6613,11 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   fieldLabelNarrow: {
-    fontSize: 9,
-    lineHeight: 12,
-    minHeight: 12,
+    fontSize: 10,
+    lineHeight: 14,
+    minHeight: 14,
     textAlign: 'left',
+    fontFamily: fonts.interBold,
   },
   narrowSelectShell: {
     borderWidth: 1,
@@ -6520,8 +6637,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabelDense: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 12,
+    lineHeight: 16,
     opacity: 1,
   },
   requiredMark: {
