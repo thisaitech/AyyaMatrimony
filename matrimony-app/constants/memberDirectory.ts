@@ -190,8 +190,8 @@ export async function publishProfileFromValues(
     ? {
         ...biodataWithApproval,
         approvalStatus: remoteProfile.approvalStatus ?? biodataWithApproval.approvalStatus,
-        profilePhotoUrls: remoteProfile.photoUrls.join('|'),
-        [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(remoteProfile.photoUrls),
+        profilePhotoUrls: (remoteProfile.photoUrls ?? []).join('|'),
+        [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(remoteProfile.photoUrls ?? []),
       }
     : biodataWithApproval;
 

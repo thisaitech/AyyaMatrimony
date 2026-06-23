@@ -118,19 +118,26 @@ function profileDocFromValues(
 
 export function publishedMemberFromProfileDoc(docData: FirestoreProfileDoc): PublishedMember {
   const approvedImage = docData.approvedPhotoUrls?.find((url) => Boolean(url?.trim())) ?? '';
+  const listing = docData.listing;
   const image =
     approvedImage ||
     (docData.registrationSource === 'admin'
-      ? docData.primaryPhotoUrl || docData.listing.image
+      ? docData.primaryPhotoUrl || listing?.image || ''
       : '');
 
   return {
-    ...docData.listing,
-    biodata: docData.biodata,
+    id: listing?.id ?? docData.profileId,
+    name: listing?.name ?? docData.fullName ?? 'Member',
+    age: listing?.age ?? '—',
+    community: listing?.community ?? docData.registrationCommunity ?? '—',
+    location: listing?.location ?? 'Tamil Nadu',
+    gender: listing?.gender ?? docData.gender ?? 'male',
+    phoneNumber: listing?.phoneNumber ?? docData.phone ?? '—',
+    verified: listing?.verified ?? true,
+    biodata: docData.biodata ?? {},
     ownerKey: docData.ownerKey,
     image,
     interestStatus: 'none',
-    phoneNumber: docData.phone,
   };
 }
 
@@ -314,10 +321,11 @@ export async function hydrateLocalProfileFromFirestore(phone: string): Promise<R
     return null;
   }
 
-  const biodata = { ...remote.biodata };
-  if (remote.photoUrls.length > 0) {
-    biodata.profilePhotoUrls = remote.photoUrls.join('|');
-    biodata[PROFILE_PHOTOS_KEY] = serializeProfilePhotos(remote.photoUrls);
+  const biodata = { ...(remote.biodata ?? {}) };
+  const photoUrls = Array.isArray(remote.photoUrls) ? remote.photoUrls : [];
+  if (photoUrls.length > 0) {
+    biodata.profilePhotoUrls = photoUrls.join('|');
+    biodata[PROFILE_PHOTOS_KEY] = serializeProfilePhotos(photoUrls);
   }
 
   const approvalStatus = await fetchUserApprovalStatus(phone).catch(() => remote.approvalStatus ?? null);
