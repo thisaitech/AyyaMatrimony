@@ -29,6 +29,7 @@ export type PremiumProfile = {
 
 export const images = {
   logo: require('@/assets/lotus-logo.png') as ImageSourcePropType,
+  bgIllustration: require('@/assets/bg-illustration.png') as ImageSourcePropType,
   splashCouple:
     'https://lh3.googleusercontent.com/aida-public/AB6AXuCUIoPS2XKWE3Q5sledSAHll2YgorYInvjr-bZwWC30bCzWkR-Y0hpPjAIEIXi2oOnG0vjnp8sZNzQOTBolFzOezREmsnGmX5x-nuJwJkrvr-JJ_-aII0fzWUMPay50w9kmzIbP9KwUZveMuR_Sf0uFAZhaLUuqcnIuHv_M6EDEz4RMrBvhacv9cLknJiexLYje6VklyQhAnjjYQJA_z0eGBKlyiluAjijnnq-_9I0LCdh3HV-Bg785g760u_X4xasgAaLVGn6bby4Y',
   loginWallpapers: {

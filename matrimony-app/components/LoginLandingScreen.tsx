@@ -14,8 +14,7 @@ import {
 import { useRouter, type Href } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeInDown,
   FadeInUp,
@@ -26,6 +25,7 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LanguageLogoToggle } from '@/components/LanguageLogoToggle';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import {
@@ -42,7 +42,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useMatchActions } from '@/context/MatchActionsContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { colors, fonts, spacing, typography } from '@/constants/theme';
+import { colors, fonts, spacing } from '@/constants/theme';
 import { images } from '@/constants/images';
 import { hasCompletedProfile, applyDefaultRegistrationCommunity } from '@/constants/profileCompletion';
 import {
@@ -56,16 +56,11 @@ import {
 } from '@/lib/firestore/approvalService';
 import { hydrateLocalProfileFromFirestore } from '@/lib/firestore/profileService';
 
-const INPUT_BG = '#FFFBF8';
-const INPUT_BORDER = 'rgba(122, 74, 68, 0.18)';
 const PROFILE_STORAGE_KEY = 'user_profile';
 
 async function readStoredProfile(): Promise<Record<string, string>> {
   const raw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
-  if (!raw) {
-    return {};
-  }
-
+  if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as Record<string, string>;
     return parsed && typeof parsed === 'object' ? parsed : {};
@@ -95,23 +90,25 @@ export function LoginLandingScreen() {
   const { clearProfile, replaceValues } = useProfileForm();
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
+  const insets = useSafeAreaInsets();
 
-  const scale = useSharedValue(1);
-  const animatedBackgroundStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const scale = useSharedValue(1.0);
 
   useEffect(() => {
     scale.value = withRepeat(
       withSequence(
-        withTiming(1.05, { duration: 12000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 12000, easing: Easing.inOut(Easing.ease) })
+        withTiming(1.04, { duration: 16000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1.0, { duration: 16000, easing: Easing.inOut(Easing.ease) })
       ),
       -1,
       true
     );
     void import('@/lib/firebase').then(({ initFirebaseAnalytics }) => initFirebaseAnalytics());
   }, []);
+
+  const imageAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const enterAdmin = async (path: Href) => {
     await grantAdminSession();
@@ -134,7 +131,6 @@ export function LoginLandingScreen() {
   ) => {
     await replaceValues(applyDefaultRegistrationCommunity(mergedProfile));
     await login();
-
     await submitLoginApproval(digits, {
       name: mergedProfile.fullName ?? '',
       profileId: mergedProfile.memberListingId,
@@ -146,7 +142,6 @@ export function LoginLandingScreen() {
       router.replace('/(tabs)');
       return;
     }
-
     router.replace('/create-profile');
   };
 
@@ -158,7 +153,6 @@ export function LoginLandingScreen() {
     }
     if (!requireValidPhone()) return;
     if (busy) return;
-
     void (async () => {
       setBusy(true);
       try {
@@ -166,19 +160,16 @@ export function LoginLandingScreen() {
         const remoteProfile = await hydrateLocalProfileFromFirestore(digits).catch(() => null);
         const approvalStatus = await fetchUserApprovalStatus(digits).catch(() => null);
         const storedPhone = profilePhone(localProfile);
-
         if (storedPhone && storedPhone !== digits) {
           await clearProfile();
           await clearActions();
         }
-
         const mergedProfile = mergeLoginProfileWithApproval(
           storedPhone === digits ? localProfile : {},
           remoteProfile,
           digits,
           approvalStatus,
         );
-
         await finishAuth(digits, mergedProfile, 'login');
       } finally {
         setBusy(false);
@@ -194,18 +185,15 @@ export function LoginLandingScreen() {
     }
     if (!requireValidPhone()) return;
     if (busy) return;
-
     void (async () => {
       setBusy(true);
       try {
         const remoteProfile = await hydrateLocalProfileFromFirestore(digits).catch(() => null);
         const remoteOnly = mergeLoginProfile({}, remoteProfile, digits);
-
         if (hasCompletedProfile(remoteOnly)) {
           Alert.alert(translate('phoneNumber'), translate('accountAlreadyRegistered'));
           return;
         }
-
         await clearProfile();
         await clearActions();
         await finishAuth(digits, phoneOnlyProfile(digits), 'register');
@@ -217,405 +205,289 @@ export function LoginLandingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      <Animated.View style={[styles.wallpaperLayer, animatedBackgroundStyle]} pointerEvents="none">
+      {/* Section 1: Single compact header — always fully visible */}
+      <Animated.View
+        style={[styles.topSection, { paddingTop: insets.top + 4 }]}
+        entering={FadeInUp.duration(900).springify()}
+      >
+        <View style={styles.branding}>
+          <View style={styles.logoRing}>
+            <Image source={images.logo} style={styles.logo} resizeMode="contain" />
+          </View>
+          <Text style={styles.title}>
+            Ayya Matrimony
+          </Text>
+          <View style={styles.langToggleWrap}>
+            <LanguageLogoToggle variant="maroon" dense />
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Section 2: Wedding illustration — flex so it fills remaining space proportionally */}
+      <Animated.View style={[styles.imageSection, imageAnimStyle]} pointerEvents="none">
         <Image
-          source={{ uri: images.loginWallpapers.hindu }}
-          style={styles.wallpaperFull}
-          resizeMode="cover"
+          source={images.bgIllustration}
+          style={styles.illustrationImage}
+          resizeMode="contain"
         />
-        <Image
-          source={{ uri: images.loginWallpapers.christian }}
-          style={[styles.wallpaperFull, styles.wallpaperBlend]}
-          resizeMode="cover"
+        <LinearGradient
+          colors={['#FDF6EC', 'transparent']}
+          locations={[0, 0.15]}
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(253,246,236,0.88)', '#FDF6EC']}
+          locations={[0.6, 0.87, 1]}
+          style={StyleSheet.absoluteFillObject}
+          pointerEvents="none"
         />
       </Animated.View>
 
-      <LinearGradient
-        colors={[
-          'rgba(30, 0, 0, 0.12)',
-          'rgba(87, 0, 0, 0.38)',
-          'rgba(87, 0, 0, 0.62)',
-        ]}
-        locations={[0, 0.55, 1]}
-        style={styles.overlay}
-        pointerEvents="none"
-      />
-
-      <LinearGradient
-        colors={['rgba(87, 0, 0, 0.72)', 'transparent']}
-        start={{ x: 0, y: 1 }}
-        end={{ x: 0, y: 0 }}
-        style={styles.bottomScrim}
-        pointerEvents="none"
-      />
-
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.topBar}>
-          <LanguageLogoToggle variant="maroon" dense />
+      {/* Community badges sit below the illustration */}
+      <View style={styles.badgeBar}>
+        <View style={[styles.communityChip, { borderColor: 'rgba(212,175,55,0.85)' }]}>
+          <MaterialCommunityIcons name="temple-hindu" size={13} color="#D4AF37" style={{ marginRight: 5 }} />
+          <Text style={[styles.communityChipText, { color: '#D4AF37' }]}>HINDU NADAR</Text>
         </View>
+        <View style={[styles.communityChip, { borderColor: 'rgba(91,194,168,0.85)' }]}>
+          <MaterialCommunityIcons name="cross" size={13} color="#5BC2A8" style={{ marginRight: 5 }} />
+          <Text style={[styles.communityChipText, { color: '#5BC2A8' }]}>RC NADAR</Text>
+        </View>
+        <View style={[styles.communityChip, { borderColor: 'rgba(185,113,185,0.85)' }]}>
+          <MaterialCommunityIcons name="cross" size={13} color="#B971B9" style={{ marginRight: 5 }} />
+          <Text style={[styles.communityChipText, { color: '#B971B9' }]}>CSI NADAR</Text>
+        </View>
+      </View>
 
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Animated.View style={styles.branding} entering={FadeInUp.duration(1200).springify()}>
-              <View style={styles.logoRing}>
-                <View style={styles.logoWrap}>
-                  <Image source={images.logo} style={styles.logo} resizeMode="contain" />
-                </View>
+      {/* Section 3: Premium bottom — NO SCROLL, compact */}
+      <KeyboardAvoidingView
+        style={[styles.bottomSection, { paddingBottom: Math.max(insets.bottom, 8) }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Animated.View style={styles.bottomContent} entering={FadeInDown.duration(800).springify().delay(150)}>
+
+          {/* Decorative divider */}
+          <View style={styles.formHeader}>
+            <View style={styles.formDividerLine} />
+            <Text style={styles.formHeaderText}>Enter Your Mobile</Text>
+            <View style={styles.formDividerLine} />
+          </View>
+
+          {/* Phone input card */}
+          <View style={styles.inputCard}>
+            <View style={styles.phoneRow}>
+              <View style={styles.countryCode}>
+                <Text style={styles.countryCodeFlag}>🇮🇳</Text>
+                <Text style={styles.countryCodeText}>+91</Text>
               </View>
-              <Text style={styles.title}>{translate('matrimony')}</Text>
-              <Text style={styles.subtitle}>{translate('loginSubtitle')}</Text>
-              <View style={styles.communityRow}>
-                <View style={styles.communityChip}>
-                  <Text style={styles.communityChipText}>{translate('hindu')}</Text>
-                </View>
-                <View style={styles.communityDivider} />
-                <View style={[styles.communityChip, styles.communityChipFeatured]}>
-                  <Text style={[styles.communityChipText, styles.communityChipFeaturedText]}>
-                    {translate('nadar')}
-                  </Text>
-                </View>
-                <View style={styles.communityDivider} />
-                <View style={styles.communityChip}>
-                  <Text style={styles.communityChipText}>{translate('christian')}</Text>
-                </View>
-              </View>
-            </Animated.View>
+              <TextInput
+                style={[styles.input, styles.phoneInput]}
+                placeholder="Enter mobile number"
+                placeholderTextColor="rgba(100,70,60,0.4)"
+                keyboardType="phone-pad"
+                maxLength={PHONE_DIGIT_LENGTH}
+                value={phone}
+                onChangeText={(text) => setPhone(normalizePhoneDigits(text))}
+              />
+            </View>
+          </View>
 
-            <Animated.View entering={FadeInDown.duration(1200).springify().delay(300)}>
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 50 : 90}
-                tint="light"
-                style={styles.formCard}
-                experimentalBlurMethod="dimezisBlurView"
-              >
-                <Text style={styles.cardTitle}>{translate('welcomeBack')}</Text>
+          {/* Buttons */}
+          <View style={styles.actions}>
+            <PrimaryButton
+              label="Register Free  →"
+              icon=""
+              variant="gold"
+              onPress={handleRegister}
+              disabled={busy}
+              style={styles.registerButton}
+              labelStyle={styles.registerLabel}
+            />
+            <View style={styles.loginRow}>
+              <View style={styles.thinDivider} />
+              <Text style={styles.loginDividerText}>Already have an account?</Text>
+              <View style={styles.thinDivider} />
+            </View>
+            <PrimaryButton
+              label={translate('login')}
+              variant="outline"
+              onPress={handleLogin}
+              disabled={busy}
+              style={styles.loginButton}
+              labelStyle={styles.loginLabel}
+            />
+          </View>
 
-                <View style={styles.fieldBlock}>
-                  <Text style={styles.fieldLabel}>{translate('phoneNumber')}</Text>
-                  <View style={styles.phoneRow}>
-                    <View style={styles.countryCode}>
-                      <Text style={styles.countryCodeText}>+91</Text>
-                    </View>
-                    <TextInput
-                      style={[styles.input, styles.phoneInput]}
-                      placeholder={translate('enterPhone')}
-                      placeholderTextColor="rgba(90, 65, 61, 0.5)"
-                      keyboardType="phone-pad"
-                      maxLength={PHONE_DIGIT_LENGTH}
-                      value={phone}
-                      onChangeText={(text) => setPhone(normalizePhoneDigits(text))}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.actions}>
-                  <PrimaryButton
-                    label={translate('registerFree')}
-                    icon="arrow-forward"
-                    variant="gold"
-                    onPress={handleRegister}
-                    disabled={busy}
-                    style={styles.registerButton}
-                    labelStyle={styles.registerLabelPrimary}
-                  />
-                  <PrimaryButton
-                    label={translate('login')}
-                    variant="outline"
-                    onPress={handleLogin}
-                    disabled={busy}
-                    style={styles.loginButton}
-                    labelStyle={styles.loginLabelOutline}
-                  />
-                </View>
-              </BlurView>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-
-      <LinearGradient
-        colors={['transparent', 'rgba(255,224,136,0.45)', 'transparent']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.bottomLine}
-        pointerEvents="none"
-      />
+        </Animated.View>
+      </KeyboardAvoidingView>
 
     </View>
   );
 }
 
-const cardShadow = Platform.select({
-  web: { boxShadow: '0 18px 48px rgba(20, 0, 0, 0.28)' },
-  default: {
-    shadowColor: '#140000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-});
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: '#FDF6EC',
+    ...Platform.select({ web: { height: '100vh', overflow: 'hidden' } }),
   },
-  wallpaperLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  wallpaperFull: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  wallpaperBlend: {
-    opacity: 0.42,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  bottomScrim: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '42%',
-  },
-  safeArea: {
-    flex: 1,
-  },
-  topBar: {
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.containerMargin,
-    paddingTop: spacing.xs,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.containerMargin,
-    paddingBottom: spacing.xl,
-    justifyContent: 'center',
-    gap: spacing.lg,
-  },
+  topSection: { backgroundColor: '#FDF6EC', flexShrink: 0, zIndex: 10 },
+  // Single row: logo + title + language toggle all together
   branding: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: spacing.sm,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    gap: 8,
+  },
+  langToggleWrap: {
+    marginLeft: 'auto' as any,
+    flexShrink: 0,
   },
   logoRing: {
-    padding: 3,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 224, 136, 0.45)',
-    marginBottom: spacing.sm,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2, borderColor: 'rgba(184,135,42,0.4)',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     ...Platform.select({
-      web: { boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)' },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-        elevation: 8,
-      },
+      web: { boxShadow: '0 4px 16px rgba(184,135,42,0.15)' },
+      default: { shadowColor: '#B8872A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 6 },
     }),
   },
-  logoWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: colors.primaryContainer,
-    padding: 7,
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-  },
+  logo: { width: 44, height: 44, borderRadius: 22 },
   title: {
-    fontSize: 30,
-    lineHeight: 36,
-    color: colors.secondaryFixed,
-    letterSpacing: 1.5,
-    fontFamily: fonts.playfairSemi,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
+    fontSize: 24, lineHeight: 28, color: '#8B2E2E',
+    fontFamily: fonts.playfairSemi, flexShrink: 1,
+    textShadowColor: 'rgba(255,255,255,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+  },
+  badgeBar: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FDF6EC',
   },
   subtitle: {
-    ...typography.bodyMd,
-    color: '#FFF4D6',
-    textAlign: 'center',
-    maxWidth: 320,
-    marginTop: spacing.xs,
-    lineHeight: 20,
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    fontSize: 15, fontFamily: fonts.inter, color: '#D6EFE2',
+    textAlign: 'center', lineHeight: 22, marginBottom: 16,
   },
-  communityRow: {
+  communityRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  communityChip: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 5,
+    borderRadius: 999, borderWidth: 1.2, backgroundColor: 'rgba(15,61,40,0.06)',
+  },
+  communityChipText: { fontFamily: fonts.interSemi, letterSpacing: 0.2, textTransform: 'uppercase', fontSize: 8.5 },
+  // Image takes remaining space
+  imageSection: { flex: 1, minHeight: 150, backgroundColor: '#FDF6EC', overflow: 'hidden' },
+  illustrationImage: { width: '100%', height: '100%' },
+
+  // ── Premium bottom section — fixed, no scroll ──
+  bottomSection: {
+    backgroundColor: '#FDF6EC',
+    flexShrink: 0,
+    zIndex: 10,
+  },
+  bottomContent: {
+    paddingHorizontal: 16,
+    paddingTop: 2,
+    paddingBottom: 8,
+  },
+  formHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: spacing.sm,
-    maxWidth: 340,
+    gap: 8,
+    marginBottom: 6,
+    marginTop: 0,
   },
-  communityChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 224, 136, 0.35)',
-    backgroundColor: 'rgba(255, 224, 136, 0.08)',
+  formDividerLine: {
+    flex: 1, height: 1,
+    backgroundColor: 'rgba(184,135,42,0.3)',
   },
-  communityChipFeatured: {
-    borderColor: 'rgba(255, 224, 136, 0.75)',
-    backgroundColor: 'rgba(255, 224, 136, 0.22)',
-    paddingHorizontal: 12,
-  },
-  communityChipText: {
-    ...typography.labelSm,
-    color: colors.secondaryFixed,
+  formHeaderText: {
+    fontFamily: fonts.interSemi,
+    fontSize: 11,
+    color: '#B8872A',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    fontSize: 10,
   },
-  communityChipFeaturedText: {
-    color: '#FFF8E7',
-    fontFamily: fonts.interSemi,
-    letterSpacing: 1.2,
-  },
-  communityDivider: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255, 224, 136, 0.5)',
-  },
-  formCard: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(255, 251, 247, 0.75)',
-    borderRadius: 24,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+  inputCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 5,
+    paddingHorizontal: 5,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    overflow: 'hidden',
-    ...cardShadow,
+    borderColor: 'rgba(184,135,42,0.2)',
+    marginBottom: 2,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(184,135,42,0.08)' },
+      default: { shadowColor: '#B8872A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+    }),
   },
-  cardTitle: {
-    ...typography.titleLg,
-    color: colors.primary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    fontFamily: fonts.playfairSemi,
-  },
-  fieldBlock: {
-    marginBottom: spacing.sm,
-  },
-  fieldLabel: {
-    ...typography.labelSm,
-    color: colors.onSurfaceVariant,
-    marginBottom: 4,
-    marginLeft: 2,
-    letterSpacing: 0.8,
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'stretch',
-  },
+  fieldBlock: { marginBottom: 2 },
+  fieldLabel: { fontSize: 12, fontFamily: fonts.interSemi, color: '#3A2020', marginBottom: 4, marginLeft: 2 },
+  phoneRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   countryCode: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    minWidth: 58,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FDF6EC',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    minWidth: 54,
     justifyContent: 'center',
+    height: 36,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    height: 52,
-    ...Platform.select({
-      web: { boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' },
-    }),
+    borderColor: 'rgba(184,135,42,0.25)',
   },
-  countryCodeText: {
-    ...typography.bodyLg,
-    color: '#3C1611',
-    fontFamily: fonts.interSemi,
-  },
+  countryCodeFlag: { fontSize: 13 },
+  countryCodeText: { fontSize: 13, color: '#2A1010', fontFamily: fonts.interSemi },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 14,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    height: 52,
-    ...typography.bodyLg,
-    color: '#3C1611',
+    backgroundColor: '#FDFAF6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    height: 36,
+    fontSize: 14,
+    fontFamily: fonts.inter,
+    color: '#1A0A0A',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    borderColor: 'rgba(184,135,42,0.2)',
     width: '100%',
-    ...Platform.select({
-      web: { boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' },
-    }),
   },
-  phoneInput: {
-    flex: 1,
-    minWidth: 0,
-  },
-  actions: {
-    gap: 12,
-    marginTop: spacing.md,
-  },
+  phoneInput: { flex: 1, minWidth: 0 },
+  actions: { gap: 4, marginTop: 4 },
   registerButton: {
-    minHeight: 52,
+    minHeight: 38,
     borderRadius: 9999,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    backgroundColor: '#B8872A',
     ...Platform.select({
-      web: { boxShadow: '0 8px 24px rgba(122, 74, 68, 0.3)' },
+      web: { boxShadow: '0 4px 12px rgba(184,135,42,0.35)' },
+      default: { shadowColor: '#B8872A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 5 },
     }),
   },
-  registerLabelPrimary: {
-    fontFamily: fonts.interSemi,
-    fontSize: 16,
-    letterSpacing: 0.5,
+  registerLabel: { fontFamily: fonts.interSemi, fontSize: 13, letterSpacing: 0.4, color: '#FFFFFF' },
+  loginRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 0,
+  },
+  thinDivider: { flex: 1, height: 1, backgroundColor: 'rgba(90,58,58,0.15)' },
+  loginDividerText: {
+    fontSize: 9, fontFamily: fonts.inter,
+    color: 'rgba(90,58,58,0.5)', textAlign: 'center',
   },
   loginButton: {
-    minHeight: 52,
+    minHeight: 34,
     borderRadius: 9999,
-    borderColor: 'rgba(122, 74, 68, 0.4)',
+    borderColor: 'rgba(184,135,42,0.4)',
     borderWidth: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(184,135,42,0.06)',
   },
-  loginLabelOutline: {
-    color: colors.primary,
-    fontFamily: fonts.interSemi,
-    fontSize: 16,
-  },
-  bottomLine: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-  },
+  loginLabel: { color: '#7A5010', fontFamily: fonts.interSemi, fontSize: 12 },
+  cardTitle: { fontSize: 18, fontFamily: fonts.playfairSemi, color: '#1E0A0A', textAlign: 'center', marginBottom: 6 },
 });
