@@ -34,6 +34,8 @@ import {
   ProfilePhotoUploadStep,
 } from '@/components/ProfilePhotoUploadStep';
 import {
+  BIODATA_SHOW_PHOTO_KEY,
+  parseBiodataShowPhoto,
   parseProfilePhotos,
   PROFILE_PHOTOS_KEY,
   serializeProfilePhotos,
@@ -724,16 +726,16 @@ function normalizeDetailGridInput(text: string): string {
 }
 
 const HOROSCOPE_PLANETS = [
-  { value: 'surya', label: 'Ó«ÜÓ»é' },
-  { value: 'chandra', label: 'Ó«ÜÓ«¿Ó»ì' },
-  { value: 'mars', label: 'Ó«ÜÓ»å' },
-  { value: 'mercury', label: 'Ó«¬Ó»ü' },
-  { value: 'jupiter', label: 'Ó«òÓ»ü' },
-  { value: 'venus', label: 'Ó«ÜÓ»üÓ«òÓ»ì' },
-  { value: 'saturn', label: 'Ó«ÜÓ«®Ó«┐' },
-  { value: 'rahu', label: 'Ó«░Ó«¥' },
-  { value: 'kethu', label: 'Ó«òÓ»ç' },
-  { value: 'lagna', label: 'Ó«▓' },
+  { value: 'surya', label: 'சூ' },
+  { value: 'chandra', label: 'சந்' },
+  { value: 'mars', label: 'செ' },
+  { value: 'mercury', label: 'பு' },
+  { value: 'jupiter', label: 'கு' },
+  { value: 'venus', label: 'சு' },
+  { value: 'saturn', label: 'ச' },
+  { value: 'rahu', label: 'ரா' },
+  { value: 'kethu', label: 'கே' },
+  { value: 'lagna', label: 'ல' },
 ] as const;
 
 function resolveHoroscopeCellValue(stored: string): string {
@@ -2980,6 +2982,29 @@ function formatLetterheadPhone(value: string): string {
   return `${digits.slice(0, 2)}\u00A0${digits.slice(2, 4)}\u00A0${digits.slice(4, 6)}\u00A0${digits.slice(6, 8)}\u00A0${digits.slice(8)}`;
 }
 
+function PhotoVisibilityToggle({
+  value,
+  onValueChange,
+}: {
+  value: boolean;
+  onValueChange: (next: boolean) => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => onValueChange(!value)}
+      style={[styles.photoToggleTrack, value ? styles.photoToggleTrackOn : styles.photoToggleTrackOff]}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={value ? 'Photo on' : 'Photo off'}
+    >
+      <View style={[styles.photoToggleThumb, value ? styles.photoToggleThumbOn : styles.photoToggleThumbOff]} />
+      <Text style={[styles.photoToggleLabel, value ? styles.photoToggleLabelOn : styles.photoToggleLabelOff]}>
+        {value ? 'ON' : 'OFF'}
+      </Text>
+    </Pressable>
+  );
+}
+
 function BiodataLetterheadHeader({
   registrationNumber,
   translate,
@@ -4259,10 +4284,14 @@ export function CreateProfileBiodataForm({
   const [amsamChart, setAmsamChart] = useState(emptyHoroscope);
   const [detailGrid, setDetailGrid] = useState<string[]>(createDefaultDetailGrid);
   const [photos, setPhotos] = useState<string[]>(() => parseProfilePhotos(''));
+  const [showPhotoInBiodata, setShowPhotoInBiodata] = useState(true);
   const formHydratedRef = useRef(false);
   const [stepState, setStep] = useState<1 | 2 | 3 | 4>(1);
   const step = viewOnly ? 4 : stepState;
   const reviewPhotoUri = useMemo(() => {
+    if (!showPhotoInBiodata) {
+      return '';
+    }
     if (profileValues) {
       return getProfileAvatarUri(profileValues);
     }
@@ -4273,7 +4302,7 @@ export function CreateProfileBiodataForm({
       [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(photos) || getValue(PROFILE_PHOTOS_KEY),
       profilePhotoUrls: getValue('profilePhotoUrls'),
     });
-  }, [profileValues, getValue, isReady, photos]);
+  }, [profileValues, getValue, isReady, photos, showPhotoInBiodata]);
   const [form, setForm] = useState<BiodataState>({
     fullName: '',
     gender: '',
@@ -4388,6 +4417,7 @@ export function CreateProfileBiodataForm({
       birthOrderRelation: readValue('birthOrderRelation') || readValue('birthOrder'),
     });
     setPhotos(parseProfilePhotos(readValue(PROFILE_PHOTOS_KEY)));
+    setShowPhotoInBiodata(parseBiodataShowPhoto(readValue(BIODATA_SHOW_PHOTO_KEY)));
 
     if (!profileValues) {
       formHydratedRef.current = true;
@@ -4409,6 +4439,14 @@ export function CreateProfileBiodataForm({
     (nextPhotos: string[]) => {
       setPhotos(nextPhotos);
       setValue(PROFILE_PHOTOS_KEY, serializeProfilePhotos(nextPhotos));
+    },
+    [setValue],
+  );
+
+  const handleShowPhotoInBiodataChange = useCallback(
+    (next: boolean) => {
+      setShowPhotoInBiodata(next);
+      setValue(BIODATA_SHOW_PHOTO_KEY, next ? 'true' : 'false');
     },
     [setValue],
   );
@@ -4466,11 +4504,12 @@ export function CreateProfileBiodataForm({
       biodataHoroscopeAmsam: JSON.stringify(amsamChart),
       biodataDetailGrid: JSON.stringify(detailGrid),
       [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(photos),
+      [BIODATA_SHOW_PHOTO_KEY]: showPhotoInBiodata ? 'true' : 'false',
     });
 
     await replaceValues(nextValues);
     return nextValues;
-  }, [detailGrid, form, language, photos, rasiChart, amsamChart, getValue, replaceValues, values]);
+  }, [detailGrid, form, language, photos, rasiChart, amsamChart, showPhotoInBiodata, getValue, replaceValues, values]);
 
   const validateOccupationFields = useCallback(() => {
     const hasOccupation = form.occupationType.trim().length > 0;
@@ -5001,6 +5040,12 @@ export function CreateProfileBiodataForm({
               {translate('back')}
             </Text>
           </Pressable>
+        ) : null}
+        {isExtrasStep ? (
+          <PhotoVisibilityToggle
+            value={showPhotoInBiodata}
+            onValueChange={handleShowPhotoInBiodataChange}
+          />
         ) : null}
         {step < totalSteps ? (
           <Pressable
@@ -6469,6 +6514,64 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
     gap: 4,
+  },
+  photoToggleTrack: {
+    flexShrink: 0,
+    width: 72,
+    height: 32,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  photoToggleTrackOn: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#66BB6A',
+  },
+  photoToggleTrackOff: {
+    backgroundColor: '#BDBDBD',
+    borderColor: '#9E9E9E',
+  },
+  photoToggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+        elevation: 2,
+      },
+    }),
+  },
+  photoToggleThumbOn: {
+    marginRight: 'auto',
+  },
+  photoToggleThumbOff: {
+    marginLeft: 'auto',
+  },
+  photoToggleLabel: {
+    position: 'absolute',
+    fontFamily: fonts.interSemi,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 0.4,
+  },
+  photoToggleLabelOn: {
+    right: 10,
+    color: '#1B5E20',
+  },
+  photoToggleLabelOff: {
+    left: 10,
+    color: '#424242',
   },
   actionButtonPrint: {
     flexShrink: 0,

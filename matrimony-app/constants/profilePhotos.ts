@@ -1,5 +1,13 @@
 export const PROFILE_PHOTOS_KEY = 'profilePhotos';
+export const BIODATA_SHOW_PHOTO_KEY = 'biodataShowPhoto';
 export const PHOTO_SKIP_KEY = 'photoSkipped';
+
+export function parseBiodataShowPhoto(raw: string | undefined): boolean {
+  if (!raw?.trim()) {
+    return true;
+  }
+  return raw.trim().toLowerCase() !== 'false';
+}
 export const MAX_PROFILE_PHOTOS = 3;
 
 export function isRemotePhotoUri(uri: string): boolean {
