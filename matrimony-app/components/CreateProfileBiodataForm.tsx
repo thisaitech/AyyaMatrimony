@@ -48,20 +48,20 @@ const HOROSCOPE_RED = colors.primary;
 const HOROSCOPE_GRID_LINE = '#570000';
 const HOROSCOPE_LINE_WIDTH = 1.5;
 
-const FIELD_BG = colors.surfaceContainerLowest;
-const FIELD_BORDER = 'rgba(87, 0, 0, 0.1)';
-const SIDEBAR_CARD_BG = 'rgba(255, 255, 255, 0.88)';
+const FIELD_BG = '#FFFBF9';
+const FIELD_BORDER = 'rgba(87, 0, 0, 0.12)';
+const SIDEBAR_CARD_BG = 'rgba(255, 255, 255, 0.95)';
 const SIDEBAR_PANEL_BG = '#ffffff';
-const PLACEHOLDER = 'rgba(90, 65, 61, 0.38)';
+const PLACEHOLDER = 'rgba(90, 65, 61, 0.42)';
 
 const fieldShadow = Platform.select({
-  web: { boxShadow: '0 2px 10px rgba(87, 0, 0, 0.05)' },
+  web: { boxShadow: '0 2px 8px rgba(87, 0, 0, 0.06)' },
   default: {
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.06,
     shadowRadius: 6,
-    elevation: 1,
+    elevation: 2,
   },
 });
 
@@ -5136,7 +5136,7 @@ export function CreateProfileBiodataForm({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: '#F3F7FC',
+    backgroundColor: '#F8F6F4',
   },
   wrapperFullScreen: {
     backgroundColor: '#F3F7FC',
@@ -5171,11 +5171,11 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 1100,
     alignSelf: 'center',
-    borderRadius: 20,
+    borderRadius: 18,
     backgroundColor: colors.surfaceContainerLowest,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(87, 0, 0, 0.06)',
+    borderColor: 'rgba(87, 0, 0, 0.08)',
     ...cardShadow,
   },
   sheetCardDense: {
@@ -5533,24 +5533,24 @@ const styles = StyleSheet.create({
     fontFamily: fonts.interSemi,
   },
   fieldGroup: {
-    gap: 4,
-  },
-  fieldGroupMobile: {
-    gap: 2,
-  },
-  fieldGroupDesktop: {
     gap: 6,
   },
+  fieldGroupMobile: {
+    gap: 4,
+  },
+  fieldGroupDesktop: {
+    gap: 8,
+  },
   fieldLabel: {
-    color: colors.primary,
+    color: colors.onSurfaceVariant,
     fontSize: 12,
-    fontFamily: fonts.interBold,
-    letterSpacing: 0.35,
+    fontFamily: fonts.interSemi,
+    letterSpacing: 0.15,
     opacity: 1,
   },
   fieldLabelMobile: {
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 11,
+    lineHeight: 14,
   },
   fieldLabelDesktop: {
     fontSize: 13,
@@ -5559,29 +5559,29 @@ const styles = StyleSheet.create({
   },
   fieldInput: {
     backgroundColor: FIELD_BG,
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    minHeight: 34,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 40,
     color: colors.onSurface,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: fonts.interMedium,
     borderWidth: 1,
     borderColor: FIELD_BORDER,
     ...fieldShadow,
   },
   fieldInputMobile: {
-    minHeight: 32,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 12,
-    borderRadius: 10,
+    minHeight: 38,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontSize: 13,
+    borderRadius: 11,
   },
   fieldInputDesktop: {
-    minHeight: 42,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    minHeight: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
     borderRadius: 12,
   },
   fieldInputWithIcon: {
@@ -5655,6 +5655,7 @@ const styles = StyleSheet.create({
     backgroundColor: FIELD_BG,
     borderWidth: 1,
     borderColor: FIELD_BORDER,
+    ...fieldShadow,
   },
   metricBoxSidebar: {
     padding: 4,
@@ -5712,13 +5713,14 @@ const styles = StyleSheet.create({
   metricInput: {
     borderWidth: 1,
     borderColor: FIELD_BORDER,
-    borderRadius: 10,
-    minHeight: 34,
+    borderRadius: 12,
+    minHeight: 40,
     paddingHorizontal: spacing.sm,
     color: colors.onSurface,
-    fontSize: 13,
-    fontFamily: fonts.inter,
-    backgroundColor: colors.surfaceContainerLowest,
+    fontSize: 14,
+    fontFamily: fonts.interMedium,
+    backgroundColor: FIELD_BG,
+    ...fieldShadow,
   },
   metricInputSidebar: {
     minHeight: 26,
@@ -6524,11 +6526,11 @@ const styles = StyleSheet.create({
   actionButtonCompact: {
     flex: 1,
     minWidth: 0,
-    minHeight: 36,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    borderRadius: 10,
-    gap: 4,
+    minHeight: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 6,
   },
   photoToggleTrack: {
     flexShrink: 0,
@@ -6656,13 +6658,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    gap: 6,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: colors.primary,
     minWidth: 0,
-    minHeight: 36,
+    minHeight: 44,
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.35)',
     ...Platform.select({

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -108,10 +108,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: adminColors.surface,
     borderBottomWidth: 1,
     borderBottomColor: adminColors.border,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 12px rgba(87, 0, 0, 0.06)' },
+      default: {
+        shadowColor: '#570000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+      },
+    }),
   },
   backBtn: {
     width: 40,
@@ -139,9 +149,9 @@ const styles = StyleSheet.create({
     borderBottomColor: adminColors.border,
   },
   stepDot: {
-    width: 28,
-    height: 6,
-    borderRadius: 3,
+    width: 32,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: adminColors.border,
   },
   stepDotActive: {

@@ -13,42 +13,48 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { FormOptionsKey, getFormOptions, getOptionLabel } from '@/constants/formOptions';
 import { Language } from '@/constants/i18n';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
+import { premiumField, premiumFieldShadow } from '@/constants/premiumUi';
 
 export const formFieldStyles = StyleSheet.create({
   fieldGroup: {
-    gap: spacing.xs,
+    gap: 6,
   },
   fieldLabel: {
-    ...typography.labelSm,
+    ...typography.labelLg,
     color: colors.onSurfaceVariant,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    fontFamily: fonts.interSemi,
+    letterSpacing: 0.2,
   },
   fieldInput: {
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: 8,
+    backgroundColor: premiumField.bg,
+    borderRadius: premiumField.radius,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: 12,
+    minHeight: premiumField.minHeight,
     ...typography.bodyMd,
     color: colors.onSurface,
     borderWidth: 1,
-    borderColor: 'rgba(226, 191, 185, 0.2)',
+    borderColor: premiumField.border,
+    ...premiumFieldShadow,
   },
   fieldInputMultiline: {
-    minHeight: 96,
+    minHeight: 108,
     textAlignVertical: 'top',
+    paddingTop: 12,
   },
   selectTrigger: {
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: 8,
+    backgroundColor: premiumField.bg,
+    borderRadius: premiumField.radius,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: 12,
+    minHeight: premiumField.minHeight,
     borderWidth: 1,
-    borderColor: 'rgba(226, 191, 185, 0.2)',
+    borderColor: premiumField.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    ...premiumFieldShadow,
   },
   selectValue: {
     ...typography.bodyMd,
@@ -57,7 +63,7 @@ export const formFieldStyles = StyleSheet.create({
   },
   selectPlaceholder: {
     ...typography.bodyMd,
-    color: 'rgba(90, 65, 61, 0.4)',
+    color: premiumField.placeholder,
     flex: 1,
   },
 });

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '@/context/LanguageContext';
@@ -67,8 +67,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.containerMargin,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(226, 191, 185, 0.2)',
-    backgroundColor: 'rgba(246, 250, 255, 0.9)',
+    borderBottomColor: 'rgba(87, 0, 0, 0.08)',
+    backgroundColor: 'rgba(255, 251, 249, 0.96)',
+    ...Platform.select({
+      web: { boxShadow: '0 2px 12px rgba(87, 0, 0, 0.05)' },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+      },
+    }),
   },
   headerDark: {
     backgroundColor: 'transparent',
@@ -79,7 +89,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   iconButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(87, 0, 0, 0.06)',
   },
   placeholder: {
     width: 24,
@@ -101,8 +116,9 @@ const styles = StyleSheet.create({
   },
   languageButton: {
     alignSelf: 'flex-end',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(87, 0, 0, 0.06)',
   },
 });

@@ -8,7 +8,7 @@ export const adminColors = {
   primary: '#8B0000',
   primaryDark: '#570000',
   primaryLight: '#FFF5F5',
-  background: '#F4F6F8',
+  background: '#F7F4F2',
   surface: '#FFFFFF',
   text: '#1A1A1A',
   textMuted: '#6B7280',

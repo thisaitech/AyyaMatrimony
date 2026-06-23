@@ -2,7 +2,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '@/context/LanguageContext';
 import { useUserApproval } from '@/context/UserApprovalContext';
-import { borderRadius, colors, spacing, typography } from '@/constants/theme';
+import { colors, spacing, typography } from '@/constants/theme';
+import { premiumCard } from '@/constants/premiumUi';
 
 export function ApprovalStatusBanner() {
   const { translate } = useLanguage();
@@ -39,8 +40,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: borderRadius.lg,
+    borderRadius: premiumCard.radius,
     borderWidth: 1,
+    ...premiumCard.shadow,
   },
   bannerPending: {
     backgroundColor: '#FFF8F0',

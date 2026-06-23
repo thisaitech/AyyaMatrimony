@@ -2,7 +2,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '@/context/LanguageContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { borderRadius, colors, spacing, typography } from '@/constants/theme';
+import { colors, spacing, typography } from '@/constants/theme';
+import { premiumCard } from '@/constants/premiumUi';
 
 export function PendingPaymentBanner() {
   const { translate } = useLanguage();
@@ -29,10 +30,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: borderRadius.lg,
+    borderRadius: premiumCard.radius,
     borderWidth: 1,
     backgroundColor: '#F3F8FF',
-    borderColor: 'rgba(87, 0, 0, 0.12)',
+    borderColor: 'rgba(87, 0, 0, 0.1)',
+    ...premiumCard.shadow,
   },
   textWrap: {
     flex: 1,

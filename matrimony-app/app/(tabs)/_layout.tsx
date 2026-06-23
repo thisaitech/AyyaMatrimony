@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, Image, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, View } from 'react-native';
 import { Redirect, Tabs, useFocusEffect, useRouter, type Href } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LoginLandingScreen } from '@/components/LoginLandingScreen';
@@ -84,14 +84,24 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.surfaceTint,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.onSurfaceVariant,
         tabBarStyle: {
-          backgroundColor: 'rgba(246, 250, 255, 0.95)',
-          borderTopColor: 'rgba(226, 191, 185, 0.2)',
-          height: 72,
-          paddingBottom: 12,
-          paddingTop: 8,
+          backgroundColor: 'rgba(255, 251, 249, 0.98)',
+          borderTopColor: 'rgba(87, 0, 0, 0.08)',
+          height: 76,
+          paddingBottom: 14,
+          paddingTop: 10,
+          ...Platform.select({
+            web: { boxShadow: '0 -4px 16px rgba(87, 0, 0, 0.06)' },
+            default: {
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+              elevation: 8,
+            },
+          }),
         },
         tabBarLabelStyle: {
           ...typography.labelSm,

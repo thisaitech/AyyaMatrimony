@@ -69,9 +69,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.md,
+    paddingVertical: 14,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: 14,
+    minHeight: 52,
   },
   primary: {
     backgroundColor: colors.primary,

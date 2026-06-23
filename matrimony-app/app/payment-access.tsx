@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import { ActivityIndicator, BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -226,13 +226,23 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   priceCard: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.35)',
-    backgroundColor: colors.surfaceContainerLowest,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    backgroundColor: '#FFFBF9',
     padding: spacing.lg,
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    ...Platform.select({
+      web: { boxShadow: '0 6px 24px rgba(87, 0, 0, 0.08)' },
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
+      },
+    }),
   },
   priceLabel: {
     ...typography.labelLg,

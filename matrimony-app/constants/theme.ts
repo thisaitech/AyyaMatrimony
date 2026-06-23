@@ -9,8 +9,8 @@ export const colors = {
   secondaryFixed: '#ffe088',
   onSecondary: '#ffffff',
   onSecondaryContainer: '#745c00',
-  surface: '#f6faff',
-  surfaceBright: '#f6faff',
+  surface: '#f8f6f4',
+  surfaceBright: '#f8f6f4',
   surfaceContainer: '#e6eff8',
   surfaceContainerLow: '#ecf5fe',
   surfaceContainerLowest: '#ffffff',
@@ -19,7 +19,7 @@ export const colors = {
   surfaceTint: '#b22b1d',
   onSurface: '#141d23',
   onSurfaceVariant: '#5a413d',
-  background: '#f6faff',
+  background: '#f8f6f4',
   outline: '#8e706c',
   outlineVariant: '#e2bfb9',
   error: '#ba1a1a',
@@ -56,9 +56,9 @@ export const typography = {
 };
 
 export const borderRadius = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
   full: 9999,
 };
