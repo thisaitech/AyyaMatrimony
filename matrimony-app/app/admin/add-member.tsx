@@ -90,6 +90,7 @@ export default function AdminAddMemberScreen() {
 
       <CreateProfileBiodataForm
         editable
+        preferTamilKeyboard
         onSave={handleSave}
         onStepChange={setStep}
       />

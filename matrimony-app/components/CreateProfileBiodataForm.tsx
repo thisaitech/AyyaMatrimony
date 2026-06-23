@@ -23,6 +23,8 @@ import { FormOptionsKey, getFormOptions, getOptionLabel } from '@/constants/form
 import { getLogoUri, images } from '@/constants/images';
 import { Language, t, translations } from '@/constants/i18n';
 import { isChristianRegistration, type RegistrationCommunityId } from '@/constants/registrationCommunities';
+import { TamilInputProvider } from '@/context/TamilInputContext';
+import { useTamilTextInputProps } from '@/context/TamilInputContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { borderRadius, colors, fonts, spacing } from '@/constants/theme';
@@ -1997,6 +1999,7 @@ function BiodataNameDegreeRow({
   degreePlaceholder?: string;
 }) {
   const { language } = useLanguage();
+  const tamilInputProps = useTamilTextInputProps();
   const degreeOptions = useMemo(() => getFormOptions('degreeDetail', language), [language]);
   const resolvedDegree = useMemo(
     () => resolveStoredOptionValue('degreeDetail', degreeValue, language),
@@ -2023,6 +2026,7 @@ function BiodataNameDegreeRow({
       <IconFieldShell dense={dense}>
         <View style={styles.nameDegreeRow}>
           <TextInput
+            {...tamilInputProps}
             style={[
               styles.fieldInput,
               styles.fieldInputWithIcon,
@@ -2076,8 +2080,10 @@ function BiodataRow({
   icon?: keyof typeof MaterialIcons.glyphMap;
   narrow?: boolean;
 }) {
+  const tamilInputProps = useTamilTextInputProps();
   const input = (
     <TextInput
+      {...tamilInputProps}
       style={[
         narrow ? styles.narrowFieldInput : [styles.fieldInput, styles.textFieldFullWidth],
         dense && styles.fieldInputDense,
@@ -2194,6 +2200,7 @@ function MetricBox({
   familyCompact?: boolean;
 }) {
   const { language } = useLanguage();
+  const tamilInputProps = useTamilTextInputProps();
   const sidebarBoxStyle = compactSidebar
     ? [styles.metricBoxSidebarCompact, dense && styles.metricBoxSidebarCompactDense]
     : familyCompact
@@ -2288,6 +2295,7 @@ function MetricBox({
 
   const input = (
     <TextInput
+      {...tamilInputProps}
       style={[
         styles.metricInput,
         ...sidebarInputStyle,
@@ -2445,6 +2453,7 @@ function MemberBox({
   countSelect?: boolean;
 }) {
   const { language } = useLanguage();
+  const tamilInputProps = useTamilTextInputProps();
   const countOptions = useMemo(() => getFormOptions('siblingCount', language), [language]);
 
   return (
@@ -2516,6 +2525,7 @@ function MemberBox({
             )
           ) : (
           <TextInput
+            {...tamilInputProps}
             style={[
               styles.memberInput,
               sidebar && styles.memberInputSidebar,
@@ -4262,6 +4272,8 @@ type CreateProfileBiodataFormProps = {
   profileValues?: Record<string, string>;
   hideActionBar?: boolean;
   getExportOptions?: () => BiodataExportOptions;
+  /** Hint Tamil keyboard on text fields (admin biodata entry). */
+  preferTamilKeyboard?: boolean;
 };
 
 export function CreateProfileBiodataForm({
@@ -4272,6 +4284,7 @@ export function CreateProfileBiodataForm({
   profileValues,
   hideActionBar = false,
   getExportOptions,
+  preferTamilKeyboard = false,
 }: CreateProfileBiodataFormProps) {
   const { width: screenWidth } = useWindowDimensions();
   const sideBySide = Platform.OS === 'web' ? screenWidth >= 320 : screenWidth >= 560;
@@ -4968,6 +4981,7 @@ export function CreateProfileBiodataForm({
   );
 
   return (
+    <TamilInputProvider enabled={preferTamilKeyboard}>
     <View style={[styles.wrapper, isChristianReview && styles.wrapperFullScreen]}>
       {isChristianReview ? (
         <ScrollView
@@ -5115,6 +5129,7 @@ export function CreateProfileBiodataForm({
       </View>
       ) : null}
     </View>
+    </TamilInputProvider>
   );
 }
 

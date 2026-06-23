@@ -659,6 +659,8 @@ export const translations = {
     adminSourceSelf: 'Self registered',
     adminSourceAdmin: 'Admin added',
     adminLangTamil: 'Tamil',
+    adminTamilKeyboardHint:
+      'Type in Tamil: tap the globe key on your keyboard to switch to Tamil input. On web, Tamil keyboard opens when Tamil is enabled in your device settings.',
     adminLangEnglish: 'English',
     adminSettings: 'Settings',
     adminSettingsAccount: 'Account',
@@ -1341,6 +1343,8 @@ export const translations = {
     adminSourceSelf: 'சுய பதிவு',
     adminSourceAdmin: 'நிர்வாகம்',
     adminLangTamil: 'தமிழ்',
+    adminTamilKeyboardHint:
+      'தமிழில் தட்டச்சு செய்ய: விசைப்பலகையில் உலகக் குறியை (🌐) தட்டி தமிழ் உள்ளீட்டிற்கு மாற்றவும். வலையில், சாதன அமைப்பில் தமிழ் இயக்கப்பட்டிருக்க வேண்டும்.',
     adminLangEnglish: 'ஆங்கிலம்',
     adminSettings: 'அமைப்பு',
     adminSettingsAccount: 'கணக்கு',
