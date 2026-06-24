@@ -4,11 +4,11 @@ import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from '@expo-google-fonts/inter';
+  NotoSansTamil_400Regular,
+  NotoSansTamil_500Medium,
+  NotoSansTamil_600SemiBold,
+  NotoSansTamil_700Bold,
+} from '@expo-google-fonts/noto-sans-tamil';
 import {
   PlayfairDisplay_600SemiBold,
   PlayfairDisplay_700Bold,
@@ -26,10 +26,10 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    NotoSansTamil_400Regular,
+    NotoSansTamil_500Medium,
+    NotoSansTamil_600SemiBold,
+    NotoSansTamil_700Bold,
     PlayfairDisplay_600SemiBold,
     PlayfairDisplay_700Bold,
   });
