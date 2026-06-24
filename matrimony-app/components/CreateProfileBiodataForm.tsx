@@ -28,7 +28,7 @@ import {
 import Animated, { FadeIn, FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { SelectField } from '@/components/FormControls';
+import { SelectField, ComboBoxField } from '@/components/FormControls';
 import { BiodataPropertyField } from '@/components/BiodataPropertyField';
 import { getPropertyDisplayValue } from '@/constants/biodataProperty';
 import { FormOptionsKey, getFormOptions, getOptionLabel } from '@/constants/formOptions';
@@ -117,8 +117,8 @@ const fieldShadow = Platform.select({
 });
 
 const HOROSCOPE_SIZE = 4;
-const DETAIL_GRID_COUNT = 34;
-const DETAIL_GRID_ROW_SIZES = [17, 17] as const;
+const DETAIL_GRID_COUNT = 36;
+const DETAIL_GRID_ROW_SIZES = [12, 12, 12] as const;
 const BIODATA_PRINT_STYLE_ID = 'biodata-print-style';
 
 const BIODATA_PRINT_CSS = `
@@ -783,33 +783,40 @@ const HOROSCOPE_PLANETS = [
   { value: 'chandra', label: 'சந்' },
   { value: 'mars', label: 'செ' },
   { value: 'mercury', label: 'பு' },
-  { value: 'jupiter', label: 'கு' },
+  { value: 'jupiter', label: 'வி' },
   { value: 'venus', label: 'சு' },
-  { value: 'saturn', label: 'ச' },
+  { value: 'saturn', label: 'சனி' },
   { value: 'rahu', label: 'ரா' },
   { value: 'kethu', label: 'கே' },
   { value: 'lagna', label: 'ல' },
 ] as const;
 
-function resolveHoroscopeCellValue(stored: string): string {
+function resolveHoroscopeCellValues(stored: string): string[] {
   const trimmed = stored.trim();
   if (!trimmed) {
-    return '';
+    return [];
   }
 
-  const byValue = HOROSCOPE_PLANETS.find((planet) => planet.value === trimmed);
-  if (byValue) {
-    return byValue.value;
-  }
+  const parts = trimmed.split(',').map((part) => part.trim()).filter(Boolean);
+  return parts.map(part => {
+    const byValue = HOROSCOPE_PLANETS.find((planet) => planet.value === part);
+    if (byValue) {
+      return byValue.value;
+    }
 
-  const byLabel = HOROSCOPE_PLANETS.find((planet) => planet.label === trimmed);
-  return byLabel?.value ?? trimmed;
+    const byLabel = HOROSCOPE_PLANETS.find((planet) => planet.label === part);
+    return byLabel?.value ?? part;
+  });
 }
 
 function getHoroscopeCellLabel(stored: string): string {
-  const resolved = resolveHoroscopeCellValue(stored);
-  const planet = HOROSCOPE_PLANETS.find((item) => item.value === resolved);
-  return planet?.label ?? stored;
+  const resolvedArr = resolveHoroscopeCellValues(stored);
+  if (resolvedArr.length === 0) return '';
+  const labels = resolvedArr.map(val => {
+    const planet = HOROSCOPE_PLANETS.find((item) => item.value === val);
+    return planet?.label ?? val;
+  });
+  return labels.join('/');
 }
 
 type BiodataState = {
@@ -1565,17 +1572,17 @@ function DasaBalanceFields({
             {translate('selectDasaYear')}
           </Text>
           <View style={[styles.dasaInlineSelect, styles.dasaYearSelectWrap, styles.selectFieldGroup]}>
-            <SelectField
-              label={translate('biodataYear')}
+            <TextInput
+              style={[
+                styles.fieldInput,
+                styles.dasaTextInput,
+                dense && styles.fieldInputDense,
+              ]}
               value={resolvedYear}
-              onValueChange={(value) => onFieldChange('dasaYear', value)}
-              options={yearOptions}
+              onChangeText={(value) => onFieldChange('dasaYear', value)}
               placeholder={translate('selectDasaYear')}
-              showLabel={false}
-              compact
-              variant="premium"
-              embedded
-              tight
+              keyboardType="number-pad"
+              maxLength={2}
             />
           </View>
         </View>
@@ -1584,17 +1591,17 @@ function DasaBalanceFields({
             {translate('selectDasaMonth')}
           </Text>
           <View style={[styles.dasaInlineSelect, styles.dasaMonthSelectWrap, styles.selectFieldGroup]}>
-            <SelectField
-              label={translate('biodataMonth')}
+            <TextInput
+              style={[
+                styles.fieldInput,
+                styles.dasaTextInput,
+                dense && styles.fieldInputDense,
+              ]}
               value={resolvedMonth}
-              onValueChange={(value) => onFieldChange('dasaMonth', value)}
-              options={monthOptions}
+              onChangeText={(value) => onFieldChange('dasaMonth', value)}
               placeholder={translate('selectDasaMonth')}
-              showLabel={false}
-              compact
-              variant="premium"
-              embedded
-              tight
+              keyboardType="number-pad"
+              maxLength={2}
             />
           </View>
         </View>
@@ -1603,17 +1610,17 @@ function DasaBalanceFields({
             {translate('selectDasaDay')}
           </Text>
           <View style={[styles.dasaInlineSelect, styles.dasaDaySelectWrap, styles.selectFieldGroup]}>
-            <SelectField
-              label={translate('biodataDay')}
+            <TextInput
+              style={[
+                styles.fieldInput,
+                styles.dasaTextInput,
+                dense && styles.fieldInputDense,
+              ]}
               value={resolvedDay}
-              onValueChange={(value) => onFieldChange('dasaDay', value)}
-              options={dayOptions}
+              onChangeText={(value) => onFieldChange('dasaDay', value)}
               placeholder={translate('selectDasaDay')}
-              showLabel={false}
-              compact
-              variant="premium"
-              embedded
-              tight
+              keyboardType="number-pad"
+              maxLength={2}
             />
           </View>
         </View>
@@ -2171,16 +2178,19 @@ function BiodataNameDegreeRow({
           />
           <View style={styles.nameDegreeDivider} />
           <View style={styles.nameDegreeSelect}>
-            <SelectField
-              label={label}
-              value={resolvedDegree}
-              onValueChange={onDegreeChange}
-              options={degreeOptions}
+            <TextInput
+              style={[
+                styles.fieldInput,
+                styles.nameDegreeInput,
+                dense && styles.fieldInputDense,
+                { borderLeftWidth: 0, paddingLeft: 8, height: '100%', flex: 1, backgroundColor: 'transparent' },
+                Platform.select({ web: { outlineStyle: 'none' }, default: {} }),
+              ]}
+              value={degreeValue}
+              onChangeText={onDegreeChange}
+              editable={editable}
               placeholder={degreePlaceholder}
-              showLabel={false}
-              compact
-              variant="premium"
-              embedded
+              placeholderTextColor={PLACEHOLDER}
             />
           </View>
         </View>
@@ -2199,6 +2209,7 @@ function BiodataRow({
   placeholder,
   icon,
   narrow,
+  keyboardType,
 }: {
   label: string;
   value: string;
@@ -2209,6 +2220,7 @@ function BiodataRow({
   placeholder?: string;
   icon?: keyof typeof MaterialIcons.glyphMap;
   narrow?: boolean;
+  keyboardType?: React.ComponentProps<typeof TextInput>['keyboardType'];
 }) {
   const tamilInputProps = useTamilTextInputProps();
   const input = (
@@ -2227,6 +2239,7 @@ function BiodataRow({
       multiline={multiline}
       placeholder={placeholder}
       placeholderTextColor={PLACEHOLDER}
+      keyboardType={keyboardType}
     />
   );
 
@@ -2674,6 +2687,78 @@ function MemberBox({
   );
 }
 
+function DetailCellPicker({
+  value,
+  index,
+  onChange,
+  dense,
+}: {
+  value: string;
+  index: number;
+  onChange: (value: string) => void;
+  dense?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [tempValue, setTempValue] = useState(value);
+
+  const displayValue = value || String(index + 1);
+
+  return (
+    <>
+      <Pressable 
+        onPress={() => { setTempValue(value); setIsOpen(true); }} 
+        style={{flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center'}}
+      >
+        <Text 
+          style={[
+            styles.detailCellText, 
+            dense && styles.detailCellTextDense,
+            !value && { color: 'rgba(87, 0, 0, 0.4)' }
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          {displayValue}
+        </Text>
+      </Pressable>
+      <PickerModal visible={isOpen} onClose={() => setIsOpen(false)}>
+        <View style={{ padding: 20, alignItems: 'center' }}>
+          <TextInput
+            style={[styles.fieldInput, { textAlign: 'center', fontSize: 24, width: 100, height: 60 }]}
+            value={tempValue}
+            onChangeText={(text) => setTempValue(normalizeDetailGridInput(text))}
+            keyboardType="number-pad"
+            maxLength={2}
+            autoFocus
+          />
+          <View style={{ flexDirection: 'row', marginTop: 20, width: '100%', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(87, 0, 0, 0.12)', paddingTop: 12 }}>
+            {value ? (
+              <Pressable
+                style={[styles.pickerModalClearButton, { flex: 1, marginTop: 0, borderTopWidth: 0 }]}
+                onPress={() => {
+                  onChange('');
+                  setIsOpen(false);
+                }}
+              >
+                <Text style={styles.pickerModalClearButtonText}>Delete</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[styles.pickerModalClearButton, { flex: 1, marginTop: 0, borderTopWidth: 0 }]}
+              onPress={() => {
+                onChange(tempValue);
+                setIsOpen(false);
+              }}
+            >
+              <Text style={[styles.pickerModalClearButtonText, { color: HOROSCOPE_RED }]}>Okay</Text>
+            </Pressable>
+          </View>
+        </View>
+      </PickerModal>
+    </>
+  );
+}
+
 function DetailGrid({
   cells,
   editable,
@@ -2700,31 +2785,24 @@ function DetailGrid({
               <View key={rowIndex} style={styles.detailGridRow}>
                 {rowCells.map((cell, colIndex) => {
                   const index = rowStart + colIndex;
-                  const displayValue = cell || String(index + 1);
-
                   return (
                     <View
                       key={index}
                       style={[styles.detailCellWrap, dense && styles.detailCellWrapDense]}
                     >
                       {editable ? (
-                        <TextInput
-                          style={[styles.detailCellInput, dense && styles.detailCellInputDense]}
+                        <DetailCellPicker
                           value={cell}
-                          onChangeText={(text) => onCellChange(index, normalizeDetailGridInput(text))}
-                          editable={editable}
-                          keyboardType="number-pad"
-                          maxLength={2}
-                          textAlign="center"
-                          placeholder={String(index + 1)}
-                          placeholderTextColor="rgba(87, 0, 0, 0.25)"
+                          index={index}
+                          onChange={(text) => onCellChange(index, text)}
+                          dense={dense}
                         />
                       ) : (
                         <Text
                           style={[styles.detailCellText, dense && styles.detailCellTextDense]}
                           numberOfLines={1}
                         >
-                          {displayValue}
+                          {cell}
                         </Text>
                       )}
                     </View>
@@ -2785,7 +2863,12 @@ function HoroscopeCellPicker({
 
   if (!editable) {
     return (
-      <Text style={[styles.chartCellText, compact && styles.chartCellTextCompact]} numberOfLines={1}>
+      <Text 
+        style={[styles.chartCellText, compact && styles.chartCellTextCompact]} 
+        numberOfLines={5}
+        adjustsFontSizeToFit
+        minimumFontScale={0.4}
+      >
         {display}
       </Text>
     );
@@ -2803,9 +2886,9 @@ function HoroscopeCellPicker({
             compact && styles.chartCellTextCompact,
             !display && styles.chartCellTextEmpty,
           ]}
-          numberOfLines={1}
+          numberOfLines={5}
           adjustsFontSizeToFit
-          minimumFontScale={0.7}
+          minimumFontScale={0.4}
         >
           {display}
         </Text>
@@ -2820,14 +2903,20 @@ function HoroscopeCellPicker({
         >
           <View style={styles.pickerModalPlanetGrid}>
             {HOROSCOPE_PLANETS.map((planet) => {
-              const selected = resolveHoroscopeCellValue(value) === planet.value;
+              const currentValues = resolveHoroscopeCellValues(value);
+              const selected = currentValues.includes(planet.value);
               return (
                 <Pressable
                   key={planet.value}
                   style={[styles.pickerModalPlanetOption, selected && styles.pickerModalOptionSelected]}
                   onPress={() => {
-                    onChange(planet.value);
-                    onClose();
+                    let newValues;
+                    if (selected) {
+                      newValues = currentValues.filter((v) => v !== planet.value);
+                    } else {
+                      newValues = [...currentValues, planet.value];
+                    }
+                    onChange(newValues.join(','));
                   }}
                 >
                   <Text
@@ -2842,17 +2931,25 @@ function HoroscopeCellPicker({
               );
             })}
           </View>
-          {value ? (
+          <View style={{ flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(87, 0, 0, 0.12)', marginTop: 12 }}>
+            {value ? (
+              <Pressable
+                style={[styles.pickerModalClearButton, { flex: 1, borderTopWidth: 0, marginTop: 0 }]}
+                onPress={() => {
+                  onChange('');
+                  onClose();
+                }}
+              >
+                <Text style={styles.pickerModalClearButtonText}>Delete</Text>
+              </Pressable>
+            ) : null}
             <Pressable
-              style={styles.pickerModalClearButton}
-              onPress={() => {
-                onChange('');
-                onClose();
-              }}
+              style={[styles.pickerModalClearButton, { flex: 1, borderTopWidth: 0, marginTop: 0 }]}
+              onPress={onClose}
             >
-              <Text style={styles.pickerModalClearButtonText}>Delete</Text>
+              <Text style={[styles.pickerModalClearButtonText, { color: HOROSCOPE_RED }]}>Okay</Text>
             </Pressable>
-          ) : null}
+          </View>
         </ScrollView>
       </PickerModal>
     </>
@@ -4574,7 +4671,7 @@ export function CreateProfileBiodataForm({
   const biodataPrintRef = useRef<View>(null);
   const scrollRef = useRef<ScrollView>(null);
   const [isSharing, setIsSharing] = useState(false);
-  const [stepState, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [stepState, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const step = viewOnly ? 4 : stepState;
   const reviewPhotoUri = useMemo(() => {
     if (!showPhotoInBiodata) {
@@ -4913,20 +5010,6 @@ export function CreateProfileBiodataForm({
   }, [detailGrid, form, language, photos, rasiChart, amsamChart, showPhotoInBiodata, getValue, replaceValues, values]);
 
   const validateOccupationFields = useCallback(() => {
-    const hasOccupation = form.occupationType.trim().length > 0;
-    const hasRole = form.occupation.trim().length > 0;
-    const hasPosition = form.occupationDesignation.trim().length > 0;
-    const hasAny = hasOccupation || hasRole || hasPosition;
-
-    if (!hasAny) {
-      return true;
-    }
-
-    if (!hasOccupation || !hasRole || !hasPosition) {
-      Alert.alert(translate('biodataFieldOccupation'), translate('occupationValidationRequired'));
-      return false;
-    }
-
     return true;
   }, [
     form.occupation,
@@ -5024,7 +5107,7 @@ export function CreateProfileBiodataForm({
   const currentReligion = form.religion || contextReligion;
   const isInitiallyChristian = isChristianRegistration(registrationCommunity, '');
   const isCurrentChristian = isChristianRegistration(registrationCommunity, currentReligion);
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   const goToNextStep = useCallback(() => {
     if (step === 1 && !validateOccupationFields()) {
@@ -5032,7 +5115,7 @@ export function CreateProfileBiodataForm({
     }
 
     const advance = () => {
-      setStep((current) => (current < totalSteps ? ((current + 1) as 1 | 2 | 3 | 4) : current));
+      setStep((current) => (current < totalSteps ? ((current + 1) as 1 | 2 | 3 | 4 | 5) : current));
     };
 
     if (!profileValues) {
@@ -5047,7 +5130,7 @@ export function CreateProfileBiodataForm({
 
   const goToPreviousStep = useCallback(() => {
     const retreat = () => {
-      setStep((current) => (current > 1 ? ((current - 1) as 1 | 2 | 3 | 4) : current));
+      setStep((current) => (current > 1 ? ((current - 1) as 1 | 2 | 3 | 4 | 5) : current));
     };
 
     if (!profileValues) {
@@ -5060,26 +5143,23 @@ export function CreateProfileBiodataForm({
     retreat();
   }, [profileValues, syncDraftToContext]);
 
-  const isReviewStep = step === 4;
-  const isExtrasStep = step === 3;
+  const isReviewStep = step === 5;
+  const isExtrasStep = step === 4;
   const hasReligion = Boolean(form.religion.trim() || currentReligion.trim());
   const showHoroscopeOnExtrasStep = hasReligion && !isCurrentChristian;
   const isChristianReview = isReviewStep && isCurrentChristian;
   const reviewEditable = viewOnly ? false : editable;
 
-  const leftColumn = (
+  const step1Column = (
     <>
             <SectionCard dense={dense}>
-              <BiodataNameDegreeRow
+              <BiodataRow
                 label={translate('biodataFieldName')}
-                nameValue={form.fullName}
-                degreeValue={form.education}
-                onNameChange={(text) => updateField('fullName', text)}
-                onDegreeChange={(text) => updateField('education', text)}
+                value={form.fullName}
+                onChangeText={(text) => updateField('fullName', text)}
                 editable={editable}
                 dense={dense}
-                namePlaceholder={translate('biodataPlaceholderName')}
-                degreePlaceholder={translate('selectDegree')}
+                placeholder={translate('biodataPlaceholderName')}
               />
               <View style={styles.fieldPairRow}>
                 <View style={styles.fieldPairItem}>
@@ -5132,16 +5212,36 @@ export function CreateProfileBiodataForm({
             </SectionCard>
 
             <SectionCard dense={dense}>
-              <BiodataOccupationFields
-                occupationType={form.occupationType}
-                occupation={form.occupation}
-                occupationDesignation={form.occupationDesignation}
-                onTypeChange={(value) => updateField('occupationType', value)}
-                onOccupationChange={(value) => updateField('occupation', value)}
-                onDesignationChange={(value) => updateField('occupationDesignation', value)}
+              <BiodataRow
+                label={translate('selectDegree')}
+                value={form.education}
+                onChangeText={(text) => updateField('education', text)}
                 editable={editable}
                 dense={dense}
+                placeholder={translate('selectDegree')}
               />
+              <View style={styles.fieldPairRow}>
+                <View style={styles.fieldPairItem}>
+                  <BiodataRow
+                    label={translate('biodataOccupationMain')}
+                    value={form.occupationType}
+                    onChangeText={(text) => updateField('occupationType', text)}
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('selectOccupationType')}
+                  />
+                </View>
+                <View style={styles.fieldPairItem}>
+                  <BiodataRow
+                    label={translate('biodataOccupationRole')}
+                    value={form.occupation}
+                    onChangeText={(text) => updateField('occupation', text)}
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('selectOccupationRole')}
+                  />
+                </View>
+              </View>
               <View style={styles.fieldPairRow}>
                 <View style={styles.fieldPairItem}>
                   <BiodataRow
@@ -5154,34 +5254,29 @@ export function CreateProfileBiodataForm({
                   />
                 </View>
                 <View style={styles.fieldPairItem}>
-                  <BiodataSelectRow
+                  <BiodataRow
                     label={translate('biodataFieldIncome')}
                     value={form.monthlyIncome}
-                    onValueChange={(text) => updateField('monthlyIncome', text)}
-                    optionsKey="monthlyIncome"
+                    onChangeText={(text) => updateField('monthlyIncome', text)}
                     editable={editable}
                     dense={dense}
                   />
                 </View>
               </View>
-              <BiodataPropertyField
+              <BiodataRow
                 label={translate('biodataFieldProperty')}
-                propertyDetails={form.propertyDetails}
-                legacyHouseType={form.propertyHouseType}
-                legacyHouseCount={form.propertyHouseCount}
-                onSave={(serialized) => {
-                  setForm((current) => ({
-                    ...current,
-                    propertyDetails: serialized,
-                    propertyHouseType: '',
-                    propertyHouseCount: '',
-                  }));
-                }}
+                value={form.propertyDetails}
+                onChangeText={(text) => updateField('propertyDetails', text)}
                 editable={editable}
                 dense={dense}
+                multiline
               />
             </SectionCard>
+    </>
+  );
 
+  const step2Column = (
+    <>
             <SectionCard dense={dense}>
               <View style={styles.fieldPairRow}>
                 <View style={styles.fieldPairItem}>
@@ -5231,80 +5326,72 @@ export function CreateProfileBiodataForm({
                 </View>
               </View>
             </SectionCard>
+
+            <SectionCard dense={dense}>
+              <View style={styles.fieldPairRow}>
+                <View style={styles.fieldPairItem}>
+                  <BiodataSelectRow
+                    label={translate('biodataFieldTotalMembers')}
+                    value={form.totalFamilyMembers}
+                    onValueChange={(text) => updateField('totalFamilyMembers', text)}
+                    optionsKey="siblingCount"
+                    editable={editable}
+                    dense={dense}
+                  />
+                </View>
+                <View style={styles.fieldPairItem}>
+                  <BiodataRow
+                    label={translate('biodataFieldBirthOrder')}
+                    value={form.birthOrder}
+                    onChangeText={(text) => updateField('birthOrder', text)}
+                    editable={editable}
+                    dense={dense}
+                    keyboardType="numeric"
+                    placeholder="1, 2, 3..."
+                  />
+                </View>
+              </View>
+            </SectionCard>
+
+            <SectionCard dense={dense}>
+              <View style={styles.fieldPairRow}>
+                <View style={styles.fieldPairItem}>
+                  <SiblingSidebarSection
+                    title={translate('biodataFieldMarried')}
+                    fieldKeys={{
+                      elderBrother: 'marriedBrother',
+                      youngerBrother: 'marriedYoungerBrother',
+                      elderSister: 'marriedSister',
+                      youngerSister: 'marriedYoungerSister',
+                    }}
+                    form={form}
+                    onFieldChange={updateField}
+                    editable={editable}
+                    dense={dense}
+                  />
+                </View>
+                <View style={styles.fieldPairItem}>
+                  <SiblingSidebarSection
+                    title={translate('biodataFieldUnmarried')}
+                    fieldKeys={{
+                      elderBrother: 'unmarriedBrother',
+                      youngerBrother: 'unmarriedYoungerBrother',
+                      elderSister: 'unmarriedSister',
+                      youngerSister: 'unmarriedYoungerSister',
+                    }}
+                    form={form}
+                    onFieldChange={updateField}
+                    editable={editable}
+                    dense={dense}
+                  />
+                </View>
+              </View>
+            </SectionCard>
     </>
   );
 
   const rightColumn = (
     <View style={[styles.leftColumn, styles.leftColumnFull]}>
-      <SectionCard dense={dense}>
-        <View style={styles.fieldPairRow}>
-          <View style={styles.fieldPairItem}>
-            <BiodataSelectRow
-              label={translate('biodataFieldTotalMembers')}
-              value={form.totalFamilyMembers}
-              onValueChange={(text) => updateField('totalFamilyMembers', text)}
-              optionsKey="siblingCount"
-              editable={editable}
-              dense={dense}
-            />
-          </View>
-          <View style={styles.fieldPairItem}>
-            <BiodataSelectRow
-              label={translate('biodataFieldTotalSiblings')}
-              value={form.numSiblings}
-              onValueChange={(text) => updateField('numSiblings', text)}
-              optionsKey="siblingCount"
-              editable={editable}
-              dense={dense}
-            />
-          </View>
-        </View>
-        <RadioOptionGroup
-          label={translate('biodataFieldBirthOrder')}
-          value={form.birthOrder}
-          optionsKey="birthOrder"
-          onValueChange={(text) => updateField('birthOrder', text)}
-          editable={editable}
-          dense={dense}
-          twoColumn
-        />
-      </SectionCard>
-
-      <SectionCard dense={dense}>
-        <View style={styles.fieldPairRow}>
-          <View style={styles.fieldPairItem}>
-            <SiblingSidebarSection
-              title={translate('biodataFieldMarried')}
-              fieldKeys={{
-                elderBrother: 'marriedBrother',
-                youngerBrother: 'marriedYoungerBrother',
-                elderSister: 'marriedSister',
-                youngerSister: 'marriedYoungerSister',
-              }}
-              form={form}
-              onFieldChange={updateField}
-              editable={editable}
-              dense={dense}
-            />
-          </View>
-          <View style={styles.fieldPairItem}>
-            <SiblingSidebarSection
-              title={translate('biodataFieldUnmarried')}
-              fieldKeys={{
-                elderBrother: 'unmarriedBrother',
-                youngerBrother: 'unmarriedYoungerBrother',
-                elderSister: 'unmarriedSister',
-                youngerSister: 'unmarriedYoungerSister',
-              }}
-              form={form}
-              onFieldChange={updateField}
-              editable={editable}
-              dense={dense}
-            />
-          </View>
-        </View>
-      </SectionCard>
-
       <SectionCard dense={dense}>
         <RadioOptionGroup
           label={translate('biodataFieldComplexion')}
@@ -5320,22 +5407,20 @@ export function CreateProfileBiodataForm({
       <SectionCard dense={dense}>
         <View style={styles.fieldPairRow}>
           <View style={styles.fieldPairItem}>
-            <BiodataSelectRow
+            <BiodataRow
               label={translate('biodataFieldHeight')}
               value={form.height}
-              onValueChange={(text) => updateField('height', text)}
-              optionsKey="height"
+              onChangeText={(text) => updateField('height', text)}
               editable={editable}
               dense={dense}
               placeholder={translate('selectHeight')}
             />
           </View>
           <View style={styles.fieldPairItem}>
-            <BiodataSelectRow
+            <BiodataRow
               label={translate('biodataFieldSeervarisai')}
               value={form.seervarisai}
-              onValueChange={(text) => updateField('seervarisai', text)}
-              optionsKey="seervarisai"
+              onChangeText={(text) => updateField('seervarisai', text)}
               editable={editable}
               dense={dense}
             />
@@ -5355,9 +5440,12 @@ export function CreateProfileBiodataForm({
       ]}
     >
       {step === 1 ? (
-        <View style={[styles.leftColumn, styles.leftColumnFull]}>{leftColumn}</View>
+        <View style={[styles.leftColumn, styles.leftColumnFull]}>{step1Column}</View>
       ) : null}
-      {step === 2 ? rightColumn : null}
+      {step === 2 ? (
+        <View style={[styles.leftColumn, styles.leftColumnFull]}>{step2Column}</View>
+      ) : null}
+      {step === 3 ? rightColumn : null}
       {isExtrasStep ? (
         <BiodataExtrasStepView
           form={form}

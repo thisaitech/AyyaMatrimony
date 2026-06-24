@@ -73,7 +73,7 @@ goto fail
 set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
 
 @rem Store Gradle project cache on C: (avoids file-lock errors when project is on D:)
-if not defined GRADLE_PROJECT_CACHE_DIR set GRADLE_PROJECT_CACHE_DIR=C:\Users\acer\.gradle-project-cache\ayya-matrimony
+if not defined GRADLE_PROJECT_CACHE_DIR set GRADLE_PROJECT_CACHE_DIR=C:\Users\ThisAI\.gradle-project-cache\ayya-matrimony
 
 @rem Execute Gradle
 "%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain --project-cache-dir "%GRADLE_PROJECT_CACHE_DIR%" %*

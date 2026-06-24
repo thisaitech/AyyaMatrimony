@@ -303,6 +303,7 @@ export function SelectField({
             open && useModalDropdown && isPremium && styles.selectTriggerPremiumOverlayOpen,
           ]}
           onPress={handleToggle}
+          delayPressIn={0}
         >
           <Text
             style={[
@@ -357,6 +358,232 @@ export function SelectField({
                   left: anchor.left,
                   width: anchor.width,
                 },
+              ]}
+            >
+              <View style={dropdownPanelStyle}>{optionsList}</View>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+    </View>
+  );
+}
+
+export function ComboBoxField({
+  label,
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  showLabel = true,
+  compact = false,
+  variant = 'default',
+  embedded = false,
+  tight = false,
+}: SelectFieldProps) {
+  const isPremium = variant === 'premium';
+  const isEmbeddedCompact = embedded && compact;
+  const isTightEmbedded = isEmbeddedCompact && tight;
+  const useModalDropdown = false; // Must be false so the Modal doesn't block the TextInput!
+  const triggerRef = useRef<View>(null);
+  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const getOptionLabelSafely = useCallback((val: string) => {
+    const option = options.find((o) => o.value === val);
+    return option ? option.label : val;
+  }, [options]);
+
+  const [searchText, setSearchText] = useState(() => getOptionLabelSafely(value));
+
+  useEffect(() => {
+    setSearchText(getOptionLabelSafely(value));
+  }, [value, getOptionLabelSafely]);
+
+  const compactRowHeight = 20;
+
+  const filteredOptions = useMemo(() => {
+    if (!searchText) return options;
+    const lower = searchText.toLowerCase();
+    return options.filter(
+      (o) =>
+        o.label.toLowerCase().includes(lower) ||
+        o.value.toLowerCase().includes(lower)
+    );
+  }, [options, searchText]);
+
+  const compactListMaxHeight = Math.min(
+    Math.max(filteredOptions.length, 1) * compactRowHeight + 10,
+    compact ? 130 : 220,
+  );
+
+  const closeDropdown = useCallback(() => {
+    setOpen(false);
+    setAnchor(null);
+  }, []);
+
+  const handleSelect = useCallback(
+    (selectedValue: string, selectedLabel: string) => {
+      onValueChange(selectedValue);
+      setSearchText(selectedLabel);
+      closeDropdown();
+    },
+    [closeDropdown, onValueChange],
+  );
+
+  const openDropdown = useCallback(() => {
+    if (open) return;
+    if (!useModalDropdown) {
+      setOpen(true);
+      return;
+    }
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      setAnchor({
+        top: y + height + 2,
+        left: x,
+        width: Math.max(width, 120),
+      });
+      setOpen(true);
+    });
+  }, [open, useModalDropdown]);
+
+  const handleTextChange = (text: string) => {
+    setSearchText(text);
+    onValueChange(text);
+    openDropdown();
+  };
+
+  const dropdownPanelStyle = useMemo(
+    () => [
+      styles.inlineDropdown,
+      styles.inlineDropdownModalPanel,
+      isPremium && styles.inlineDropdownPremium,
+      compact && styles.inlineDropdownCompact,
+      compact && styles.inlineDropdownModalPanelCompact,
+    ],
+    [compact, isPremium],
+  );
+
+  const optionsList = (
+    <ScrollView
+      style={[
+        styles.inlineOptionsList,
+        compact && styles.inlineOptionsListCompact,
+        compact && { maxHeight: compactListMaxHeight },
+      ]}
+      nestedScrollEnabled
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={compact && filteredOptions.length * compactRowHeight > 110}
+    >
+      {filteredOptions.length === 0 ? (
+        <Text style={[styles.optionText, compact && styles.optionTextCompact, { padding: 10, color: colors.onSurfaceVariant }]}>
+          No matches found
+        </Text>
+      ) : (
+        filteredOptions.map((option) => {
+          const isSelected = option.value === value || option.label === value;
+          return (
+            <Pressable
+              key={option.value}
+              style={[
+                styles.optionRow,
+                compact && styles.optionRowCompact,
+                isSelected && styles.optionRowSelected,
+              ]}
+              onPress={() => handleSelect(option.value, option.label)}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  compact && styles.optionTextCompact,
+                  isSelected && styles.optionTextSelected,
+                ]}
+                numberOfLines={1}
+              >
+                {option.label}
+              </Text>
+              {isSelected ? (
+                <MaterialIcons name="check" size={compact ? 14 : 20} color={colors.primary} />
+              ) : null}
+            </Pressable>
+          );
+        })
+      )}
+    </ScrollView>
+  );
+
+  return (
+    <View style={[formFieldStyles.fieldGroup, open && styles.fieldGroupOpen]}>
+      {showLabel && label ? <Text style={formFieldStyles.fieldLabel}>{label}</Text> : null}
+      <View ref={triggerRef} collapsable={false} style={styles.selectWrapper}>
+        <View
+          style={[
+            formFieldStyles.selectTrigger,
+            isPremium && styles.selectTriggerPremium,
+            compact && styles.selectTriggerCompact,
+            compact && isPremium && styles.selectTriggerPremiumCompact,
+            embedded && styles.selectTriggerEmbedded,
+            isEmbeddedCompact && styles.selectTriggerEmbeddedCompact,
+            isTightEmbedded && styles.selectTriggerTight,
+            open && !useModalDropdown && styles.selectTriggerOpen,
+            open && isPremium && !useModalDropdown && styles.selectTriggerPremiumOpen,
+            open && useModalDropdown && isPremium && styles.selectTriggerPremiumOverlayOpen,
+            { paddingRight: 8, flexDirection: 'row', alignItems: 'center' },
+          ]}
+        >
+          <TextInput
+            style={[
+              { flex: 1, padding: 0, margin: 0, borderWidth: 0, color: colors.onSurface },
+              Platform.select({ web: { outlineStyle: 'none' }, default: {} }),
+              compact && styles.selectValueCompact,
+              isPremium && styles.selectValuePremium,
+              isEmbeddedCompact && styles.selectValueEmbeddedCompact,
+              isTightEmbedded && styles.selectValueTight,
+            ]}
+            value={searchText}
+            onChangeText={handleTextChange}
+            onFocus={openDropdown}
+            placeholder={placeholder}
+            placeholderTextColor={colors.onSurfaceVariant}
+            returnKeyType="done"
+          />
+          <Pressable
+            onPress={() => {
+              if (open) closeDropdown();
+              else openDropdown();
+            }}
+            hitSlop={10}
+          >
+            <MaterialIcons
+              name={open ? 'expand-less' : 'expand-more'}
+              size={isTightEmbedded ? 12 : isEmbeddedCompact ? 14 : compact ? 16 : 22}
+              color={isPremium ? colors.primary : colors.onSurfaceVariant}
+            />
+          </Pressable>
+        </View>
+
+        {open && !useModalDropdown ? (
+          <View
+            style={[
+              styles.inlineDropdown,
+              isPremium && styles.inlineDropdownPremium,
+              compact && styles.inlineDropdownCompact,
+            ]}
+          >
+            {optionsList}
+          </View>
+        ) : null}
+      </View>
+
+      {useModalDropdown && open && anchor ? (
+        <Modal visible transparent animationType="fade" onRequestClose={closeDropdown}>
+          <View style={styles.dropdownModalRoot}>
+            <Pressable style={styles.dropdownModalBackdrop} onPress={closeDropdown} />
+            <View
+              pointerEvents="box-none"
+              style={[
+                styles.dropdownModalPanel,
+                { top: anchor.top, left: anchor.left, width: anchor.width },
               ]}
             >
               <View style={dropdownPanelStyle}>{optionsList}</View>

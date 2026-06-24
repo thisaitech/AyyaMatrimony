@@ -40,14 +40,6 @@ export default function AdminAddMemberScreen() {
     })();
   }, [authReady, isAuthenticated, clearProfile, editPhone, isEditing, isReady, replaceValues, setValue]);
 
-  if (!authReady) {
-    return null;
-  }
-
-  if (!isAuthenticated) {
-    return <Redirect href="/" />;
-  }
-
   const handleSave = useCallback((profileValues: Record<string, string>) => {
     void (async () => {
       await publishProfileFromValues(profileValues, `admin-${Date.now()}`, {
@@ -66,6 +58,15 @@ export default function AdminAddMemberScreen() {
     })();
   }, [clearProfile, router]);
 
+  if (!authReady) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/" />;
+  }
+
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.header}>
@@ -80,7 +81,7 @@ export default function AdminAddMemberScreen() {
       </View>
 
       <View style={styles.stepRow}>
-        {[1, 2, 3, 4].map((item) => (
+        {[1, 2, 3, 4, 5].map((item) => (
           <View
             key={item}
             style={[styles.stepDot, item <= step && styles.stepDotActive]}
