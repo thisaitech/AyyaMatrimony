@@ -19,6 +19,7 @@ import { UpgradePrimeBanner } from '@/components/UpgradePrimeBanner';
 import { ProfileQuickActionsRow } from '@/components/ProfileQuickActionsRow';
 import { useLanguage } from '@/context/LanguageContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
+import { useMemberDirectory } from '@/context/MemberDirectoryContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useUserApproval } from '@/context/UserApprovalContext';
 import { useMatchActions } from '@/context/MatchActionsContext';
@@ -37,6 +38,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { translate, translateFormat, toggleLanguage, language } = useLanguage();
   const { values, refreshFromFirestore } = useProfileForm();
+  const { refresh: refreshDirectory } = useMemberDirectory();
   const { isPaidMember, isPrimeViewActive, membershipViewMode, setMembershipViewMode, profilesAllowed } =
     useSubscription();
   const { canSeeMemberProfiles, canViewFullProfile } = useMemberAccess();
@@ -57,7 +59,8 @@ export default function HomeScreen() {
     useCallback(() => {
       void refreshApproval();
       void refreshFromFirestore();
-    }, [refreshApproval, refreshFromFirestore]),
+      void refreshDirectory();
+    }, [refreshApproval, refreshDirectory, refreshFromFirestore]),
   );
 
   const handlePrimePress = () => {

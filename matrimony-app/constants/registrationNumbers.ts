@@ -4,10 +4,10 @@ export type RegistrationReligion = 'hindu' | 'rc-christian' | 'csi-christian';
 
 export const REGISTRATION_SEQUENCE_START = 161;
 
-/** Community bands in the shared sequence (RC → 161, CSI → 163 when reached in order). */
+/** Shared order sequence starts at 161 for every religion. Hindu adds star (01–36) in front. */
 export const REGISTRATION_PREFIX: Record<Exclude<RegistrationReligion, 'hindu'>, string> = {
-  'rc-christian': '161',
-  'csi-christian': '163',
+  'rc-christian': String(REGISTRATION_SEQUENCE_START),
+  'csi-christian': String(REGISTRATION_SEQUENCE_START),
 };
 
 export type HinduRegistrationStar = {

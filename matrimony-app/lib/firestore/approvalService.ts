@@ -1,16 +1,9 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  setDoc,
-} from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { createAdminNotification } from '@/lib/firestore/adminNotificationService';
 import type { AdminApprovalRecord } from '@/constants/adminMockData';
 import { isAdminPhone } from '@/constants/admin';
 import { getFirebaseFirestore } from '@/lib/firebase';
+import { getDocResilient, getDocsResilient } from '@/lib/firestore/readHelpers';
 import {
   approvalDocIdFromPhone,
   FIRESTORE_COLLECTIONS,
@@ -51,17 +44,27 @@ export async function submitLoginApproval(
     return;
   }
 
-  const db = await getFirebaseFirestore();
+  let db = await getFirebaseFirestore();
+  if (!db) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    db = await getFirebaseFirestore();
+  }
   if (!db) {
     return;
   }
 
   const approvalId = approvalDocIdFromPhone(digits);
   const docRef = doc(db, FIRESTORE_COLLECTIONS.approvals, approvalId);
-  const existing = await getDoc(docRef);
-  const existingData = existing.exists() ? (existing.data() as FirestoreApprovalDoc) : null;
+  const profileId = profileDocIdFromPhone(digits);
+  const [existing, profileSnapshot] = await Promise.all([
+    getDocResilient(docRef),
+    profileId ? getDocResilient(doc(db, FIRESTORE_COLLECTIONS.profiles, profileId)) : Promise.resolve(null),
+  ]);
+  const existingData = existing?.exists() ? (existing.data() as FirestoreApprovalDoc) : null;
+  const profileData =
+    profileSnapshot?.exists() ? (profileSnapshot.data() as FirestoreProfileDoc) : null;
 
-  if (existingData?.status === 'approved') {
+  if (existingData?.status === 'approved' || profileData?.approvalStatus === 'approved') {
     return;
   }
 
@@ -86,11 +89,20 @@ export async function submitLoginApproval(
 
   await setDoc(docRef, payload, { merge: true });
 
-  const profileId = profileDocIdFromPhone(digits);
   if (profileId) {
     await setDoc(
       doc(db, FIRESTORE_COLLECTIONS.profiles, profileId),
-      { approvalStatus: 'pending', updatedAt: now },
+      {
+        approvalStatus: 'pending',
+        updatedAt: now,
+        ...(profileData ? {} : {
+          phone: digits,
+          profileId,
+          fullName: nextName,
+          ownerKey: 'current-user',
+          registrationSource: 'self',
+        }),
+      },
       { merge: true },
     );
   }
@@ -117,15 +129,15 @@ export async function fetchUserApprovalStatus(
   }
 
   const approvalId = approvalDocIdFromPhone(digits);
-  const approvalSnapshot = await getDoc(doc(db, FIRESTORE_COLLECTIONS.approvals, approvalId));
-  if (approvalSnapshot.exists()) {
+  const approvalSnapshot = await getDocResilient(doc(db, FIRESTORE_COLLECTIONS.approvals, approvalId));
+  if (approvalSnapshot?.exists()) {
     return (approvalSnapshot.data() as FirestoreApprovalDoc).status;
   }
 
   const profileId = profileDocIdFromPhone(digits);
   if (profileId) {
-    const profileSnapshot = await getDoc(doc(db, FIRESTORE_COLLECTIONS.profiles, profileId));
-    if (profileSnapshot.exists()) {
+    const profileSnapshot = await getDocResilient(doc(db, FIRESTORE_COLLECTIONS.profiles, profileId));
+    if (profileSnapshot?.exists()) {
       const profile = profileSnapshot.data() as { approvalStatus?: FirestoreApprovalDoc['status'] };
       return profile.approvalStatus ?? null;
     }
@@ -194,6 +206,15 @@ function mergeApprovalRecords(
       continue;
     }
 
+    const hasProfileContent = Boolean(
+      profile.fullName?.trim() ||
+        profile.listing?.name?.trim() ||
+        profile.biodata?.fullName?.trim(),
+    );
+    if (!hasProfileContent && status !== 'pending' && status !== 'rejected') {
+      continue;
+    }
+
     const resolvedStatus: FirestoreApprovalDoc['status'] = status ?? 'pending';
     records.set(phone, {
       record: {
@@ -221,26 +242,16 @@ export async function listApprovals(): Promise<AdminApprovalRecord[]> {
     return [];
   }
 
-  let approvalDocs: FirestoreApprovalDoc[] = [];
-  try {
-    const snapshot = await getDocs(
-      query(collection(db, FIRESTORE_COLLECTIONS.approvals), orderBy('updatedAt', 'desc')),
-    );
-    approvalDocs = snapshot.docs.map((entry) => entry.data() as FirestoreApprovalDoc);
-  } catch {
-    const snapshot = await getDocs(collection(db, FIRESTORE_COLLECTIONS.approvals));
-    approvalDocs = snapshot.docs
-      .map((entry) => entry.data() as FirestoreApprovalDoc)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-  }
-
-  let profiles: FirestoreProfileDoc[] = [];
-  try {
-    const profileSnapshot = await getDocs(collection(db, FIRESTORE_COLLECTIONS.profiles));
-    profiles = profileSnapshot.docs.map((entry) => entry.data() as FirestoreProfileDoc);
-  } catch {
-    profiles = [];
-  }
+  const approvalDocs = await getDocsResilient<FirestoreApprovalDoc>(
+    db,
+    FIRESTORE_COLLECTIONS.approvals,
+    { orderByField: 'updatedAt', preferServer: true },
+  );
+  const profiles = await getDocsResilient<FirestoreProfileDoc>(
+    db,
+    FIRESTORE_COLLECTIONS.profiles,
+    { orderByField: 'updatedAt', preferServer: true },
+  ).then((entries) => entries.filter((profile) => profile.accountStatus !== 'deleted'));
 
   return mergeApprovalRecords(approvalDocs, profiles);
 }
@@ -255,11 +266,11 @@ export async function updateApprovalStatus(
   }
 
   const docRef = doc(db, FIRESTORE_COLLECTIONS.approvals, approvalId);
-  const existing = await getDoc(docRef);
+  const existing = await getDocResilient(docRef);
   const now = Date.now();
   let phone = '';
 
-  if (!existing.exists()) {
+  if (!existing?.exists()) {
     phone = approvalId.startsWith('phone_') ? approvalId.slice('phone_'.length) : '';
     if (!phone) {
       return;
@@ -270,8 +281,8 @@ export async function updateApprovalStatus(
       return;
     }
 
-    const profileSnapshot = await getDoc(doc(db, FIRESTORE_COLLECTIONS.profiles, profileId));
-    if (!profileSnapshot.exists()) {
+    const profileSnapshot = await getDocResilient(doc(db, FIRESTORE_COLLECTIONS.profiles, profileId));
+    if (!profileSnapshot?.exists()) {
       return;
     }
 

@@ -187,8 +187,7 @@ export function SelectField({
   const isPremium = variant === 'premium';
   const isEmbeddedCompact = embedded && compact;
   const isTightEmbedded = isEmbeddedCompact && tight;
-  // Native embedded fields use inline dropdowns — measureInWindow modals need multiple taps on APK.
-  const useModalDropdown = embedded && Platform.OS === 'web';
+  const useModalDropdown = embedded;
   const triggerRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -202,6 +201,31 @@ export function SelectField({
   const closeDropdown = useCallback(() => {
     setOpen(false);
     setAnchor(null);
+  }, []);
+
+  const openDropdownAtAnchor = useCallback(() => {
+    const measure = () => {
+      triggerRef.current?.measureInWindow((x, y, width, height) => {
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+        setAnchor({
+          top: y + height + 2,
+          left: x,
+          width: Math.max(width, 120),
+        });
+        setOpen(true);
+      });
+    };
+
+    if (Platform.OS === 'web') {
+      measure();
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(measure);
+    });
   }, []);
 
   const handleSelect = useCallback(
@@ -218,20 +242,13 @@ export function SelectField({
       return;
     }
 
-    if (!useModalDropdown) {
-      setOpen(true);
+    if (useModalDropdown) {
+      openDropdownAtAnchor();
       return;
     }
 
-    triggerRef.current?.measureInWindow((x, y, width, height) => {
-      setAnchor({
-        top: y + height + 2,
-        left: x,
-        width: Math.max(width, 120),
-      });
-      setOpen(true);
-    });
-  }, [closeDropdown, open, useModalDropdown]);
+    setOpen(true);
+  }, [closeDropdown, open, openDropdownAtAnchor, useModalDropdown]);
 
   const dropdownPanelStyle = useMemo(
     () => [
@@ -332,6 +349,7 @@ export function SelectField({
           <View
             style={[
               styles.inlineDropdown,
+              styles.inlineDropdownFloating,
               isPremium && styles.inlineDropdownPremium,
               compact && styles.inlineDropdownCompact,
             ]}
@@ -347,6 +365,7 @@ export function SelectField({
           transparent
           animationType="fade"
           onRequestClose={closeDropdown}
+          statusBarTranslucent
         >
           <View style={styles.dropdownModalRoot}>
             <Pressable style={styles.dropdownModalBackdrop} onPress={closeDropdown} />
@@ -385,7 +404,8 @@ export function ComboBoxField({
   const isPremium = variant === 'premium';
   const isEmbeddedCompact = embedded && compact;
   const isTightEmbedded = isEmbeddedCompact && tight;
-  const useModalDropdown = false; // Must be false so the Modal doesn't block the TextInput!
+  // Modal blocks TextInput typing on native — use floating inline list for searchable fields.
+  const useModalDropdown = embedded && Platform.OS === 'web';
   const triggerRef = useRef<View>(null);
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -423,6 +443,31 @@ export function ComboBoxField({
     setAnchor(null);
   }, []);
 
+  const openDropdownAtAnchor = useCallback(() => {
+    const measure = () => {
+      triggerRef.current?.measureInWindow((x, y, width, height) => {
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+        setAnchor({
+          top: y + height + 2,
+          left: x,
+          width: Math.max(width, 120),
+        });
+        setOpen(true);
+      });
+    };
+
+    if (Platform.OS === 'web') {
+      measure();
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(measure);
+    });
+  }, []);
+
   const handleSelect = useCallback(
     (selectedValue: string, selectedLabel: string) => {
       onValueChange(selectedValue);
@@ -434,19 +479,12 @@ export function ComboBoxField({
 
   const openDropdown = useCallback(() => {
     if (open) return;
-    if (!useModalDropdown) {
-      setOpen(true);
+    if (useModalDropdown) {
+      openDropdownAtAnchor();
       return;
     }
-    triggerRef.current?.measureInWindow((x, y, width, height) => {
-      setAnchor({
-        top: y + height + 2,
-        left: x,
-        width: Math.max(width, 120),
-      });
-      setOpen(true);
-    });
-  }, [open, useModalDropdown]);
+    setOpen(true);
+  }, [open, openDropdownAtAnchor, useModalDropdown]);
 
   const handleTextChange = (text: string) => {
     setSearchText(text);
@@ -567,6 +605,7 @@ export function ComboBoxField({
           <View
             style={[
               styles.inlineDropdown,
+              styles.inlineDropdownFloating,
               isPremium && styles.inlineDropdownPremium,
               compact && styles.inlineDropdownCompact,
             ]}
@@ -577,7 +616,7 @@ export function ComboBoxField({
       </View>
 
       {useModalDropdown && open && anchor ? (
-        <Modal visible transparent animationType="fade" onRequestClose={closeDropdown}>
+        <Modal visible transparent animationType="fade" onRequestClose={closeDropdown} statusBarTranslucent>
           <View style={styles.dropdownModalRoot}>
             <Pressable style={styles.dropdownModalBackdrop} onPress={closeDropdown} />
             <View
@@ -1009,6 +1048,11 @@ const styles = StyleSheet.create({
   selectWrapper: {
     position: 'relative',
     width: '100%',
+    zIndex: 1,
+    ...Platform.select({
+      default: { overflow: 'visible' as const },
+      web: {},
+    }),
   },
   dropdownModalRoot: {
     flex: 1,
@@ -1051,6 +1095,15 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
     }),
+  },
+  inlineDropdownFloating: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    borderTopWidth: 1,
+    borderRadius: 8,
   },
   inlineDropdownModalPanel: {
     borderTopWidth: 1,

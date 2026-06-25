@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Platform, type ViewStyle } from 'react-native';
 import { doc, setDoc } from 'firebase/firestore';
 import { getFirebaseFirestore } from '@/lib/firebase';
 import { FIRESTORE_COLLECTIONS } from '@/lib/firestore/collections';
@@ -65,44 +65,78 @@ export const adminTabs = {
 } as const;
 
 export const ADMIN_FAB_GAP = 12;
-export const ADMIN_TAB_BAR_CONTENT_HEIGHT = 56;
+export const ADMIN_TAB_BAR_CONTENT_HEIGHT = 58;
+const ADMIN_TAB_BAR_TOP_PADDING = 8;
 
 export type AdminTabBarMetrics = {
   height: number;
   paddingTop: number;
   paddingBottom: number;
+  contentHeight: number;
 };
 
-export function getAdminTabBarMetrics(bottomInset = 0): AdminTabBarMetrics {
-  if (Platform.OS === 'web') {
-    return {
-      paddingTop: 8,
-      paddingBottom: 20,
-      height: 92,
-    };
-  }
+export function resolveAdminBottomInset(bottomInset = 0): number {
+  const minimum = Platform.OS === 'web' ? 16 : Platform.OS === 'android' ? 10 : 4;
+  return Math.max(bottomInset, minimum);
+}
 
-  const safeBottom = Math.max(bottomInset, Platform.OS === 'android' ? 8 : 0);
+export function getAdminTabBarMetrics(bottomInset = 0): AdminTabBarMetrics {
+  const paddingBottom = resolveAdminBottomInset(bottomInset);
+  const paddingTop = ADMIN_TAB_BAR_TOP_PADDING;
+  const contentHeight = ADMIN_TAB_BAR_CONTENT_HEIGHT;
 
   return {
-    paddingTop: 6,
-    paddingBottom: safeBottom,
-    height: ADMIN_TAB_BAR_CONTENT_HEIGHT + 6 + safeBottom,
+    paddingTop,
+    paddingBottom,
+    contentHeight,
+    height: contentHeight + paddingTop + paddingBottom,
+  };
+}
+
+/** Navigator tabBarStyle — pinned to bottom on native APK; web uses normal flow. */
+export function getAdminNavigatorTabBarStyle(bottomInset = 0): ViewStyle {
+  const metrics = getAdminTabBarMetrics(bottomInset);
+
+  const shared = {
+    backgroundColor: adminColors.surface,
+    borderTopColor: adminColors.border,
+    borderTopWidth: 1,
+    height: metrics.height,
+    minHeight: metrics.height,
+    paddingTop: metrics.paddingTop,
+    paddingBottom: metrics.paddingBottom,
+    width: '100%' as const,
+    alignSelf: 'stretch' as const,
+    ...Platform.select({
+      android: { elevation: 12 },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      default: {},
+    }),
+  };
+
+  if (Platform.OS === 'web') {
+    return shared;
+  }
+
+  return {
+    ...shared,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   };
 }
 
 export function getAdminFabBottom(bottomInset = 0): number {
-  if (Platform.OS === 'web') {
-    return getAdminTabBarMetrics(bottomInset).height + ADMIN_FAB_GAP;
-  }
-  const safeBottom = Math.max(bottomInset, Platform.OS === 'android' ? 8 : 0);
-  return ADMIN_TAB_BAR_CONTENT_HEIGHT + 6 + safeBottom + ADMIN_FAB_GAP;
+  return getAdminTabBarMetrics(bottomInset).height + ADMIN_FAB_GAP;
 }
 
-/** Native tab bar sits in normal layout flow; scene padding is not required. */
+/** Bottom inset for scrollable admin scenes (matches tab bar footprint). */
 export function getAdminSceneBottomInset(bottomInset = 0): number {
-  if (Platform.OS === 'web') {
-    return getAdminTabBarMetrics(bottomInset).height;
-  }
-  return 0;
+  return getAdminTabBarMetrics(bottomInset).height;
 }

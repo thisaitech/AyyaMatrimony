@@ -17,6 +17,7 @@ import { LanguageLogoToggle } from '@/components/LanguageLogoToggle';
 import { publishProfileFromValues } from '@/constants/memberDirectory';
 
 import { submitLoginApproval } from '@/lib/firestore/approvalService';
+import { getFirebaseFirestore, getFirebaseStorage } from '@/lib/firebase';
 
 import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 
@@ -113,35 +114,42 @@ export default function CreateProfileScreen() {
             return;
           }
 
-          const phone = readyValues[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ?? '';
-          let published = null;
-          try {
-            published = await publishProfileFromValues(readyValues, 'current-user');
-          } catch {
-            published = null;
-          }
-
-          const syncedValues = {
-            ...(published?.biodata ?? {
-              ...readyValues,
-              approvalStatus: 'pending',
-            }),
+          const syncedValues: Record<string, string> = {
+            ...readyValues,
+            approvalStatus: 'pending',
             [BIODATA_WIZARD_COMPLETE_KEY]: 'true',
           };
 
           await replaceValues(syncedValues);
-
-          if (phone) {
-            void submitLoginApproval(phone, {
-              name: syncedValues.fullName,
-              profileId: syncedValues.memberListingId,
-              registrationCommunity: syncedValues.registrationCommunity,
-              source: 'profile',
-            }).catch(() => undefined);
-          }
-
-          void refreshApproval().catch(() => undefined);
           router.replace('/payment-access');
+
+          const phone = syncedValues[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ?? '';
+          void (async () => {
+            try {
+              await getFirebaseFirestore();
+              await getFirebaseStorage();
+              const published = await publishProfileFromValues(syncedValues, 'current-user');
+              if (published?.biodata) {
+                await replaceValues({
+                  ...published.biodata,
+                  [BIODATA_WIZARD_COMPLETE_KEY]: 'true',
+                });
+              }
+
+              if (phone) {
+                await submitLoginApproval(phone, {
+                  name: syncedValues.fullName,
+                  profileId: published?.profileId ?? syncedValues.memberListingId,
+                  registrationCommunity: syncedValues.registrationCommunity,
+                  source: 'profile',
+                }).catch(() => undefined);
+              }
+
+              await refreshApproval().catch(() => undefined);
+            } catch {
+              // Profile is already saved locally; cloud sync can finish later.
+            }
+          })();
         } catch {
           const message = translate('profileSaveFailed');
           if (Platform.OS === 'web' && typeof window !== 'undefined') {

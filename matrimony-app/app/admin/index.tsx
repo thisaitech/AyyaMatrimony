@@ -15,7 +15,7 @@ export default function AdminIndexScreen() {
   }
 
   if (isAuthenticated) {
-    return <Redirect href="/admin/(tabs)/" />;
+    return <Redirect href="/admin/(tabs)" />;
   }
 
   return <Redirect href="/" />;

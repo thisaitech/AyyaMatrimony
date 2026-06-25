@@ -1,10 +1,6 @@
 import {
   collection,
   doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
   setDoc,
 } from 'firebase/firestore';
 import { PROFILE_ACCESS_PRICE } from '@/constants/subscription';
@@ -17,6 +13,7 @@ import {
 import { grantVerifiedPaymentBatch } from '@/lib/firestore/subscriptionService';
 import { createAdminNotification } from '@/lib/firestore/adminNotificationService';
 import { fetchProfileByPhone } from '@/lib/firestore/profileService';
+import { getDocResilient, getDocsResilient } from '@/lib/firestore/readHelpers';
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-GB', {
@@ -117,12 +114,14 @@ export async function listPayments(
     return [];
   }
 
-  const snapshot = await getDocs(
-    query(collection(db, FIRESTORE_COLLECTIONS.payments), orderBy('updatedAt', 'desc')),
+  let docs: FirestorePaymentDoc[] = await getDocsResilient<FirestorePaymentDoc>(
+    db,
+    FIRESTORE_COLLECTIONS.payments,
+    { orderByField: 'updatedAt', preferServer: true },
   );
 
-  const entries = snapshot.docs
-    .map((entry) => toAdminPaymentRecord(entry.data() as FirestorePaymentDoc))
+  const entries = docs
+    .map((entry) => toAdminPaymentRecord(entry))
     .filter((entry) => (status ? entry.status === status : true));
 
   return enrichPaymentRecords(entries);
@@ -139,8 +138,8 @@ export async function updatePaymentStatus(
   }
 
   const docRef = doc(db, FIRESTORE_COLLECTIONS.payments, paymentId);
-  const existing = await getDoc(docRef);
-  if (!existing.exists()) {
+  const existing = await getDocResilient(docRef);
+  if (!existing?.exists()) {
     return false;
   }
 
@@ -211,13 +210,13 @@ export async function fetchLatestPaymentStatus(
     return null;
   }
 
-  const snapshot = await getDocs(
-    query(collection(db, FIRESTORE_COLLECTIONS.payments), orderBy('updatedAt', 'desc')),
+  let docs: FirestorePaymentDoc[] = await getDocsResilient<FirestorePaymentDoc>(
+    db,
+    FIRESTORE_COLLECTIONS.payments,
+    { orderByField: 'updatedAt', preferServer: true },
   );
 
-  const match = snapshot.docs
-    .map((entry) => entry.data() as FirestorePaymentDoc)
-    .find((entry) => entry.phone === digits);
+  const match = docs.find((entry) => entry.phone === digits);
 
   if (!match) {
     return null;

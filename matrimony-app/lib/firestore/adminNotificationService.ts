@@ -2,8 +2,6 @@ import {
   collection,
   doc,
   getDocs,
-  orderBy,
-  query,
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
@@ -13,6 +11,7 @@ import {
   FIRESTORE_COLLECTIONS,
   type FirestoreAdminNotificationDoc,
 } from '@/lib/firestore/collections';
+import { getDocsResilient } from '@/lib/firestore/readHelpers';
 
 function formatRelativeTime(timestamp: number): string {
   const diffMs = Date.now() - timestamp;
@@ -61,13 +60,13 @@ export async function listAdminNotifications(): Promise<AdminNotificationRecord[
     return [];
   }
 
-  const snapshot = await getDocs(
-    query(collection(db, FIRESTORE_COLLECTIONS.adminNotifications), orderBy('createdAt', 'desc')),
+  const entries = await getDocsResilient<FirestoreAdminNotificationDoc>(
+    db,
+    FIRESTORE_COLLECTIONS.adminNotifications,
+    { orderByField: 'createdAt', preferServer: true },
   );
 
-  return snapshot.docs.map((entry) =>
-    toAdminNotificationRecord(entry.data() as FirestoreAdminNotificationDoc),
-  );
+  return entries.map((entry) => toAdminNotificationRecord(entry));
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {

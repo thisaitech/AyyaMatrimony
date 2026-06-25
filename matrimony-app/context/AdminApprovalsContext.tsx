@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 import type { AdminApprovalRecord } from '@/constants/adminMockData';
+import { useAdminAuth } from '@/context/AdminAuthContext';
+import { getFirebaseFirestore } from '@/lib/firebase';
 import { listApprovals, updateApprovalStatus } from '@/lib/firestore/approvalService';
 
 const ADMIN_APPROVALS_KEY = 'ayya_admin_approvals_v1';
@@ -37,25 +39,43 @@ async function readCachedApprovals(): Promise<AdminApprovalRecord[] | null> {
 }
 
 export function AdminApprovalsProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isReady: authReady } = useAdminAuth();
   const [isReady, setIsReady] = useState(false);
   const [items, setItems] = useState<AdminApprovalRecord[]>([]);
 
   const refresh = useCallback(async () => {
+    const db = await getFirebaseFirestore();
+    if (!db) {
+      const cached = await readCachedApprovals();
+      if (cached && cached.length > 0) {
+        setItems(cached);
+      }
+      setIsReady(true);
+      return;
+    }
+
     try {
       const remote = await listApprovals();
       setItems(remote);
-      await AsyncStorage.setItem(ADMIN_APPROVALS_KEY, JSON.stringify(remote));
+      if (remote.length > 0) {
+        await AsyncStorage.setItem(ADMIN_APPROVALS_KEY, JSON.stringify(remote));
+      }
     } catch {
       const cached = await readCachedApprovals();
-      setItems(cached ?? []);
+      if (cached && cached.length > 0) {
+        setItems(cached);
+      }
     } finally {
       setIsReady(true);
     }
   }, []);
 
   useEffect(() => {
+    if (!authReady || !isAuthenticated) {
+      return;
+    }
     void refresh();
-  }, [refresh]);
+  }, [authReady, isAuthenticated, refresh]);
 
   const updateStatus = useCallback(
     async (id: string, status: AdminApprovalRecord['status']) => {

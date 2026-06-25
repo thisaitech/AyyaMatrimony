@@ -1,7 +1,10 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
+  getDocsFromServer,
+  orderBy,
   query,
   setDoc,
   where,
@@ -14,14 +17,20 @@ import type { MatchGender } from '@/constants/matchFilters';
 import { getFirebaseFirestore } from '@/lib/firebase';
 import { fetchUserApprovalStatus, submitLoginApproval } from '@/lib/firestore/approvalService';
 import { resolveRegistrationNumber } from '@/lib/firestore/registrationNumberService';
-import { getDocResilient } from '@/lib/firestore/readHelpers';
+import { getDocResilient, getDocsResilient, isNetworkOnline } from '@/lib/firestore/readHelpers';
 import {
   FIRESTORE_COLLECTIONS,
   type FirestoreProfileDoc,
+  photoApprovalDocId,
   profileDocIdFromPhone,
 } from '@/lib/firestore/collections';
 import { uploadProfilePhotos, shouldAttemptCloudPhotoUpload } from '@/lib/firestore/storageService';
-import { listPhotoApprovals, submitPhotoForApproval } from '@/lib/firestore/photoApprovalService';
+import {
+  listPhotoApprovals,
+  listPhotoApprovalsForPhone,
+  queueUploadedPhotosForApproval,
+  submitPhotoForApproval,
+} from '@/lib/firestore/photoApprovalService';
 import {
   biodataForFirestore,
   isLocalPhotoUri,
@@ -190,7 +199,7 @@ export function publishedMemberFromProfileDoc(docData: FirestoreProfileDoc): Pub
   const listing = docData.listing;
   const rawImage =
     approvedImage ||
-    (docData.registrationSource === 'admin'
+    (docData.registrationSource === 'admin' || docData.ownerKey?.startsWith('admin-')
       ? docData.primaryPhotoUrl || listing?.image || ''
       : '');
   const image = resolveDisplayPhotoUri(rawImage, Platform.OS === 'web' ? 'web' : 'native');
@@ -281,7 +290,7 @@ export async function upsertProfileFromValues(
 
   const profileId = profileDocIdFromPhone(phone);
   const docRef = doc(db, FIRESTORE_COLLECTIONS.profiles, profileId);
-  const existing = await getDoc(docRef);
+  const existing = await getDocResilient(docRef);
   const payload = profileDocFromValues(nextValues, ownerKey, options.published ?? true);
   if (!payload) {
     return null;
@@ -292,13 +301,18 @@ export async function upsertProfileFromValues(
     registrationSource: ownerKey.startsWith('admin-') ? 'admin' : 'self',
     approvalStatus: ownerKey.startsWith('admin-')
       ? 'approved'
-      : existing.exists()
+      : existing?.exists()
         ? (existing.data() as FirestoreProfileDoc).approvalStatus ?? 'pending'
         : 'pending',
-    accountStatus: existing.exists()
+    browseHidden: ownerKey.startsWith('admin-')
+      ? false
+      : existing?.exists()
+        ? (existing.data() as FirestoreProfileDoc).browseHidden ?? false
+        : false,
+    accountStatus: existing?.exists()
       ? (existing.data() as FirestoreProfileDoc).accountStatus ?? 'active'
       : 'active',
-    createdAt: existing.exists() ? (existing.data() as FirestoreProfileDoc).createdAt : payload.createdAt,
+    createdAt: existing?.exists() ? (existing.data() as FirestoreProfileDoc).createdAt : payload.createdAt,
     updatedAt: Date.now(),
   };
 
@@ -306,14 +320,33 @@ export async function upsertProfileFromValues(
 
   if (options.uploadPhotos !== false) {
     const slots = resolveProfilePhotoSlots(merged, uploadedSlots);
-    const previousSlots = existing.exists()
+    const previousSlots = existing?.exists()
       ? resolveProfilePhotoSlots(existing.data() as FirestoreProfileDoc)
       : [];
+
+    const remoteSlots = slots.filter(isRemotePhotoUri);
+    if (remoteSlots.length > 0) {
+      await queueUploadedPhotosForApproval(phone, slots, {
+        memberName: preparedValues.fullName,
+        autoApprove: options.autoApprovePhotos ?? ownerKey.startsWith('admin-'),
+      }).catch(() => undefined);
+    }
+
     await Promise.all(
-      slots.map((photoUrl, slot) => {
-        if (!isRemotePhotoUri(photoUrl) || photoUrl === previousSlots[slot]) {
-          return Promise.resolve();
+      slots.map(async (photoUrl, slot) => {
+        if (!isRemotePhotoUri(photoUrl)) {
+          return;
         }
+
+        const approvalId = photoApprovalDocId(phone, slot);
+        const approvalRef = doc(db, FIRESTORE_COLLECTIONS.photoApprovals, approvalId);
+        const existingApproval = await getDocResilient(approvalRef);
+        const photoChanged = photoUrl !== previousSlots[slot];
+
+        if (!photoChanged && existingApproval?.exists()) {
+          return;
+        }
+
         return submitPhotoForApproval(phone, {
           memberName: preparedValues.fullName,
           photoUrl,
@@ -355,26 +388,47 @@ export async function fetchProfileByPhone(phone: string): Promise<FirestoreProfi
   }
 }
 
+export function isBrowsablePublishedProfile(profile: FirestoreProfileDoc): boolean {
+  const isAdminProfile =
+    profile.registrationSource === 'admin' || profile.ownerKey?.startsWith('admin-');
+
+  return (
+    profile.published === true &&
+    profile.browseHidden !== true &&
+    profile.accountStatus !== 'blocked' &&
+    profile.accountStatus !== 'deleted' &&
+    (profile.approvalStatus === 'approved' || isAdminProfile)
+  );
+}
+
 export async function listPublishedProfiles(): Promise<FirestoreProfileDoc[]> {
   const db = await getFirebaseFirestore();
   if (!db) {
     return [];
   }
 
-  const snapshot = await getDocs(
-    query(collection(db, FIRESTORE_COLLECTIONS.profiles), where('published', '==', true)),
-  );
+  const profilesRef = collection(db, FIRESTORE_COLLECTIONS.profiles);
 
-  return snapshot.docs
-    .map((entry) => entry.data() as FirestoreProfileDoc)
-    .filter(
-      (profile) =>
-        profile.published === true &&
-        profile.browseHidden !== true &&
-        profile.accountStatus !== 'blocked' &&
-        profile.accountStatus !== 'deleted' &&
-        (profile.approvalStatus === 'approved' || profile.registrationSource === 'admin'),
-    );
+  try {
+    const publishedQuery = query(profilesRef, where('published', '==', true));
+    const snapshot = isNetworkOnline()
+      ? await getDocsFromServer(publishedQuery).catch(() => getDocs(publishedQuery))
+      : await getDocs(publishedQuery);
+    const filtered = snapshot.docs
+      .map((entry) => entry.data() as FirestoreProfileDoc)
+      .filter(isBrowsablePublishedProfile);
+    if (filtered.length > 0) {
+      return filtered;
+    }
+  } catch {
+    // Fall through to full collection read.
+  }
+
+  const allProfiles = await getDocsResilient<FirestoreProfileDoc>(db, FIRESTORE_COLLECTIONS.profiles, {
+    preferServer: true,
+  });
+
+  return allProfiles.filter(isBrowsablePublishedProfile);
 }
 
 export async function setProfileBrowseHidden(phone: string, browseHidden: boolean): Promise<void> {
@@ -397,10 +451,13 @@ export async function listAllProfiles(): Promise<FirestoreProfileDoc[]> {
     return [];
   }
 
-  const snapshot = await getDocs(collection(db, FIRESTORE_COLLECTIONS.profiles));
-  return snapshot.docs
-    .map((entry) => entry.data() as FirestoreProfileDoc)
-    .filter((profile) => profile.accountStatus !== 'deleted');
+  const profiles = await getDocsResilient<FirestoreProfileDoc>(
+    db,
+    FIRESTORE_COLLECTIONS.profiles,
+    { orderByField: 'updatedAt' },
+  );
+
+  return profiles.filter((profile) => profile.accountStatus !== 'deleted');
 }
 
 export async function updateProfileAccountStatus(
@@ -438,8 +495,8 @@ export async function hydrateLocalProfileFromFirestore(phone: string): Promise<R
     return null;
   }
 
-  const approvalPhotoSlots = await fetchPhotoSlotsFromApprovals(phone);
-  const approvedPhotoSlots = await fetchApprovedPhotoSlotsFromApprovals(phone);
+  const approvalPhotoSlots = await fetchPhotoSlotsFromApprovals(phone, remote);
+  const approvedPhotoSlots = await fetchApprovedPhotoSlotsFromApprovals(phone, remote);
   let biodata = mergeProfilePhotosIntoBiodata(
     { ...(remote.biodata ?? {}) },
     remote,
@@ -462,22 +519,37 @@ export async function hydrateLocalProfileFromFirestore(phone: string): Promise<R
     biodata.registrationCommunity = remote.registrationCommunity;
   }
 
+  if (!biodata.memberListingId?.trim()) {
+    biodata.memberListingId = remote.biodata?.memberListingId || remote.listing?.id || remote.profileId || '';
+  }
+
+  if (!biodata[CONTACT_PHONE_KEY]?.trim()) {
+    biodata[CONTACT_PHONE_KEY] = remote.phone;
+  }
+
+  if (!biodata.phoneNumber?.trim()) {
+    biodata.phoneNumber = remote.phone;
+  }
+
   biodata._profileUpdatedAt = String(remote.updatedAt ?? Date.now());
 
   return biodata;
 }
 
-async function fetchApprovedPhotoSlotsFromApprovals(phone: string): Promise<string[]> {
+async function fetchApprovedPhotoSlotsFromApprovals(
+  phone: string,
+  profile?: FirestoreProfileDoc | null,
+): Promise<string[]> {
   const digits = phone.replace(/\D/g, '');
   if (!digits) {
     return [];
   }
 
   try {
-    const approvals = await listPhotoApprovals();
+    const approvals = await listPhotoApprovalsForPhone(digits, profile);
     const slots = Array.from({ length: MAX_PROFILE_PHOTOS }, () => '');
     for (const entry of approvals) {
-      if (entry.phone !== digits || entry.status !== 'approved' || !entry.photoUrl.trim()) {
+      if (entry.status !== 'approved' || !entry.photoUrl.trim()) {
         continue;
       }
       if (entry.slot >= 0 && entry.slot < MAX_PROFILE_PHOTOS) {
@@ -490,17 +562,20 @@ async function fetchApprovedPhotoSlotsFromApprovals(phone: string): Promise<stri
   }
 }
 
-async function fetchPhotoSlotsFromApprovals(phone: string): Promise<string[]> {
+async function fetchPhotoSlotsFromApprovals(
+  phone: string,
+  profile?: FirestoreProfileDoc | null,
+): Promise<string[]> {
   const digits = phone.replace(/\D/g, '');
   if (!digits) {
     return [];
   }
 
   try {
-    const approvals = await listPhotoApprovals();
+    const approvals = await listPhotoApprovalsForPhone(digits, profile);
     const slots = Array.from({ length: MAX_PROFILE_PHOTOS }, () => '');
     for (const entry of approvals) {
-      if (entry.phone !== digits || entry.status === 'rejected' || !entry.photoUrl.trim()) {
+      if (entry.status === 'rejected' || !entry.photoUrl.trim()) {
         continue;
       }
       if (entry.slot >= 0 && entry.slot < MAX_PROFILE_PHOTOS) {

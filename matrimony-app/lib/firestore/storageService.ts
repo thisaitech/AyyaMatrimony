@@ -21,26 +21,22 @@ export function markCloudPhotoUploadUnavailable(): void {
   cloudPhotoUploadEnabled = false;
 }
 
-export function isCloudPhotoUploadError(error: unknown): boolean {
+export function resetCloudPhotoUploadAvailability(): void {
+  cloudPhotoUploadEnabled = null;
+}
+
+function isPermanentStorageError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
-    return true;
+    return false;
   }
 
   const firebaseError = error as { code?: string; status_?: number };
-  if (firebaseError.status_ === 404) {
-    markCloudPhotoUploadUnavailable();
-    return true;
-  }
-
-  if (
-    firebaseError.code?.startsWith('storage/') ||
-    firebaseError.code === 'storage/unauthorized'
-  ) {
-    markCloudPhotoUploadUnavailable();
-    return true;
-  }
-
-  return Boolean(firebaseError.code?.startsWith('storage/'));
+  return (
+    firebaseError.status_ === 404 ||
+    firebaseError.code === 'storage/unauthorized' ||
+    firebaseError.code === 'storage/unauthenticated' ||
+    firebaseError.code === 'storage/invalid-argument'
+  );
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -158,7 +154,6 @@ export async function uploadProfilePhoto(
 
   const storage = await getFirebaseStorage();
   if (!storage) {
-    markCloudPhotoUploadUnavailable();
     throw new Error('Photo storage is unavailable.');
   }
 
@@ -201,10 +196,23 @@ export async function uploadProfilePhotos(
     return localUris.map((uri) => (isRemotePhotoUri(uri) ? uri : ''));
   }
 
-  try {
-    return await Promise.all(localUris.map((uri, index) => uploadProfilePhoto(phone, index, uri)));
-  } catch (error) {
-    markCloudPhotoUploadUnavailable();
-    throw error;
+  const results: string[] = [];
+  for (let index = 0; index < localUris.length; index += 1) {
+    const uri = localUris[index] ?? '';
+    if (!uri.trim()) {
+      results[index] = '';
+      continue;
+    }
+
+    try {
+      results[index] = await uploadProfilePhoto(phone, index, uri);
+    } catch (error) {
+      if (isPermanentStorageError(error)) {
+        markCloudPhotoUploadUnavailable();
+      }
+      results[index] = isRemotePhotoUri(uri) ? uri : '';
+    }
   }
+
+  return results;
 }

@@ -51,5 +51,9 @@ service cloud.firestore {
     match /adminNotifications/{notificationId} {
       allow read, write: if true;
     }
+
+    match /registrationCounters/{counterId} {
+      allow read, write: if true;
+    }
   }
 }

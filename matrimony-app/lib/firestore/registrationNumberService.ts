@@ -104,10 +104,9 @@ export async function previewRegistrationNumber(
   let starNumber: number | undefined;
   if (normalized === 'hindu') {
     const resolvedStar = getHinduRegistrationStarNumber(natchathiram, rasi);
-    if (resolvedStar == null) {
-      return '';
+    if (resolvedStar != null) {
+      starNumber = resolvedStar;
     }
-    starNumber = resolvedStar;
   }
 
   const local = await readLocalCounters();
@@ -125,7 +124,11 @@ export async function previewRegistrationNumber(
     // Use local counter only.
   }
 
-  return formatRegistrationNumber(normalized, nextSerialFromCounters(baseSerial), starNumber);
+  const nextSerial = nextSerialFromCounters(baseSerial);
+  if (normalized === 'hindu' && starNumber != null) {
+    return formatRegistrationNumber('hindu', nextSerial, starNumber);
+  }
+  return formatRegistrationNumber(normalized === 'hindu' ? 'rc-christian' : normalized, nextSerial);
 }
 
 function reformatWithExistingSerial(
@@ -252,7 +255,10 @@ export async function resolveRegistrationNumber(
   if (religion === 'hindu') {
     const starNumber = getHinduRegistrationStarNumber(params.natchathiram ?? '', params.rasi ?? '');
     if (starNumber == null) {
-      return '';
+      if (options.localOnly) {
+        return allocateFromLocal('rc-christian');
+      }
+      return allocateRegistrationNumber('rc-christian', '', '');
     }
   }
 
@@ -294,7 +300,10 @@ export function shouldKeepRegistrationNumber(
 
   if (normalized === 'hindu') {
     const starNumber = getHinduRegistrationStarNumber(natchathiram, rasi);
-    return starNumber != null && parts.kind === 'hindu' && parts.starNumber === starNumber;
+    if (starNumber == null) {
+      return parts.kind === 'christian';
+    }
+    return parts.kind === 'hindu' && parts.starNumber === starNumber;
   }
 
   return parts.kind === 'christian';

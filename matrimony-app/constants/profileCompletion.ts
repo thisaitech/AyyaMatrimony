@@ -9,22 +9,17 @@ export function hasSavedBiodata(values: Record<string, string>): boolean {
 
 export function hasCompletedProfile(values: Record<string, string>): boolean {
   const hasName = Boolean(values.fullName?.trim());
+  const hasGender = values.gender === 'male' || values.gender === 'female';
   const hasCommunity = Boolean(values.registrationCommunity?.trim());
+  const hasDateOfBirth = Boolean(values.dateOfBirth?.trim());
+  const wizardCompleted = values[BIODATA_WIZARD_COMPLETE_KEY]?.trim().toLowerCase() === 'true';
+  const hasPublishedListing = Boolean(values.memberListingId?.trim());
 
-  if (!hasName || !hasCommunity) {
+  if (!hasName || !hasGender || !hasCommunity || !hasDateOfBirth) {
     return false;
   }
 
-  if (values.gender !== 'male' && values.gender !== 'female') {
-    return false;
-  }
-
-  if (values[BIODATA_WIZARD_COMPLETE_KEY]?.trim().toLowerCase() === 'true') {
-    return true;
-  }
-
-  // Published profiles and returning users who already finished registration.
-  return Boolean(values.memberListingId?.trim());
+  return wizardCompleted || hasPublishedListing;
 }
 
 /** Normalize biodata before the first Firestore publish (wizard flag is set at save time). */

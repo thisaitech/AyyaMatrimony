@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Platform, View } from 'react-native';
 import { Redirect, Tabs, useFocusEffect, useRouter, type Href } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -21,11 +21,13 @@ export default function TabLayout() {
   const { translate, language } = useLanguage();
   const { isReady, isLoggedIn, needsPaymentAccess, isSubscriptionGateReady, syncFromFirestore } =
     useSubscription();
-  const { values, isReady: profileReady } = useProfileForm();
+  const { values, isReady: profileReady, refreshFromFirestore } = useProfileForm();
   const { refresh: refreshApproval } = useUserApproval();
   const { refresh: refreshDirectory } = useMemberDirectory();
   const sentToRegistration = useRef(false);
+  const [profileHydrationChecked, setProfileHydrationChecked] = useState(false);
   const phone = values[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ?? '';
+  const hasLoggedInPhone = phone.length > 0;
 
   useFocusEffect(
     useCallback(() => {
@@ -46,11 +48,51 @@ export default function TabLayout() {
   useEffect(() => {
     if (!isLoggedIn) {
       sentToRegistration.current = false;
+      setProfileHydrationChecked(false);
     }
   }, [isLoggedIn]);
 
   useEffect(() => {
-    if (!isReady || !profileReady || !isLoggedIn || profileComplete) {
+    setProfileHydrationChecked(false);
+  }, [phone]);
+
+  useEffect(() => {
+    if (!isReady || !profileReady || !isLoggedIn || profileComplete || profileHydrationChecked) {
+      return;
+    }
+
+    if (!phone) {
+      setProfileHydrationChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    void refreshFromFirestore()
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) {
+          setProfileHydrationChecked(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isLoggedIn,
+    isReady,
+    phone,
+    profileComplete,
+    profileHydrationChecked,
+    profileReady,
+    refreshFromFirestore,
+  ]);
+
+  useEffect(() => {
+    if (!isReady || !profileReady || !isLoggedIn || profileComplete || !profileHydrationChecked) {
+      return;
+    }
+    if (hasLoggedInPhone) {
       return;
     }
     if (sentToRegistration.current) {
@@ -58,7 +100,15 @@ export default function TabLayout() {
     }
     sentToRegistration.current = true;
     router.replace('/create-profile' as Href);
-  }, [isLoggedIn, isReady, profileComplete, profileReady, router]);
+  }, [
+    hasLoggedInPhone,
+    isLoggedIn,
+    isReady,
+    profileComplete,
+    profileHydrationChecked,
+    profileReady,
+    router,
+  ]);
 
   if (!isReady || !profileReady) {
     return (
@@ -72,7 +122,7 @@ export default function TabLayout() {
     return <LoginLandingScreen />;
   }
 
-  if (!profileComplete) {
+  if (!profileComplete && !hasLoggedInPhone) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         <ActivityIndicator size="large" color={colors.primary} />

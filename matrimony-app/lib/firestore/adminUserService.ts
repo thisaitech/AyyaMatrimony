@@ -1,7 +1,8 @@
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, getDocsFromServer, orderBy, query } from 'firebase/firestore';
 import type { AdminUserRecord } from '@/constants/adminMockData';
 import { isAdminPhone } from '@/constants/admin';
 import { getFirebaseFirestore } from '@/lib/firebase';
+import { isNetworkOnline } from '@/lib/firestore/readHelpers';
 import { resolveUserApprovalStatus } from '@/lib/firestore/approvalService';
 import {
   FIRESTORE_COLLECTIONS,
@@ -40,16 +41,34 @@ export async function listAdminUsers(): Promise<AdminUserRecord[]> {
     return [];
   }
 
-  const [profileSnapshot, approvalSnapshot] = await Promise.all([
-    getDocs(collection(db, FIRESTORE_COLLECTIONS.profiles)),
-    getDocs(query(collection(db, FIRESTORE_COLLECTIONS.approvals), orderBy('updatedAt', 'desc'))),
-  ]);
+  const profilesRef = collection(db, FIRESTORE_COLLECTIONS.profiles);
+  const profileSnapshot = isNetworkOnline()
+    ? await getDocsFromServer(profilesRef).catch(() => getDocs(profilesRef))
+    : await getDocs(profilesRef);
+  let approvalDocs: FirestoreApprovalDoc[] = [];
+  try {
+    const approvalsRef = collection(db, FIRESTORE_COLLECTIONS.approvals);
+    const approvalSnapshot = isNetworkOnline()
+      ? await getDocsFromServer(
+          query(approvalsRef, orderBy('updatedAt', 'desc')),
+        ).catch(() => getDocs(query(approvalsRef, orderBy('updatedAt', 'desc'))))
+      : await getDocs(query(approvalsRef, orderBy('updatedAt', 'desc')));
+    approvalDocs = approvalSnapshot.docs.map((entry) => entry.data() as FirestoreApprovalDoc);
+  } catch {
+    const approvalsRef = collection(db, FIRESTORE_COLLECTIONS.approvals);
+    const approvalSnapshot = isNetworkOnline()
+      ? await getDocsFromServer(approvalsRef).catch(() => getDocs(approvalsRef))
+      : await getDocs(approvalsRef);
+    approvalDocs = approvalSnapshot.docs
+      .map((entry) => entry.data() as FirestoreApprovalDoc)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }
 
   const approvalsByPhone = new Map<string, FirestoreApprovalDoc>();
-  for (const entry of approvalSnapshot.docs) {
-    const data = entry.data() as FirestoreApprovalDoc;
-    if (!isAdminPhone(data.phone)) {
-      approvalsByPhone.set(data.phone, data);
+  for (const data of approvalDocs) {
+    const phone = data.phone?.replace(/\D/g, '') ?? '';
+    if (phone && !isAdminPhone(phone)) {
+      approvalsByPhone.set(phone, { ...data, phone });
     }
   }
 
@@ -57,18 +76,19 @@ export async function listAdminUsers(): Promise<AdminUserRecord[]> {
 
   for (const entry of profileSnapshot.docs) {
     const profile = entry.data() as FirestoreProfileDoc;
-    if (!profile.phone || isAdminPhone(profile.phone) || profile.accountStatus === 'deleted') {
+    const phone = profile.phone?.replace(/\D/g, '') ?? '';
+    if (!phone || isAdminPhone(phone) || profile.accountStatus === 'deleted') {
       continue;
     }
 
-    const approval = approvalsByPhone.get(profile.phone);
+    const approval = approvalsByPhone.get(phone);
     const approvalStatus = resolveUserApprovalStatus(approval?.status, profile.approvalStatus);
-    const subscription = await fetchSubscription(profile.phone).catch(() => null);
+    const subscription = await fetchSubscription(phone).catch(() => null);
 
-    usersByPhone.set(profile.phone, {
+    usersByPhone.set(phone, {
       id: profile.profileId,
-      name: profile.fullName?.trim() || profile.listing?.name?.trim() || `Member ${profile.phone.slice(-4)}`,
-      phone: profile.phone,
+      name: profile.fullName?.trim() || profile.listing?.name?.trim() || `Member ${phone.slice(-4)}`,
+      phone,
       status: mapApprovalToUserStatus(approvalStatus, profile.accountStatus),
       registeredAt: formatRegisteredDate(profile.createdAt),
       paidBatches: subscription?.batchesPaid ?? profile.paidBatches ?? 0,

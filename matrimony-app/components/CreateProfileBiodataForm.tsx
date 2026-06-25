@@ -15,6 +15,7 @@ import {
   Alert,
   AppState,
   Image,
+  Keyboard,
   Linking,
   Modal,
   Platform,
@@ -44,6 +45,7 @@ import {
   sanitizeRegistrationInput,
 } from '@/constants/registrationNumbers';
 import {
+  previewRegistrationNumber,
   resolveRegistrationNumber,
   shouldKeepRegistrationNumber,
 } from '@/lib/firestore/registrationNumberService';
@@ -52,7 +54,7 @@ import { useTamilTextInputProps } from '@/context/TamilInputContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { borderRadius, colors, fonts, spacing } from '@/constants/theme';
-import { applyDefaultRegistrationCommunity } from '@/constants/profileCompletion';
+import { applyDefaultRegistrationCommunity, hasCompletedProfile, prepareProfileForPublish } from '@/constants/profileCompletion';
 import { CONTACT_PHONE_KEY, normalizePhoneDigits } from '@/constants/contactDetails';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { BiodataExportOptions } from '@/lib/biodataExport';
@@ -111,8 +113,12 @@ function getReviewLayoutMetrics(screenWidth: number): ReviewLayoutMetrics {
 const SHEET_BORDER = colors.primary;
 const HOROSCOPE_RED = colors.primary;
 const HOROSCOPE_GRID_LINE = '#570000';
-const REVIEW_FILLED_VALUE_COLOR = '#001F54';
 const HOROSCOPE_LINE_WIDTH = 1.5;
+/** Pure blue for all filled answers on the biodata summary page. */
+const REVIEW_ANSWER_COLOR = '#0000FF';
+
+const WEB_ANSWER_PROPS =
+  Platform.OS === 'web' ? ({ dataSet: { biodataAnswer: 'true' } } as const) : {};
 
 const FIELD_BG = '#FFFBF9';
 const FIELD_BORDER = 'rgba(87, 0, 0, 0.12)';
@@ -136,7 +142,17 @@ const DETAIL_GRID_COUNT = 36;
 const DETAIL_GRID_ROW_SIZES = [12, 12, 12] as const;
 const BIODATA_PRINT_STYLE_ID = 'biodata-print-style';
 
+const BIODATA_SUMMARY_SCREEN_CSS = `
+  #biodata-print-root [data-biodata-answer="true"],
+  #biodata-print-registration [data-biodata-answer="true"] {
+    color: #0000FF !important;
+    -webkit-text-fill-color: #0000FF !important;
+    font-weight: 600 !important;
+  }
+`;
+
 const BIODATA_PRINT_CSS = `
+  ${BIODATA_SUMMARY_SCREEN_CSS}
   @media print {
     @page {
       size: A4 portrait;
@@ -320,21 +336,30 @@ const BIODATA_PRINT_CSS = `
     body.biodata-print-hindu #biodata-print-summary-meta {
       display: flex !important;
       flex-direction: row !important;
+      justify-content: flex-end !important;
       width: 100% !important;
       margin-top: 1.5mm !important;
+      padding-right: 1.5mm !important;
       border-top: 1px solid #570000 !important;
       border-bottom: none !important;
     }
 
     body.biodata-print-hindu #biodata-print-summary-meta > div {
-      flex: 1 1 0 !important;
+      flex: 0 0 auto !important;
+      width: auto !important;
       min-width: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      align-self: flex-end !important;
       border-top: none !important;
       border-bottom: none !important;
+      border-left: none !important;
+      gap: 1mm !important;
     }
 
     body.biodata-print-hindu #biodata-print-summary-meta > div:last-child {
-      border-left: 1px solid #570000 !important;
+      border-left: none !important;
     }
 
     body.biodata-print-hindu #biodata-print-summary-meta * {
@@ -956,15 +981,15 @@ function buildBiodataDraftValues({
   const persistedPhotos = serializePersistedProfilePhotos(photos);
   const phoneDigits = normalizePhoneDigits(adminContactPhone);
 
-  return applyDefaultRegistrationCommunity({
+  const next = applyDefaultRegistrationCommunity({
     ...existingValues,
     fullName: form.fullName.trim(),
-    gender: form.gender.trim(),
+    gender: resolveStoredOptionValue('gender', form.gender, language),
     education: form.education.trim(),
     dateOfBirth: form.dateOfBirth.trim(),
     birthTiming: form.birthTiming.trim(),
     birthTimingMeridiem: form.birthTimingMeridiem.trim() || 'am',
-    religion: form.religion,
+    religion: form.religion.trim() || existingValues.religion?.trim() || '',
     natchathiram: form.natchathiram.trim(),
     rasi: form.rasi.trim(),
     lagnam: form.lagnam.trim(),
@@ -1021,6 +1046,15 @@ function buildBiodataDraftValues({
         }
       : {}),
   });
+
+  return {
+    ...next,
+    registrationCommunity:
+      next.registrationCommunity?.trim() ||
+      normalizeRegistrationReligion(next.religion ?? form.religion) ||
+      existingValues.registrationCommunity?.trim() ||
+      '',
+  };
 }
 
 export function RegistrationNumberBar({
@@ -1074,15 +1108,7 @@ export function RegistrationNumberBar({
       }
 
       try {
-        const nextRegistration = await resolveRegistrationNumber(
-          {
-            religion,
-            rasi,
-            natchathiram,
-            existingNumber: storedRegistration,
-          },
-          { localOnly: true },
-        );
+        const nextRegistration = await previewRegistrationNumber(religion, rasi, natchathiram);
 
         if (cancelled || !nextRegistration) {
           return;
@@ -1676,6 +1702,7 @@ function DasaBalanceFields({
                 segment.emphasize && styles.dasaReadonlyValueEmphasis,
               ]}
               numberOfLines={1}
+              {...(segment.emphasize ? {} : WEB_ANSWER_PROPS)}
             >
               {segment.value}
             </Text>
@@ -1797,65 +1824,6 @@ function normalizeBiodataDateValue(digits: string): string {
   }
 
   return `${String(day).padStart(2, '0')} / ${String(month).padStart(2, '0')} / ${year}`;
-}
-
-const MIN_MATRIMONY_AGE = 18;
-const MAX_MATRIMONY_AGE = 65;
-
-function getBirthDateLimits() {
-  const today = new Date();
-  const maximumDate = new Date(today);
-  maximumDate.setFullYear(today.getFullYear() - MIN_MATRIMONY_AGE);
-  const minimumDate = new Date(today);
-  minimumDate.setFullYear(today.getFullYear() - MAX_MATRIMONY_AGE);
-  return { minimumDate, maximumDate };
-}
-
-function parseBiodataDate(value: string): Date | null {
-  const parts = value.split('/').map((part) => part.trim());
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  const day = Number(parts[0]);
-  const month = Number(parts[1]);
-  const year = Number(parts[2]);
-
-  if (!day || !month || !year) {
-    return null;
-  }
-
-  const date = new Date(year, month - 1, day);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return date;
-}
-
-function formatBiodataDateFromDate(date: Date): string {
-  return `${String(date.getDate()).padStart(2, '0')} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${date.getFullYear()}`;
-}
-
-function toWebDateInputValue(value: string): string {
-  const parsed = parseBiodataDate(value);
-  if (!parsed) {
-    return '';
-  }
-
-  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
-}
-
-function fromWebDateInputValue(value: string): string {
-  const [year, month, day] = value.split('-');
-  if (!year || !month || !day) {
-    return '';
-  }
-  return `${day} / ${month} / ${year}`;
 }
 
 function formatBiodataTimeDigits(digits: string): string {
@@ -1991,7 +1959,6 @@ function BiodataDateRow({
   onValueChange,
   editable,
   dense,
-  icon,
   placeholder,
   required,
 }: {
@@ -2004,72 +1971,12 @@ function BiodataDateRow({
   placeholder?: string;
   required?: boolean;
 }) {
-  const { translate } = useLanguage();
-  const webDateInputRef = useRef<HTMLInputElement | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
-  const { minimumDate, maximumDate } = useMemo(() => getBirthDateLimits(), []);
-  const [pickerDate, setPickerDate] = useState(() => parseBiodataDate(value) ?? maximumDate);
-
-  useEffect(() => {
-    const parsed = parseBiodataDate(value);
-    if (parsed) {
-      setPickerDate(parsed);
-    }
-  }, [value]);
-
   const handleDateChange = useCallback(
     (text: string) => {
       const digits = text.replace(/\D/g, '').slice(0, 8);
       onValueChange(normalizeBiodataDateValue(digits));
     },
     [onValueChange],
-  );
-
-  const applyPickedDate = useCallback(
-    (date: Date) => {
-      onValueChange(formatBiodataDateFromDate(date));
-      setPickerDate(date);
-    },
-    [onValueChange],
-  );
-
-  const openDatePicker = useCallback(() => {
-    if (Platform.OS === 'web') {
-      const input = webDateInputRef.current;
-      if (!input) {
-        return;
-      }
-      if (typeof input.showPicker === 'function') {
-        input.showPicker();
-      } else {
-        input.click();
-      }
-      return;
-    }
-
-    setPickerDate(parseBiodataDate(value) ?? maximumDate);
-    setShowPicker(true);
-  }, [maximumDate, value]);
-
-  const handleNativePickerChange = useCallback(
-    (event: DateTimePickerEvent, date?: Date) => {
-      if (Platform.OS === 'android') {
-        setShowPicker(false);
-      }
-
-      if (event.type === 'dismissed' || !date) {
-        if (Platform.OS === 'ios') {
-          setShowPicker(false);
-        }
-        return;
-      }
-
-      applyPickedDate(date);
-      if (Platform.OS === 'ios') {
-        setShowPicker(false);
-      }
-    },
-    [applyPickedDate],
   );
 
   const labelNode = (
@@ -2098,7 +2005,6 @@ function BiodataDateRow({
           style={[styles.dateFieldInput, dense && styles.dateFieldInputDense]}
           value={value}
           onChangeText={handleDateChange}
-          onFocus={Platform.OS !== 'web' ? openDatePicker : undefined}
           editable={editable}
           placeholder={placeholder}
           placeholderTextColor={PLACEHOLDER}
@@ -2106,61 +2012,6 @@ function BiodataDateRow({
           maxLength={14}
         />
       </View>
-      {Platform.OS === 'web'
-        ? createElement('input', {
-            ref: webDateInputRef,
-            type: 'date',
-            value: toWebDateInputValue(value),
-            min: toWebDateInputValue(formatBiodataDateFromDate(minimumDate)),
-            max: toWebDateInputValue(formatBiodataDateFromDate(maximumDate)),
-            onChange: (event: { target: { value: string } }) => {
-              const nextValue = fromWebDateInputValue(event.target.value);
-              if (nextValue) {
-                onValueChange(nextValue);
-              }
-            },
-            style: {
-              position: 'absolute',
-              width: 1,
-              height: 1,
-              opacity: 0,
-              pointerEvents: 'none',
-            },
-          })
-        : null}
-      {showPicker && Platform.OS === 'ios' ? (
-        <Modal transparent animationType="slide" visible onRequestClose={() => setShowPicker(false)}>
-          <Pressable style={styles.datePickerOverlay} onPress={() => setShowPicker(false)}>
-            <Pressable style={styles.datePickerSheet} onPress={(event) => event.stopPropagation()}>
-              <DateTimePicker
-                value={pickerDate}
-                mode="date"
-                display="spinner"
-                minimumDate={minimumDate}
-                maximumDate={maximumDate}
-                onChange={(_, date) => {
-                  if (date) {
-                    setPickerDate(date);
-                  }
-                }}
-              />
-              <Pressable style={styles.datePickerDoneBtn} onPress={() => applyPickedDate(pickerDate)}>
-                <Text style={styles.datePickerDoneText}>{translate('ok')}</Text>
-              </Pressable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      ) : null}
-      {showPicker && Platform.OS === 'android' ? (
-        <DateTimePicker
-          value={pickerDate}
-          mode="date"
-          display="default"
-          minimumDate={minimumDate}
-          maximumDate={maximumDate}
-          onChange={handleNativePickerChange}
-        />
-      ) : null}
     </View>
   );
 }
@@ -3526,10 +3377,6 @@ function reviewDisplayValue(value: string): string {
   return value.trim();
 }
 
-function hasReviewFilledValue(value: string): boolean {
-  return value.trim().length > 0;
-}
-
 function buildFilledSiblingReviewRows(
   entries: Array<{ label: string; rawValue: string; displayValue: string }>,
 ): Array<{ label: string; value: string }> {
@@ -3664,8 +3511,8 @@ function ReviewDataRow({
             reviewStyles.dataValue,
             sidebar && reviewStyles.dataValueSidebar,
             !sidebar && IS_NATIVE && reviewStyles.dataValueMainNative,
-            hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
           ]}
+          {...WEB_ANSWER_PROPS}
         >
           {reviewDisplayValue(value)}
         </Text>
@@ -3707,9 +3554,9 @@ function ReviewInlinePair({
       <Text
         style={[
           reviewStyles.inlineHalfValue,
-          hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
         ]}
         numberOfLines={2}
+        {...WEB_ANSWER_PROPS}
       >
         {reviewDisplayValue(value)}
       </Text>
@@ -3863,7 +3710,9 @@ function BiodataLetterheadHeader({
           <Text style={reviewStyles.registrationLabel} numberOfLines={2}>
             {translate('biodataRegistrationNumberLabel')}
           </Text>
-          <Text style={reviewStyles.registrationValue}>{registrationNumber.trim()}</Text>
+          <Text style={reviewStyles.registrationValue} {...WEB_ANSWER_PROPS}>
+            {registrationNumber.trim()}
+          </Text>
         </View>
       </View>
     </View>
@@ -4013,24 +3862,14 @@ function ChristianBiodataReviewSheet({
           ]}
         >
           <View style={[christianReviewStyles.locationBox, christianReviewStyles.locationBoxCompact]}>
-            <Text style={reviewStyles.sidebarBoxLabel}>{translate('biodataReviewNativePlace')}</Text>
-            <Text
-              style={[
-                christianReviewStyles.locationValue,
-                hasReviewFilledValue(nativePlace) && reviewStyles.dataValueFilled,
-              ]}
-            >
+            <Text style={reviewStyles.siblingBoxLabel}>{translate('biodataReviewNativePlace')}</Text>
+            <Text style={christianReviewStyles.locationValue} {...WEB_ANSWER_PROPS}>
               {reviewDisplayValue(nativePlace)}
             </Text>
           </View>
           <View style={[christianReviewStyles.locationBox, christianReviewStyles.locationBoxCompact]}>
-            <Text style={reviewStyles.sidebarBoxLabel}>{translate('biodataReviewResidence')}</Text>
-            <Text
-              style={[
-                christianReviewStyles.locationValue,
-                hasReviewFilledValue(form.irupidam) && reviewStyles.dataValueFilled,
-              ]}
-            >
+            <Text style={reviewStyles.siblingBoxLabel}>{translate('biodataReviewResidence')}</Text>
+            <Text style={christianReviewStyles.locationValue} {...WEB_ANSWER_PROPS}>
               {reviewDisplayValue(form.irupidam)}
             </Text>
           </View>
@@ -4264,6 +4103,7 @@ export function HoroscopeSection({
           editable={summaryMetaEditable ?? editable}
           onSourceChange={(value) => onFieldChange('biodataSource', value)}
           onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
+          language={language}
         />
       ) : null}
       </View>
@@ -4378,7 +4218,7 @@ function ReviewSummaryMetaRow({
   editable,
   onSourceChange,
   onDateChange,
-  stacked = false,
+  language = 'en',
 }: {
   sourceLabel: string;
   dateLabel: string;
@@ -4387,31 +4227,28 @@ function ReviewSummaryMetaRow({
   editable: boolean;
   onSourceChange: (value: string) => void;
   onDateChange: (value: string) => void;
-  stacked?: boolean;
+  language?: Language;
 }) {
+  const labelStyle = language === 'ta' ? reviewStyles.summaryMetaLabelTamil : reviewStyles.summaryMetaLabel;
+  const colonStyle = language === 'ta' ? reviewStyles.summaryMetaColonTamil : reviewStyles.summaryMetaColon;
+
+  const labelSlotStyle = language === 'ta' ? reviewStyles.summaryMetaLabelSlotTamil : reviewStyles.summaryMetaLabelSlot;
+
   const renderCell = (
     label: string,
     value: string,
     onChange: (value: string) => void,
     placeholder?: string,
-    withTopDivider?: boolean,
   ) => (
-    <View
-      style={[
-        reviewStyles.summaryMetaCell,
-        stacked && reviewStyles.summaryMetaCellStacked,
-        !stacked && withTopDivider && reviewStyles.summaryMetaCellDivider,
-        stacked && withTopDivider && reviewStyles.summaryMetaCellStackedDivider,
-      ]}
-    >
-      <Text style={reviewStyles.summaryMetaLabel}>{label}</Text>
-      <Text style={reviewStyles.summaryMetaColon}>:</Text>
+    <View style={reviewStyles.summaryMetaCell}>
+      <View style={labelSlotStyle}>
+        <Text style={labelStyle}>{label}</Text>
+      </View>
+      <Text style={colonStyle}>:</Text>
       {editable ? (
         <TextInput
-          style={[
-            reviewStyles.summaryMetaInput,
-            hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
-          ]}
+          style={reviewStyles.summaryMetaInput}
+          {...WEB_ANSWER_PROPS}
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}
@@ -4419,10 +4256,8 @@ function ReviewSummaryMetaRow({
         />
       ) : (
         <Text
-          style={[
-            reviewStyles.summaryMetaValue,
-            hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
-          ]}
+          style={reviewStyles.summaryMetaValue}
+          {...WEB_ANSWER_PROPS}
           numberOfLines={1}
         >
           {reviewDisplayValue(value)}
@@ -4434,10 +4269,12 @@ function ReviewSummaryMetaRow({
   return (
     <View
       nativeID="biodata-print-summary-meta"
-      style={[reviewStyles.summaryMetaRow, stacked && reviewStyles.summaryMetaRowStacked]}
+      style={reviewStyles.summaryMetaRow}
     >
-      {renderCell(sourceLabel, sourceValue, onSourceChange)}
-      {renderCell(dateLabel, dateValue, onDateChange, formatBiodataFilledDate(), true)}
+      <View style={reviewStyles.summaryMetaRightGroup}>
+        {renderCell(sourceLabel, sourceValue, onSourceChange)}
+        {renderCell(dateLabel, dateValue, onDateChange, formatBiodataFilledDate())}
+      </View>
     </View>
   );
 }
@@ -4692,6 +4529,7 @@ function BiodataReviewSheet({
           editable={editable}
           onSourceChange={(value) => onFieldChange('biodataSource', value)}
           onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
+          language={language}
         />
       )}
     </View>
@@ -4701,6 +4539,12 @@ function BiodataReviewSheet({
 
 const reviewTextAndroid = Platform.select({
   android: { includeFontPadding: false as const },
+  default: {},
+});
+
+const reviewAnswerTextAndroid = Platform.select({
+  android: { includeFontPadding: false as const, fontWeight: '600' as const },
+  ios: { fontWeight: '600' as const },
   default: {},
 });
 
@@ -4832,11 +4676,12 @@ const reviewStyles = StyleSheet.create({
     textAlign: 'center',
   },
   registrationValue: {
-    color: colors.primary,
+    color: REVIEW_ANSWER_COLOR,
     fontFamily: fonts.interSemi,
     fontSize: 13,
     lineHeight: 16,
     textAlign: 'center',
+    ...reviewAnswerTextAndroid,
   },
   bodyRow: {
     flexDirection: 'row',
@@ -4848,76 +4693,97 @@ const reviewStyles = StyleSheet.create({
   },
   summaryMetaRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
     width: '100%',
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
     overflow: 'visible',
+    paddingVertical: 4,
+    paddingRight: 8,
   },
-  summaryMetaRowStacked: {
+  summaryMetaRightGroup: {
     flexDirection: 'column',
-    marginTop: 6,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
+    gap: 2,
+    flexShrink: 0,
   },
   summaryMetaCell: {
-    flex: 1,
-    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    minHeight: 28,
-    gap: 4,
+    justifyContent: 'flex-start',
+    flexGrow: 0,
+    flexShrink: 0,
+    gap: 3,
   },
-  summaryMetaCellStacked: {
-    flex: 0,
-    width: '100%',
-    alignSelf: 'stretch',
+  summaryMetaLabelSlot: {
+    minWidth: IS_NATIVE ? 40 : 46,
+    flexShrink: 0,
   },
-  summaryMetaCellDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: colors.primary,
-  },
-  summaryMetaCellStackedDivider: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(87, 0, 0, 0.12)',
+  summaryMetaLabelSlotTamil: {
+    minWidth: IS_NATIVE ? 52 : 58,
+    flexShrink: 0,
   },
   summaryMetaLabel: {
     color: colors.primary,
-    fontFamily: fonts.interBold,
-    fontSize: IS_NATIVE ? 9 : 11,
-    lineHeight: IS_NATIVE ? 12 : 14,
+    fontFamily: fonts.interMedium,
+    fontSize: IS_NATIVE ? 8 : 10,
+    lineHeight: IS_NATIVE ? 11 : 13,
+    flexShrink: 0,
+    textTransform: 'lowercase',
+    ...reviewTextAndroid,
+  },
+  summaryMetaLabelTamil: {
+    color: colors.primary,
+    fontFamily: fonts.interMedium,
+    fontSize: IS_NATIVE ? 8 : 10,
+    lineHeight: IS_NATIVE ? 11 : 13,
     flexShrink: 0,
     ...reviewTextAndroid,
   },
   summaryMetaColon: {
     color: colors.primary,
-    fontFamily: fonts.interBold,
-    fontSize: IS_NATIVE ? 9 : 11,
-    lineHeight: IS_NATIVE ? 12 : 14,
+    fontFamily: fonts.interMedium,
+    fontSize: IS_NATIVE ? 8 : 10,
+    lineHeight: IS_NATIVE ? 11 : 13,
+    flexShrink: 0,
+    textTransform: 'lowercase',
+    ...reviewTextAndroid,
+  },
+  summaryMetaColonTamil: {
+    color: colors.primary,
+    fontFamily: fonts.interMedium,
+    fontSize: IS_NATIVE ? 8 : 10,
+    lineHeight: IS_NATIVE ? 11 : 13,
     flexShrink: 0,
     ...reviewTextAndroid,
   },
   summaryMetaValue: {
-    flex: 1,
-    minWidth: 0,
-    color: colors.primary,
-    fontFamily: fonts.interMedium,
-    fontSize: IS_NATIVE ? 9 : 11,
-    lineHeight: IS_NATIVE ? 12 : 14,
-    ...reviewTextAndroid,
+    flexGrow: 0,
+    flexShrink: 0,
+    color: REVIEW_ANSWER_COLOR,
+    fontFamily: fonts.interSemi,
+    fontSize: IS_NATIVE ? 8 : 10,
+    lineHeight: IS_NATIVE ? 11 : 13,
+    textAlign: 'left',
+    ...reviewAnswerTextAndroid,
   },
   summaryMetaInput: {
-    flex: 1,
-    minWidth: 0,
+    flexGrow: 0,
+    flexShrink: 0,
+    width: IS_NATIVE ? 64 : 72,
     paddingVertical: 0,
     paddingHorizontal: 0,
     margin: 0,
     borderWidth: 0,
     backgroundColor: 'transparent',
-    color: colors.primary,
-    fontFamily: fonts.interMedium,
-    fontSize: IS_NATIVE ? 9 : 11,
-    lineHeight: IS_NATIVE ? 12 : 14,
+    color: REVIEW_ANSWER_COLOR,
+    fontFamily: fonts.interSemi,
+    fontSize: IS_NATIVE ? 8 : 10,
+    lineHeight: IS_NATIVE ? 11 : 13,
+    textAlign: 'left',
     ...Platform.select({
       web: { outlineStyle: 'none' },
       default: {},
@@ -4986,6 +4852,7 @@ const reviewStyles = StyleSheet.create({
     paddingTop: 0,
   },
   dataLabelSidebar: {
+    color: colors.primary,
     fontFamily: fonts.interBold,
     fontSize: 11,
     lineHeight: 14,
@@ -4997,6 +4864,7 @@ const reviewStyles = StyleSheet.create({
     lineHeight: 12,
   },
   dataColonSidebar: {
+    color: colors.primary,
     fontSize: 11,
     lineHeight: 14,
     fontFamily: fonts.interBold,
@@ -5009,9 +4877,11 @@ const reviewStyles = StyleSheet.create({
     paddingTop: 0,
   },
   dataValueSidebar: {
+    color: REVIEW_ANSWER_COLOR,
+    fontFamily: fonts.interSemi,
     fontSize: 11,
     lineHeight: 14,
-    ...reviewTextAndroid,
+    ...reviewAnswerTextAndroid,
   },
   dataLabelColumn: {
     flexGrow: 0,
@@ -5058,14 +4928,11 @@ const reviewStyles = StyleSheet.create({
     flexShrink: 1,
   },
   dataValue: {
-    color: colors.onSurface,
-    fontFamily: fonts.interMedium,
+    color: REVIEW_ANSWER_COLOR,
+    fontFamily: fonts.interSemi,
     fontSize: 12,
     lineHeight: 16,
-    ...reviewTextAndroid,
-  },
-  dataValueFilled: {
-    color: REVIEW_FILLED_VALUE_COLOR,
+    ...reviewAnswerTextAndroid,
   },
   inlineHalf: {
     flex: 1,
@@ -5092,12 +4959,12 @@ const reviewStyles = StyleSheet.create({
   inlineHalfValue: {
     flex: 1,
     minWidth: 0,
-    color: colors.onSurface,
-    fontFamily: fonts.interMedium,
+    color: REVIEW_ANSWER_COLOR,
+    fontFamily: fonts.interSemi,
     fontSize: 12,
     lineHeight: 16,
     marginTop: 1,
-    ...reviewTextAndroid,
+    ...reviewAnswerTextAndroid,
   },
   siblingSection: {
     width: '100%',
@@ -5214,13 +5081,15 @@ const reviewStyles = StyleSheet.create({
     textAlign: 'left',
   },
   siblingBoxValue: {
-    color: colors.onSurface,
+    color: REVIEW_ANSWER_COLOR,
     fontFamily: fonts.interSemi,
     fontSize: 8,
     lineHeight: 11,
     textAlign: 'left',
+    ...reviewAnswerTextAndroid,
   },
   siblingLabelWide: {
+    color: colors.primary,
     fontSize: 10,
     lineHeight: 13,
     fontFamily: fonts.interBold,
@@ -5244,18 +5113,22 @@ const reviewStyles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   siblingValue: {
-    color: colors.onSurface,
+    color: REVIEW_ANSWER_COLOR,
     fontFamily: fonts.interSemi,
     fontSize: 10,
     lineHeight: 13,
     textAlign: 'right',
     width: '100%',
+    ...reviewAnswerTextAndroid,
   },
   siblingValueWide: {
+    color: REVIEW_ANSWER_COLOR,
+    fontFamily: fonts.interSemi,
     fontSize: 10,
     lineHeight: 13,
     textAlign: 'right',
     width: '100%',
+    ...reviewAnswerTextAndroid,
   },
 });
 
@@ -5316,10 +5189,11 @@ const christianReviewStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   locationValue: {
-    color: colors.onSurface,
-    fontFamily: fonts.interMedium,
+    color: REVIEW_ANSWER_COLOR,
+    fontFamily: fonts.interSemi,
     fontSize: 12,
     lineHeight: 17,
+    ...reviewAnswerTextAndroid,
   },
   siblingSectionExpanded: {
     flexShrink: 0,
@@ -5423,6 +5297,10 @@ export function CreateProfileBiodataForm({
   const [photos, setPhotos] = useState<string[]>(() => parseProfilePhotos(''));
   const [showPhotoInBiodata, setShowPhotoInBiodata] = useState(true);
   const [adminContactPhone, setAdminContactPhone] = useState('');
+
+  useEffect(() => {
+    ensureBiodataPrintStyles();
+  }, []);
   const photosRef = useRef<string[]>(parseProfilePhotos(''));
   const photosDirtyRef = useRef(false);
   const syncDraftSeqRef = useRef(0);
@@ -5689,12 +5567,11 @@ export function CreateProfileBiodataForm({
     setShowPhotoInBiodata(parseBiodataShowPhoto(readValue(BIODATA_SHOW_PHOTO_KEY)));
 
     if (!profileValues) {
-      void resolveRegistrationNumber({
-        religion: normalizeRegistrationReligion(readValue('religion')),
-        rasi: readValue('rasi'),
-        natchathiram: readValue('natchathiram'),
-        existingNumber: storedRegistration,
-      })
+      void previewRegistrationNumber(
+        normalizeRegistrationReligion(readValue('religion')),
+        readValue('rasi'),
+        readValue('natchathiram'),
+      )
         .then((registrationNumber) => {
           if (!registrationNumber || registrationNumber === storedRegistration) {
             return;
@@ -5824,6 +5701,52 @@ export function CreateProfileBiodataForm({
     }
   }, [form.registrationNumber, getValue, values.registrationNumber]);
 
+  const refreshRegistrationNumber = useCallback(async () => {
+    if (viewOnly || profileValues) {
+      return;
+    }
+
+    const religion = normalizeRegistrationReligion(form.religion || getValue('religion'));
+    if (!religion) {
+      return;
+    }
+
+    const rasi = form.rasi.trim() || getValue('rasi').trim();
+    const natchathiram = form.natchathiram.trim() || getValue('natchathiram').trim();
+    const storedRegistration = getValue('registrationNumber').trim() || form.registrationNumber.trim();
+
+    if (
+      storedRegistration &&
+      shouldKeepRegistrationNumber(storedRegistration, religion, rasi, natchathiram)
+    ) {
+      if (storedRegistration !== form.registrationNumber) {
+        setForm((current) => ({ ...current, registrationNumber: storedRegistration }));
+      }
+      return;
+    }
+
+    const nextRegistration = await previewRegistrationNumber(religion, rasi, natchathiram);
+    if (!nextRegistration || nextRegistration === storedRegistration) {
+      return;
+    }
+
+    setForm((current) => ({ ...current, registrationNumber: nextRegistration }));
+    setValue('registrationNumber', nextRegistration);
+  }, [
+    form.natchathiram,
+    form.rasi,
+    form.registrationNumber,
+    form.religion,
+    getValue,
+    profileValues,
+    setValue,
+    viewOnly,
+  ]);
+
+  useEffect(() => {
+    void refreshRegistrationNumber().catch(() => undefined);
+  }, [refreshRegistrationNumber]);
+
   const handlePhotosChange = useCallback(
     (nextPhotos: string[]) => {
       photosDirtyRef.current = true;
@@ -5862,7 +5785,23 @@ export function CreateProfileBiodataForm({
   );
 
   const persistForm = useCallback(async (): Promise<Record<string, string>> => {
-    const registrationNumber = getValue('registrationNumber').trim() || form.registrationNumber.trim();
+    const religion = normalizeRegistrationReligion(form.religion || getValue('religion'));
+    const rasi = form.rasi.trim() || getValue('rasi').trim();
+    const natchathiram = form.natchathiram.trim() || getValue('natchathiram').trim();
+    let registrationNumber = getValue('registrationNumber').trim() || form.registrationNumber.trim();
+
+    if (religion) {
+      const allocated = await resolveRegistrationNumber({
+        religion,
+        rasi,
+        natchathiram,
+        existingNumber: registrationNumber,
+      }).catch(() => registrationNumber);
+      if (allocated) {
+        registrationNumber = allocated;
+      }
+    }
+
     const nextValues = buildBiodataDraftValues({
       form,
       photos,
@@ -5882,13 +5821,13 @@ export function CreateProfileBiodataForm({
     adminContactPhone,
     detailGrid,
     form,
+    getValue,
     language,
     photos,
     rasiChart,
     amsamChart,
     showAdminPhoneField,
     showPhotoInBiodata,
-    getValue,
     replaceValues,
     values,
   ]);
@@ -5907,24 +5846,39 @@ export function CreateProfileBiodataForm({
       return;
     }
 
-    if (form.gender !== 'male' && form.gender !== 'female') {
-      const message = translate('selectGender');
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert(message);
-      } else {
-        Alert.alert(translate('gender'), message);
-      }
-      return;
-    }
-
-    if (!validateOccupationFields()) {
-      return;
-    }
-
-    setIsSaving(true);
     void (async () => {
+      Keyboard.dismiss();
+      await syncDraftToContext().catch(() => undefined);
+
+      const normalizedGender = resolveStoredOptionValue('gender', form.gender, language);
+      if (normalizedGender !== 'male' && normalizedGender !== 'female') {
+        const message = translate('selectGender');
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.alert(message);
+        } else {
+          Alert.alert(translate('gender'), message);
+        }
+        return;
+      }
+
+      if (!validateOccupationFields()) {
+        return;
+      }
+
+      setIsSaving(true);
       try {
         const profileValues = await persistForm();
+        const readyValues = prepareProfileForPublish(profileValues);
+        if (!hasCompletedProfile(readyValues)) {
+          const message = translate('profileIncompleteSave');
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            window.alert(message);
+          } else {
+            Alert.alert(translate('saveChanges'), message);
+          }
+          return;
+        }
+
         await onSave(profileValues);
       } catch {
         const message = translate('profileSaveFailed');
@@ -5937,7 +5891,16 @@ export function CreateProfileBiodataForm({
         setIsSaving(false);
       }
     })();
-  }, [form.gender, isSaving, onSave, persistForm, translate, validateOccupationFields]);
+  }, [
+    form.gender,
+    isSaving,
+    language,
+    onSave,
+    persistForm,
+    syncDraftToContext,
+    translate,
+    validateOccupationFields,
+  ]);
 
   const handlePrintPress = useCallback(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -6064,7 +6027,7 @@ export function CreateProfileBiodataForm({
   const isReviewStep = step === 5;
   const isExtrasStep = step === 4;
   const isChristianReview = isReviewStep && isCurrentChristian;
-  const isWebReviewActions = !IS_NATIVE && isReviewStep && !viewOnly;
+  const isReviewActions = isReviewStep && !viewOnly;
   const reviewEditable = viewOnly ? false : editable;
 
   const step1Column = (
@@ -6497,7 +6460,7 @@ export function CreateProfileBiodataForm({
             dense && styles.scrollContentDense,
             isReviewStep && IS_NATIVE && styles.scrollContentReviewNative,
             isReviewStep && IS_NATIVE && { paddingHorizontal: horizontalInset },
-            isWebReviewActions && styles.scrollContentWebReview,
+            isReviewActions && styles.scrollContentReview,
           ]}
         >
           {biodataSheet}
@@ -6507,10 +6470,11 @@ export function CreateProfileBiodataForm({
       {!hideActionBar ? (
       <View
         nativeID="biodata-action-bar"
+        collapsable={false}
         style={[
           styles.actionBar,
           IS_NATIVE && styles.actionBarNative,
-          isWebReviewActions && styles.actionBarWebReview,
+          isReviewActions && styles.actionBarReview,
           viewOnly && styles.actionBarEmbedded,
           isChristianReview && styles.actionBarFullScreen,
         ]}
@@ -6556,7 +6520,7 @@ export function CreateProfileBiodataForm({
           </>
         ) : (
           <>
-        {step > 1 && !(isWebReviewActions && step === totalSteps) ? (
+        {step > 1 && !isReviewActions ? (
           <Pressable
             style={({ pressed }) => [
               styles.actionButtonOutline,
@@ -6594,21 +6558,21 @@ export function CreateProfileBiodataForm({
             </Text>
             <MaterialIcons name="arrow-forward" size={IS_NATIVE ? 16 : 14} color={colors.onPrimary} />
           </Pressable>
-        ) : isWebReviewActions ? (
+        ) : isReviewActions ? (
           <>
             {step > 1 ? (
               <Pressable
                 style={({ pressed }) => [
                   styles.actionButtonOutline,
-                  styles.actionButtonWebInline,
+                  styles.actionButtonReviewInline,
                   pressed && styles.actionButtonPressed,
                 ]}
                 onPress={goToPreviousStep}
                 accessibilityRole="button"
               >
-                <MaterialIcons name="arrow-back" size={13} color={SHEET_BORDER} />
+                <MaterialIcons name="arrow-back" size={IS_NATIVE ? 14 : 13} color={SHEET_BORDER} />
                 <Text
-                  style={styles.actionButtonWebInlineText}
+                  style={styles.actionButtonReviewInlineText}
                   numberOfLines={1}
                   adjustsFontSizeToFit
                   minimumFontScale={0.75}
@@ -6620,15 +6584,15 @@ export function CreateProfileBiodataForm({
             <Pressable
               style={({ pressed }) => [
                 styles.actionButtonPrint,
-                styles.actionButtonWebInline,
+                styles.actionButtonReviewInline,
                 pressed && styles.actionButtonPressed,
               ]}
               onPress={handlePrintPress}
               accessibilityRole="button"
             >
-              <MaterialIcons name="print" size={13} color={SHEET_BORDER} />
+              <MaterialIcons name="print" size={IS_NATIVE ? 14 : 13} color={SHEET_BORDER} />
               <Text
-                style={styles.actionButtonWebInlineText}
+                style={styles.actionButtonReviewInlineText}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.75}
@@ -6639,7 +6603,7 @@ export function CreateProfileBiodataForm({
             <Pressable
               style={({ pressed }) => [
                 styles.actionButtonPrint,
-                styles.actionButtonWebInline,
+                styles.actionButtonReviewInline,
                 (pressed || isSharing) && styles.actionButtonPressed,
                 isSharing && styles.actionButtonDisabled,
               ]}
@@ -6647,9 +6611,9 @@ export function CreateProfileBiodataForm({
               disabled={isSharing}
               accessibilityRole="button"
             >
-              <MaterialCommunityIcons name="whatsapp" size={13} color="#25D366" />
+              <MaterialCommunityIcons name="whatsapp" size={IS_NATIVE ? 14 : 13} color="#25D366" />
               <Text
-                style={styles.actionButtonWebInlineText}
+                style={styles.actionButtonReviewInlineText}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.75}
@@ -6660,7 +6624,7 @@ export function CreateProfileBiodataForm({
             <Pressable
               style={({ pressed }) => [
                 styles.actionButtonPrimary,
-                styles.actionButtonWebSave,
+                styles.actionButtonReviewSave,
                 (pressed || isSaving) && styles.actionButtonPressed,
                 isSaving && styles.actionButtonDisabled,
               ]}
@@ -6671,10 +6635,10 @@ export function CreateProfileBiodataForm({
               {isSaving ? (
                 <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
-                <MaterialIcons name="check-circle" size={13} color={colors.onPrimary} />
+                <MaterialIcons name="check-circle" size={IS_NATIVE ? 14 : 13} color={colors.onPrimary} />
               )}
               <Text
-                style={styles.actionButtonWebSaveText}
+                style={styles.actionButtonReviewSaveText}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.65}
@@ -6769,8 +6733,8 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  scrollContentWebReview: {
-    paddingBottom: 72,
+  scrollContentReview: {
+    paddingBottom: Platform.OS === 'web' ? 72 : 80,
   },
   wrapperEmbedded: {
     flex: 0,
@@ -7769,7 +7733,7 @@ const styles = StyleSheet.create({
     minWidth: 48,
   },
   dasaReadonlyValue: {
-    color: colors.onSurface,
+    color: REVIEW_ANSWER_COLOR,
     fontSize: 12,
     fontFamily: fonts.inter,
     minWidth: 0,
@@ -8296,6 +8260,61 @@ const styles = StyleSheet.create({
         elevation: 24,
       },
     }),
+  },
+  actionBarReview: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 10,
+  },
+  actionButtonReviewInline: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    minHeight: Platform.OS === 'web' ? 40 : 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    ...Platform.select({
+      web: { cursor: 'pointer' },
+      default: {},
+    }),
+  },
+  actionButtonReviewInlineText: {
+    color: SHEET_BORDER,
+    fontFamily: fonts.interSemi,
+    fontSize: Platform.OS === 'web' ? 11 : 10,
+    lineHeight: Platform.OS === 'web' ? 14 : 13,
+    flexShrink: 1,
+    textAlign: 'center',
+  },
+  actionButtonReviewSave: {
+    flex: 1.35,
+    flexShrink: 1,
+    minWidth: 0,
+    minHeight: Platform.OS === 'web' ? 40 : 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    ...Platform.select({
+      web: { cursor: 'pointer' },
+      default: {},
+    }),
+  },
+  actionButtonReviewSaveText: {
+    color: colors.onPrimary,
+    fontFamily: fonts.interSemi,
+    fontSize: Platform.OS === 'web' ? 11 : 10,
+    lineHeight: Platform.OS === 'web' ? 14 : 13,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   actionBarWebReview: {
     flexDirection: 'row',

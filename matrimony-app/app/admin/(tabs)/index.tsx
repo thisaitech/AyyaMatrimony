@@ -11,11 +11,11 @@ import { adminColors } from '@/constants/admin';
 import { useAdminApprovals } from '@/context/AdminApprovalsContext';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useAdminNotifications } from '@/context/AdminNotificationsContext';
+import { useAdminPhotoApprovals } from '@/context/AdminPhotoApprovalsContext';
 import { useMemberDirectory } from '@/context/MemberDirectoryContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { adminStatusLabelKey } from '@/constants/adminLabels';
 import { listAdminUsers } from '@/lib/firestore/adminUserService';
-import { countPendingPhotos } from '@/lib/firestore/photoApprovalService';
 import { countVerifiedPayments, listPayments, sumVerifiedRevenue } from '@/lib/firestore/paymentService';
 
 export default function AdminDashboardScreen() {
@@ -24,24 +24,27 @@ export default function AdminDashboardScreen() {
   const { translate, translateFormat } = useLanguage();
   const { published, refresh } = useMemberDirectory();
   const { items: approvals, refresh: refreshApprovals } = useAdminApprovals();
+  const { items: photoApprovals, refresh: refreshPhotoApprovals } = useAdminPhotoApprovals();
   const { unreadCount } = useAdminNotifications();
   const [users, setUsers] = useState<AdminUserRecord[]>([]);
   const [pendingPayments, setPendingPayments] = useState(0);
-  const [pendingPhotos, setPendingPhotos] = useState(0);
   const [verifiedPayments, setVerifiedPayments] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
 
+  const pendingPhotos = useMemo(
+    () => photoApprovals.filter((item) => item.status === 'pending').length,
+    [photoApprovals],
+  );
+
   const refreshUsers = useCallback(async () => {
-    const [entries, pendingPay, pendingPhoto, verifiedCount, revenue] = await Promise.all([
+    const [entries, pendingPay, verifiedCount, revenue] = await Promise.all([
       listAdminUsers(),
       listPayments('pending'),
-      countPendingPhotos(),
       countVerifiedPayments(),
       sumVerifiedRevenue(),
     ]);
     setUsers(entries);
     setPendingPayments(pendingPay.length);
-    setPendingPhotos(pendingPhoto);
     setVerifiedPayments(verifiedCount);
     setTotalRevenue(revenue);
   }, []);
@@ -50,8 +53,9 @@ export default function AdminDashboardScreen() {
     useCallback(() => {
       void refresh();
       void refreshApprovals();
+      void refreshPhotoApprovals();
       void refreshUsers();
-    }, [refresh, refreshApprovals, refreshUsers]),
+    }, [refresh, refreshApprovals, refreshPhotoApprovals, refreshUsers]),
   );
 
   const stats = useMemo(

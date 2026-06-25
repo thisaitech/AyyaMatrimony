@@ -41,6 +41,8 @@ export default function AdminPaymentsScreen() {
     try {
       const entries = await listPayments(filter === 'all' ? undefined : filter);
       setItems(entries);
+    } catch {
+      // Keep the last loaded payment list if Firestore is temporarily unavailable.
     } finally {
       setIsLoading(false);
     }

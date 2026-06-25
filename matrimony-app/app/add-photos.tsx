@@ -24,10 +24,13 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import {
   markCloudPhotoUploadUnavailable,
+  resetCloudPhotoUploadAvailability,
   shouldAttemptCloudPhotoUpload,
   uploadProfilePhotos,
 } from '@/lib/firestore/storageService';
 import { upsertProfileFromValues } from '@/lib/firestore/profileService';
+import { queueUploadedPhotosForApproval } from '@/lib/firestore/photoApprovalService';
+import { getFirebaseFirestore, getFirebaseStorage } from '@/lib/firebase';
 import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 import { hasCompletedProfile } from '@/constants/profileCompletion';
 
@@ -48,6 +51,12 @@ export default function AddPhotosScreen() {
   const [uploadNotice, setUploadNotice] = useState('');
   const hydratedRef = useRef(false);
   const uploadVersionRef = useRef(0);
+
+  useEffect(() => {
+    resetCloudPhotoUploadAvailability();
+    void getFirebaseFirestore();
+    void getFirebaseStorage();
+  }, []);
 
   useEffect(() => {
     if (!isReady || hydratedRef.current) {
@@ -109,6 +118,8 @@ export default function AddPhotosScreen() {
         let cloudUploadSucceeded = false;
 
         try {
+          await getFirebaseFirestore();
+          await getFirebaseStorage();
           const uploaded = await uploadProfilePhotos(phone, nextPhotos);
           if (uploadVersionRef.current !== uploadVersion) {
             return;
@@ -170,8 +181,17 @@ export default function AddPhotosScreen() {
             [CONTACT_PHONE_KEY]: phone,
           };
 
+          try {
+            await queueUploadedPhotosForApproval(phone, mergedPhotos, {
+              memberName: nextValues.fullName || currentValues.fullName,
+              autoApprove: false,
+            });
+          } catch {
+            // Approval queue can retry on next profile sync.
+          }
+
           if (hasCompletedProfile(nextValues)) {
-            void upsertProfileFromValues(nextValues, 'current-user', {
+            await upsertProfileFromValues(nextValues, 'current-user', {
               published: true,
               uploadPhotos: true,
               autoApprovePhotos: false,

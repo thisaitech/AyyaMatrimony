@@ -6,7 +6,7 @@ import { getMockMemberBiodata } from '@/constants/memberBiodata';
 import { filterByRecommendedGender, resolveUserGender, type MatchGender } from '@/constants/matchFilters';
 import { PROFILE_PHOTOS_KEY, parseApprovedProfilePhotoUrls, resolveDisplayPhotoUri, resolvePortableListingPhotoUri, serializeProfilePhotos, serializeRemotePhotoUrls } from '@/constants/profilePhotos';
 import { hasCompletedProfile, applyDefaultRegistrationCommunity, prepareProfileForPublish } from '@/constants/profileCompletion';
-import { matchesRegistrationCommunity } from '@/constants/registrationCommunities';
+import { matchesRegistrationCommunity, normalizeRegistrationCommunity } from '@/constants/registrationCommunities';
 import {
   listPublishedProfiles,
   publishedMemberFromProfileDoc,
@@ -137,15 +137,19 @@ export async function readPublishedMembers(): Promise<PublishedMember[]> {
     const remoteProfiles = await listPublishedProfiles();
     const remote = remoteProfiles.map(publishedMemberFromProfileDoc);
 
-    if (remote.length === 0) {
-      return local;
+    const merged = remote.length > 0
+      ? local.length > 0
+        ? mergePublishedMemberLists(local, remote)
+        : remote
+      : local;
+
+    if (remote.length > 0) {
+      await AsyncStorage.setItem(
+        MEMBER_DIRECTORY_KEY,
+        JSON.stringify(merged.map(toStoredDirectory)),
+      );
     }
 
-    const merged = local.length > 0 ? mergePublishedMemberLists(local, remote) : remote;
-    await AsyncStorage.setItem(
-      MEMBER_DIRECTORY_KEY,
-      JSON.stringify(merged.map(toStoredDirectory)),
-    );
     return merged;
   } catch {
     return local;
@@ -313,6 +317,14 @@ export function getMemberRegistrationCommunity(
     const community = applyDefaultRegistrationCommunity(publishedEntry.biodata).registrationCommunity?.trim() ?? '';
     if (community) {
       return community;
+    }
+  }
+
+  if (publishedEntry) {
+    const listingCommunity = publishedEntry.community?.trim() ?? '';
+    const normalizedListing = normalizeRegistrationCommunity(listingCommunity);
+    if (normalizedListing) {
+      return normalizedListing;
     }
   }
 

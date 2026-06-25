@@ -1,11 +1,15 @@
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { Redirect, Tabs, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdminFab } from '@/components/admin/AdminFab';
-import { AdminTabBar } from '@/components/admin/AdminTabBar';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { adminColors, ADMIN_TAB_BAR_CONTENT_HEIGHT } from '@/constants/admin';
+import {
+  adminColors,
+  getAdminNavigatorTabBarStyle,
+  getAdminSceneBottomInset,
+} from '@/constants/admin';
 
 const TAB_ICON_SIZE = 22;
 
@@ -13,7 +17,9 @@ export default function AdminTabsLayout() {
   const router = useRouter();
   const { isReady, isAuthenticated } = useAdminAuth();
   const { translate } = useLanguage();
-  const tabBarContentHeight = ADMIN_TAB_BAR_CONTENT_HEIGHT + 6;
+  const insets = useSafeAreaInsets();
+  const tabBarStyle = getAdminNavigatorTabBarStyle(insets.bottom);
+  const sceneBottomInset = getAdminSceneBottomInset(insets.bottom);
 
   if (!isReady) {
     return (
@@ -27,29 +33,9 @@ export default function AdminTabsLayout() {
     return <Redirect href="/" />;
   }
 
-  const tabBarStyle = Platform.select({
-    web: {
-      backgroundColor: adminColors.surface,
-      borderTopColor: adminColors.border,
-      borderTopWidth: 1,
-      paddingTop: 8,
-      paddingBottom: 20,
-      minHeight: 92,
-    },
-    default: {
-      backgroundColor: 'transparent',
-      borderTopWidth: 0,
-      paddingTop: 0,
-      paddingBottom: 0,
-      height: tabBarContentHeight,
-      elevation: 0,
-    },
-  });
-
   return (
     <View style={styles.shell}>
       <Tabs
-        tabBar={(props) => <AdminTabBar {...props} />}
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: adminColors.primary,
@@ -57,8 +43,12 @@ export default function AdminTabsLayout() {
           tabBarStyle,
           tabBarLabelStyle: styles.tabLabel,
           tabBarItemStyle: styles.tabItem,
+          tabBarAllowFontScaling: false,
           safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
-          sceneContainerStyle: styles.scene,
+          sceneContainerStyle: [
+            styles.scene,
+            Platform.OS !== 'web' && { paddingBottom: sceneBottomInset },
+          ],
         }}
       >
         <Tabs.Screen
@@ -124,6 +114,7 @@ export default function AdminTabsLayout() {
 const styles = StyleSheet.create({
   shell: {
     flex: 1,
+    position: 'relative',
     backgroundColor: adminColors.background,
   },
   scene: {
@@ -141,10 +132,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 12,
     marginTop: 2,
-    marginBottom: 2,
+    marginBottom: 0,
   },
   tabItem: {
-    paddingTop: 2,
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 4,
     paddingBottom: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

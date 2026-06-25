@@ -8,12 +8,8 @@ import type { AdminApprovalRecord } from '@/constants/adminMockData';
 import { adminColors } from '@/constants/admin';
 import { adminFilterLabelKeys, adminStatusLabelKey } from '@/constants/adminLabels';
 import { useAdminApprovals } from '@/context/AdminApprovalsContext';
+import { useAdminPhotoApprovals } from '@/context/AdminPhotoApprovalsContext';
 import { useLanguage } from '@/context/LanguageContext';
-import {
-  listPhotoApprovals,
-  updatePhotoApprovalStatus,
-  type AdminPhotoApprovalRecord,
-} from '@/lib/firestore/photoApprovalService';
 
 type ApprovalFilter = 'pending' | 'approved' | 'rejected' | 'all';
 type ApprovalSection = 'profiles' | 'photos';
@@ -29,18 +25,18 @@ export default function AdminUsersScreen() {
     view === 'approved' ? 'approved' : view === 'rejected' ? 'rejected' : 'pending',
   );
   const { items: approvals, updateStatus, refresh: refreshApprovals } = useAdminApprovals();
-  const [photoItems, setPhotoItems] = useState<AdminPhotoApprovalRecord[]>([]);
+  const {
+    items: photoItems,
+    updateStatus: updatePhotoStatus,
+    refresh: refreshPhotos,
+    isReady: photosReady,
+  } = useAdminPhotoApprovals();
   const [isLoading, setIsLoading] = useState(true);
-
-  const refreshPhotos = useCallback(async () => {
-    const entries = await listPhotoApprovals();
-    setPhotoItems(entries);
-  }, []);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      await Promise.all([refreshApprovals(), refreshPhotos()]);
+      await Promise.allSettled([refreshApprovals(), refreshPhotos()]);
     } finally {
       setIsLoading(false);
     }
@@ -95,18 +91,18 @@ export default function AdminUsersScreen() {
     router.push(`/admin/view-profile/${phone}` as never);
   };
 
-  const handlePhotoApprove = (item: AdminPhotoApprovalRecord) => {
-    void updatePhotoApprovalStatus(item.id, 'approved').then(() => void refresh());
+  const handlePhotoApprove = (item: (typeof photoItems)[number]) => {
+    void updatePhotoStatus(item.id, 'approved').then(() => void refresh());
   };
 
-  const handlePhotoReject = (item: AdminPhotoApprovalRecord) => {
+  const handlePhotoReject = (item: (typeof photoItems)[number]) => {
     Alert.alert(translate('adminRejectPhotoTitle'), translate('adminRejectPhotoBody'), [
       { text: translate('cancel'), style: 'cancel' },
       {
         text: translate('adminReject'),
         style: 'destructive',
         onPress: () => {
-          void updatePhotoApprovalStatus(item.id, 'rejected', {
+          void updatePhotoStatus(item.id, 'rejected', {
             rejectReason: translate('adminPhotoRejectReason'),
           }).then(() => void refresh());
         },
@@ -168,7 +164,7 @@ export default function AdminUsersScreen() {
         })}
       </View>
 
-      {isLoading ? (
+      {isLoading || (section === 'photos' && !photosReady) ? (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={adminColors.primary} />
         </View>

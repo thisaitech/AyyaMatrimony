@@ -68,7 +68,7 @@ export default function EditProfileScreen() {
           if (phone) {
             await submitLoginApproval(phone, {
               name: syncedValues.fullName,
-              profileId: syncedValues.memberListingId,
+              profileId: published?.profileId ?? syncedValues.memberListingId,
               registrationCommunity: syncedValues.registrationCommunity,
               source: 'profile',
             }).catch(() => undefined);

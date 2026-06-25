@@ -1239,7 +1239,7 @@ export const translations = {
     biodataReviewSeervarisai: 'சீர்',
     biodataReviewEducation: 'கல்வித்தகுதி',
     biodataReviewNativePlace: 'சொந்த ஊர்',
-    biodataReviewSource: 'மூலம்',
+    biodataReviewSource: 'ஆதாரம்',
     biodataReviewFilledDate: 'தேதி',
     biodataReviewExpectation: 'எதிர்பார்ப்பு',
     biodataChristianRegistrationFee: 'பதிவு கட்டணம் : ரூ. 2000',

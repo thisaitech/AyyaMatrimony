@@ -7,7 +7,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { adminNotifications, type AdminNotificationRecord } from '@/constants/adminMockData';
+import type { AdminNotificationRecord } from '@/constants/adminMockData';
+import { useAdminAuth } from '@/context/AdminAuthContext';
+import { getFirebaseFirestore } from '@/lib/firebase';
 import {
   listAdminNotifications,
   markAllNotificationsRead,
@@ -26,18 +28,35 @@ type AdminNotificationsContextValue = {
 const AdminNotificationsContext = createContext<AdminNotificationsContextValue | null>(null);
 
 export function AdminNotificationsProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isReady: authReady } = useAdminAuth();
   const [isReady, setIsReady] = useState(false);
-  const [items, setItems] = useState<AdminNotificationRecord[]>(adminNotifications);
+  const [items, setItems] = useState<AdminNotificationRecord[]>([]);
 
   const refresh = useCallback(async () => {
-    const remote = await listAdminNotifications();
-    setItems(remote.length > 0 ? remote : adminNotifications);
+    const db = await getFirebaseFirestore();
+    if (!db) {
+      setIsReady(true);
+      return;
+    }
+
+    const remote = await listAdminNotifications().catch(() => [] as AdminNotificationRecord[]);
+    setItems(remote);
     setIsReady(true);
   }, []);
 
   useEffect(() => {
+    if (!authReady) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setItems([]);
+      setIsReady(true);
+      return;
+    }
+
     void refresh();
-  }, [refresh]);
+  }, [authReady, isAuthenticated, refresh]);
 
   const markRead = useCallback(async (id: string) => {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, read: true } : item)));
