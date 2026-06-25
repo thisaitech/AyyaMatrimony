@@ -99,6 +99,7 @@ function getReviewLayoutMetrics(screenWidth: number): ReviewLayoutMetrics {
 const SHEET_BORDER = colors.primary;
 const HOROSCOPE_RED = colors.primary;
 const HOROSCOPE_GRID_LINE = '#570000';
+const REVIEW_FILLED_VALUE_COLOR = '#001F54';
 const HOROSCOPE_LINE_WIDTH = 1.5;
 
 const FIELD_BG = '#FFFBF9';
@@ -217,21 +218,16 @@ const BIODATA_PRINT_CSS = `
     }
 
     body.biodata-print-hindu #biodata-print-letterhead > div:first-child {
-      flex: 0 0 auto !important;
-      width: 20mm !important;
-      min-width: 20mm !important;
-    }
-
-    body.biodata-print-hindu #biodata-print-letterhead > div:nth-child(2) {
       flex: 1 1 auto !important;
       min-width: 0 !important;
       align-items: center !important;
       justify-content: center !important;
     }
 
-    body.biodata-print-hindu #biodata-print-letterhead > div:nth-child(3) {
+    body.biodata-print-hindu #biodata-print-letterhead > div:nth-child(2) {
       flex: 0 0 auto !important;
-      align-self: stretch !important;
+      width: 20mm !important;
+      min-width: 20mm !important;
     }
 
     body.biodata-print-hindu #biodata-print-letterhead * {
@@ -239,7 +235,7 @@ const BIODATA_PRINT_CSS = `
       line-height: 14px !important;
     }
 
-    body.biodata-print-hindu #biodata-print-letterhead > div:nth-child(2) > div:nth-child(2) {
+    body.biodata-print-hindu #biodata-print-letterhead > div:first-child > div:nth-child(2) {
       font-size: 18px !important;
       line-height: 22px !important;
     }
@@ -313,7 +309,20 @@ const BIODATA_PRINT_CSS = `
       display: flex !important;
       flex-direction: row !important;
       width: 100% !important;
-      border-bottom: 1px solid #570000 !important;
+      margin-top: 1.5mm !important;
+      border-top: 1px solid #570000 !important;
+      border-bottom: none !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-summary-meta > div {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      border-top: none !important;
+      border-bottom: none !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-summary-meta > div:last-child {
+      border-left: 1px solid #570000 !important;
     }
 
     body.biodata-print-hindu #biodata-print-summary-meta * {
@@ -552,14 +561,9 @@ const BIODATA_PRINT_CSS = `
       line-height: 12px !important;
     }
 
-    body.biodata-print-christian #biodata-print-letterhead > div:nth-child(2) > div:nth-child(2) {
+    body.biodata-print-christian #biodata-print-letterhead > div:first-child > div:nth-child(2) {
       font-size: 15px !important;
       line-height: 18px !important;
-    }
-
-    body.biodata-print-christian #biodata-print-letterhead > div:nth-child(3) {
-      flex: 0 0 auto !important;
-      align-self: stretch !important;
     }
 
     body.biodata-print-christian #biodata-print-registration > div:first-child {
@@ -3459,6 +3463,10 @@ function reviewDisplayValue(value: string): string {
   return value.trim();
 }
 
+function hasReviewFilledValue(value: string): boolean {
+  return value.trim().length > 0;
+}
+
 function reviewUniqueJoin(parts: string[], separator = ' ÔÇö '): string {
   const seen = new Set<string>();
 
@@ -3585,6 +3593,7 @@ function ReviewDataRow({
             reviewStyles.dataValue,
             sidebar && reviewStyles.dataValueSidebar,
             !sidebar && IS_NATIVE && reviewStyles.dataValueMainNative,
+            hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
           ]}
         >
           {reviewDisplayValue(value)}
@@ -3624,7 +3633,13 @@ function ReviewInlinePair({
         </Text>
         <Text style={reviewStyles.dataColon}>:</Text>
       </View>
-      <Text style={reviewStyles.inlineHalfValue} numberOfLines={2}>
+      <Text
+        style={[
+          reviewStyles.inlineHalfValue,
+          hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
+        ]}
+        numberOfLines={2}
+      >
         {reviewDisplayValue(value)}
       </Text>
     </View>
@@ -3712,31 +3727,6 @@ function BiodataLetterheadHeader({
 
   return (
     <View nativeID="biodata-print-letterhead" style={reviewStyles.letterhead}>
-      <View style={reviewStyles.letterheadLeft}>
-        <View nativeID="biodata-print-logo" style={reviewStyles.letterheadLogoWrap}>
-          {Platform.OS === 'web' && logoUri ? (
-            createElement('img', {
-              src: logoUri,
-              alt: 'Ayya Matrimony',
-              style: {
-                width: 40,
-                height: 40,
-                objectFit: 'contain',
-                display: 'block',
-              },
-            })
-          ) : (
-            <Image source={images.logo} style={reviewStyles.letterheadLogo} resizeMode="contain" />
-          )}
-        </View>
-        <View nativeID="biodata-print-registration" style={reviewStyles.registrationBoxUnderLogo}>
-          <Text style={reviewStyles.registrationLabel} numberOfLines={2}>
-            {translate('biodataRegistrationNumberLabel')}
-          </Text>
-          <Text style={reviewStyles.registrationValue}>{registrationNumber.trim()}</Text>
-        </View>
-      </View>
-
       <View style={reviewStyles.letterheadCenter}>
         <Text style={reviewStyles.letterheadInvocation}>
           {translate('biodataBrandAyya')} {translate('biodataBrandThunai')}
@@ -3778,6 +3768,31 @@ function BiodataLetterheadHeader({
               {formatLetterheadPhone(translate('biodataOrgPhone2'))}
             </Text>
           </View>
+        </View>
+      </View>
+
+      <View style={reviewStyles.letterheadRight}>
+        <View nativeID="biodata-print-logo" style={reviewStyles.letterheadLogoWrap}>
+          {Platform.OS === 'web' && logoUri ? (
+            createElement('img', {
+              src: logoUri,
+              alt: 'Ayya Matrimony',
+              style: {
+                width: 40,
+                height: 40,
+                objectFit: 'contain',
+                display: 'block',
+              },
+            })
+          ) : (
+            <Image source={images.logo} style={reviewStyles.letterheadLogo} resizeMode="contain" />
+          )}
+        </View>
+        <View nativeID="biodata-print-registration" style={reviewStyles.registrationBoxUnderLogo}>
+          <Text style={reviewStyles.registrationLabel} numberOfLines={2}>
+            {translate('biodataRegistrationNumberLabel')}
+          </Text>
+          <Text style={reviewStyles.registrationValue}>{registrationNumber.trim()}</Text>
         </View>
       </View>
     </View>
@@ -3893,11 +3908,25 @@ function ChristianBiodataReviewSheet({
         >
           <View style={[christianReviewStyles.locationBox, christianReviewStyles.locationBoxCompact]}>
             <Text style={reviewStyles.sidebarBoxLabel}>{translate('biodataReviewNativePlace')}</Text>
-            <Text style={christianReviewStyles.locationValue}>{reviewDisplayValue(nativePlace)}</Text>
+            <Text
+              style={[
+                christianReviewStyles.locationValue,
+                hasReviewFilledValue(nativePlace) && reviewStyles.dataValueFilled,
+              ]}
+            >
+              {reviewDisplayValue(nativePlace)}
+            </Text>
           </View>
           <View style={[christianReviewStyles.locationBox, christianReviewStyles.locationBoxCompact]}>
             <Text style={reviewStyles.sidebarBoxLabel}>{translate('biodataReviewResidence')}</Text>
-            <Text style={christianReviewStyles.locationValue}>{reviewDisplayValue(form.irupidam)}</Text>
+            <Text
+              style={[
+                christianReviewStyles.locationValue,
+                hasReviewFilledValue(form.irupidam) && reviewStyles.dataValueFilled,
+              ]}
+            >
+              {reviewDisplayValue(form.irupidam)}
+            </Text>
           </View>
           <View style={christianReviewStyles.siblingSectionExpanded}>
             <ReviewSiblingBox
@@ -3936,6 +3965,8 @@ export function HoroscopeSection({
   translate,
   language,
   hideBasicInputs,
+  showSummaryMeta,
+  summaryMetaEditable,
 }: {
   form: BiodataState;
   rasiChart: string[][];
@@ -3950,6 +3981,8 @@ export function HoroscopeSection({
   translate: any;
   language: any;
   hideBasicInputs?: boolean;
+  showSummaryMeta?: boolean;
+  summaryMetaEditable?: boolean;
 }) {
   return (
     <>
@@ -4095,6 +4128,18 @@ export function HoroscopeSection({
         dense={dense}
         translate={translate}
       />
+
+      {showSummaryMeta ? (
+        <ReviewSummaryMetaRow
+          sourceLabel={translate('biodataReviewSource')}
+          dateLabel={translate('biodataReviewFilledDate')}
+          sourceValue={form.biodataSource}
+          dateValue={form.biodataFilledDate}
+          editable={summaryMetaEditable ?? editable}
+          onSourceChange={(value) => onFieldChange('biodataSource', value)}
+          onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
+        />
+      ) : null}
       </View>
     </>
   );
@@ -4207,6 +4252,7 @@ function ReviewSummaryMetaRow({
   editable,
   onSourceChange,
   onDateChange,
+  stacked = false,
 }: {
   sourceLabel: string;
   dateLabel: string;
@@ -4215,42 +4261,57 @@ function ReviewSummaryMetaRow({
   editable: boolean;
   onSourceChange: (value: string) => void;
   onDateChange: (value: string) => void;
+  stacked?: boolean;
 }) {
+  const renderCell = (
+    label: string,
+    value: string,
+    onChange: (value: string) => void,
+    placeholder?: string,
+    withTopDivider?: boolean,
+  ) => (
+    <View
+      style={[
+        reviewStyles.summaryMetaCell,
+        stacked && reviewStyles.summaryMetaCellStacked,
+        !stacked && withTopDivider && reviewStyles.summaryMetaCellDivider,
+        stacked && withTopDivider && reviewStyles.summaryMetaCellStackedDivider,
+      ]}
+    >
+      <Text style={reviewStyles.summaryMetaLabel}>{label}</Text>
+      <Text style={reviewStyles.summaryMetaColon}>:</Text>
+      {editable ? (
+        <TextInput
+          style={[
+            reviewStyles.summaryMetaInput,
+            hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
+          ]}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor="rgba(87, 0, 0, 0.35)"
+        />
+      ) : (
+        <Text
+          style={[
+            reviewStyles.summaryMetaValue,
+            hasReviewFilledValue(value) && reviewStyles.dataValueFilled,
+          ]}
+          numberOfLines={1}
+        >
+          {reviewDisplayValue(value)}
+        </Text>
+      )}
+    </View>
+  );
+
   return (
-    <View nativeID="biodata-print-summary-meta" style={reviewStyles.summaryMetaRow}>
-      <View style={reviewStyles.summaryMetaCell}>
-        <Text style={reviewStyles.summaryMetaLabel}>{sourceLabel}</Text>
-        <Text style={reviewStyles.summaryMetaColon}>:</Text>
-        {editable ? (
-          <TextInput
-            style={reviewStyles.summaryMetaInput}
-            value={sourceValue}
-            onChangeText={onSourceChange}
-            placeholderTextColor="rgba(87, 0, 0, 0.35)"
-          />
-        ) : (
-          <Text style={reviewStyles.summaryMetaValue} numberOfLines={1}>
-            {reviewDisplayValue(sourceValue)}
-          </Text>
-        )}
-      </View>
-      <View style={[reviewStyles.summaryMetaCell, reviewStyles.summaryMetaCellDivider]}>
-        <Text style={reviewStyles.summaryMetaLabel}>{dateLabel}</Text>
-        <Text style={reviewStyles.summaryMetaColon}>:</Text>
-        {editable ? (
-          <TextInput
-            style={reviewStyles.summaryMetaInput}
-            value={dateValue}
-            onChangeText={onDateChange}
-            placeholder={formatBiodataFilledDate()}
-            placeholderTextColor="rgba(87, 0, 0, 0.35)"
-          />
-        ) : (
-          <Text style={reviewStyles.summaryMetaValue} numberOfLines={1}>
-            {reviewDisplayValue(dateValue)}
-          </Text>
-        )}
-      </View>
+    <View
+      nativeID="biodata-print-summary-meta"
+      style={[reviewStyles.summaryMetaRow, stacked && reviewStyles.summaryMetaRowStacked]}
+    >
+      {renderCell(sourceLabel, sourceValue, onSourceChange)}
+      {renderCell(dateLabel, dateValue, onDateChange, formatBiodataFilledDate(), true)}
     </View>
   );
 }
@@ -4434,16 +4495,6 @@ function BiodataReviewSheet({
           </View>
         </View>
 
-      <ReviewSummaryMetaRow
-        sourceLabel={translate('biodataReviewSource')}
-        dateLabel={translate('biodataReviewFilledDate')}
-        sourceValue={form.biodataSource}
-        dateValue={form.biodataFilledDate}
-        editable={editable}
-        onSourceChange={(value) => onFieldChange('biodataSource', value)}
-        onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
-      />
-
       {showHoroscopeFields ? (
         <View
           nativeID="biodata-print-horoscope-section"
@@ -4463,9 +4514,21 @@ function BiodataReviewSheet({
             translate={translate}
             language={language}
             hideBasicInputs={true}
+            showSummaryMeta
+            summaryMetaEditable={editable}
           />
         </View>
-      ) : null}
+      ) : (
+        <ReviewSummaryMetaRow
+          sourceLabel={translate('biodataReviewSource')}
+          dateLabel={translate('biodataReviewFilledDate')}
+          sourceValue={form.biodataSource}
+          dateValue={form.biodataFilledDate}
+          editable={editable}
+          onSourceChange={(value) => onFieldChange('biodataSource', value)}
+          onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
+        />
+      )}
     </View>
     </ReviewLayoutContext.Provider>
   );
@@ -4501,12 +4564,12 @@ const reviewStyles = StyleSheet.create({
     width: '100%',
     maxWidth: '100%',
   },
-  letterheadLeft: {
+  letterheadRight: {
     width: 52,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingRight: 4,
+    paddingLeft: 4,
     gap: 2,
   },
   letterheadLogoWrap: {
@@ -4626,6 +4689,10 @@ const reviewStyles = StyleSheet.create({
     borderBottomColor: colors.primary,
     overflow: 'visible',
   },
+  summaryMetaRowStacked: {
+    flexDirection: 'column',
+    marginTop: 6,
+  },
   summaryMetaCell: {
     flex: 1,
     minWidth: 0,
@@ -4636,9 +4703,18 @@ const reviewStyles = StyleSheet.create({
     minHeight: 28,
     gap: 4,
   },
+  summaryMetaCellStacked: {
+    flex: 0,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   summaryMetaCellDivider: {
     borderLeftWidth: 1,
     borderLeftColor: colors.primary,
+  },
+  summaryMetaCellStackedDivider: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(87, 0, 0, 0.12)',
   },
   summaryMetaLabel: {
     color: colors.primary,
@@ -4822,6 +4898,9 @@ const reviewStyles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     ...reviewTextAndroid,
+  },
+  dataValueFilled: {
+    color: REVIEW_FILLED_VALUE_COLOR,
   },
   inlineHalf: {
     flex: 1,

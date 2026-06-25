@@ -1,21 +1,19 @@
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { Redirect, Tabs, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AdminFab } from '@/components/admin/AdminFab';
 import { AdminTabBar } from '@/components/admin/AdminTabBar';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { adminColors, getAdminSceneBottomInset, getAdminTabBarMetrics } from '@/constants/admin';
+import { adminColors, ADMIN_TAB_BAR_CONTENT_HEIGHT } from '@/constants/admin';
 
 const TAB_ICON_SIZE = 22;
 
 export default function AdminTabsLayout() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { isReady, isAuthenticated } = useAdminAuth();
-  const { language, translate } = useLanguage();
-  const tabBarMetrics = getAdminTabBarMetrics(insets.bottom);
+  const { translate } = useLanguage();
+  const tabBarContentHeight = ADMIN_TAB_BAR_CONTENT_HEIGHT + 6;
 
   if (!isReady) {
     return (
@@ -34,19 +32,16 @@ export default function AdminTabsLayout() {
       backgroundColor: adminColors.surface,
       borderTopColor: adminColors.border,
       borderTopWidth: 1,
-      paddingTop: tabBarMetrics.paddingTop,
-      paddingBottom: tabBarMetrics.paddingBottom,
-      minHeight: tabBarMetrics.height,
+      paddingTop: 8,
+      paddingBottom: 20,
+      minHeight: 92,
     },
     default: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
       backgroundColor: 'transparent',
       borderTopWidth: 0,
       paddingTop: 0,
       paddingBottom: 0,
+      height: tabBarContentHeight,
       elevation: 0,
     },
   });
@@ -54,7 +49,6 @@ export default function AdminTabsLayout() {
   return (
     <View style={styles.shell}>
       <Tabs
-        key={language}
         tabBar={(props) => <AdminTabBar {...props} />}
         screenOptions={{
           headerShown: false,
@@ -63,10 +57,8 @@ export default function AdminTabsLayout() {
           tabBarStyle,
           tabBarLabelStyle: styles.tabLabel,
           tabBarItemStyle: styles.tabItem,
-          sceneContainerStyle: [
-            styles.scene,
-            Platform.OS !== 'web' ? { paddingBottom: getAdminSceneBottomInset(insets.bottom) } : null,
-          ],
+          safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
+          sceneContainerStyle: styles.scene,
         }}
       >
         <Tabs.Screen

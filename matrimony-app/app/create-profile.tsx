@@ -10,7 +10,7 @@ import { useRouter, Redirect, useLocalSearchParams } from 'expo-router';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CreateProfileBiodataForm, PhotoVisibilityToggle, RegistrationNumberBar } from '@/components/CreateProfileBiodataForm';
+import { CreateProfileBiodataForm, RegistrationNumberBar } from '@/components/CreateProfileBiodataForm';
 
 import { LanguageLogoToggle } from '@/components/LanguageLogoToggle';
 
@@ -63,11 +63,6 @@ export default function CreateProfileScreen() {
   const communityApplied = useRef(false);
 
   const isSaving = useRef(false);
-
-  const [photoToggleSlot, setPhotoToggleSlot] = useState<{
-    value: boolean;
-    onValueChange: (next: boolean) => void;
-  } | null>(null);
 
   const [step, setStep] = useState(1);
 
@@ -258,18 +253,7 @@ export default function CreateProfileScreen() {
 
             <RegistrationNumberBar editable inline />
 
-            {step === 5 ? (
-              photoToggleSlot ? (
-                <PhotoVisibilityToggle
-                  value={photoToggleSlot.value}
-                  onValueChange={photoToggleSlot.onValueChange}
-                />
-              ) : (
-                <View style={styles.headerTogglePlaceholder} />
-              )
-            ) : (
-              <LanguageLogoToggle variant="maroon" compact dense />
-            )}
+            <LanguageLogoToggle variant="maroon" compact dense />
 
           </View>
 
@@ -293,7 +277,6 @@ export default function CreateProfileScreen() {
         editable
         onSave={handleSave}
         onStepChange={setStep}
-        onPhotoToggleSlotChange={setPhotoToggleSlot}
       />
 
     </SafeAreaView>

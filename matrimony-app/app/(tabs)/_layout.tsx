@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Image, Platform, View } from 'react-native';
 import { Redirect, Tabs, useFocusEffect, useRouter, type Href } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LoginLandingScreen } from '@/components/LoginLandingScreen';
 import { TabBarLabel } from '@/components/TabBarLabel';
 import { useLanguage } from '@/context/LanguageContext';
@@ -16,6 +17,7 @@ import { colors, typography } from '@/constants/theme';
 
 export default function TabLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { translate, language } = useLanguage();
   const { isReady, isLoggedIn, needsPaymentAccess, isSubscriptionGateReady, syncFromFirestore } =
     useSubscription();
@@ -90,17 +92,22 @@ export default function TabLayout() {
     return <Redirect href="/payment-access" />;
   }
 
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 0);
+  const tabBodyHeight = language === 'ta' ? 78 : 72;
+  const tabPaddingBottom = bottomInset + (language === 'ta' ? 4 : 2);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.onSurfaceVariant,
+        safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
         tabBarStyle: {
           backgroundColor: 'rgba(255, 251, 249, 0.98)',
           borderTopColor: 'rgba(87, 0, 0, 0.08)',
-          height: language === 'ta' ? 90 : 84,
-          paddingBottom: language === 'ta' ? 12 : 10,
+          height: tabBodyHeight + tabPaddingBottom,
+          paddingBottom: tabPaddingBottom,
           paddingTop: 8,
           ...Platform.select({
             web: { boxShadow: '0 -4px 16px rgba(87, 0, 0, 0.06)' },

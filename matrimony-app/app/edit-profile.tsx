@@ -15,7 +15,6 @@ import { Redirect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   CreateProfileBiodataForm,
-  PhotoVisibilityToggle,
   RegistrationNumberBar,
 } from '@/components/CreateProfileBiodataForm';
 import { LanguageLogoToggle } from '@/components/LanguageLogoToggle';
@@ -40,10 +39,6 @@ export default function EditProfileScreen() {
   const { isReady: subscriptionReady, isLoggedIn } = useSubscription();
   const isSaving = useRef(false);
 
-  const [photoToggleSlot, setPhotoToggleSlot] = useState<{
-    value: boolean;
-    onValueChange: (next: boolean) => void;
-  } | null>(null);
   const [step, setStep] = useState(1);
 
   const handleSave = useCallback(
@@ -134,18 +129,7 @@ export default function EditProfileScreen() {
 
             <RegistrationNumberBar editable inline />
 
-            {step === 5 ? (
-              photoToggleSlot ? (
-                <PhotoVisibilityToggle
-                  value={photoToggleSlot.value}
-                  onValueChange={photoToggleSlot.onValueChange}
-                />
-              ) : (
-                <View style={styles.headerTogglePlaceholder} />
-              )
-            ) : (
-              <LanguageLogoToggle variant="maroon" compact dense />
-            )}
+            <LanguageLogoToggle variant="maroon" compact dense />
           </View>
         </LinearGradient>
 
@@ -161,7 +145,6 @@ export default function EditProfileScreen() {
         editable
         onSave={handleSave}
         onStepChange={setStep}
-        onPhotoToggleSlotChange={setPhotoToggleSlot}
       />
     </SafeAreaView>
   );

@@ -82,11 +82,12 @@ export function getAdminTabBarMetrics(bottomInset = 0): AdminTabBarMetrics {
     };
   }
 
+  const safeBottom = Math.max(bottomInset, Platform.OS === 'android' ? 8 : 0);
+
   return {
     paddingTop: 6,
-    paddingBottom: 0,
-    // Height is content-only; AdminTabBar SafeAreaView handles the home-indicator inset.
-    height: ADMIN_TAB_BAR_CONTENT_HEIGHT,
+    paddingBottom: safeBottom,
+    height: ADMIN_TAB_BAR_CONTENT_HEIGHT + 6 + safeBottom,
   };
 }
 
@@ -94,13 +95,14 @@ export function getAdminFabBottom(bottomInset = 0): number {
   if (Platform.OS === 'web') {
     return getAdminTabBarMetrics(bottomInset).height + ADMIN_FAB_GAP;
   }
-  return ADMIN_TAB_BAR_CONTENT_HEIGHT + Math.max(bottomInset, 0) + ADMIN_FAB_GAP;
+  const safeBottom = Math.max(bottomInset, Platform.OS === 'android' ? 8 : 0);
+  return ADMIN_TAB_BAR_CONTENT_HEIGHT + 6 + safeBottom + ADMIN_FAB_GAP;
 }
 
-/** Space reserved above the pinned admin tab bar (content + safe area). */
+/** Native tab bar sits in normal layout flow; scene padding is not required. */
 export function getAdminSceneBottomInset(bottomInset = 0): number {
   if (Platform.OS === 'web') {
     return getAdminTabBarMetrics(bottomInset).height;
   }
-  return ADMIN_TAB_BAR_CONTENT_HEIGHT + 6 + Math.max(bottomInset, 0);
+  return 0;
 }

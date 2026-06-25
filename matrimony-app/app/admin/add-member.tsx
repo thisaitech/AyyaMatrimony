@@ -3,7 +3,8 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CreateProfileBiodataForm, PhotoVisibilityToggle } from '@/components/CreateProfileBiodataForm';
+import { CreateProfileBiodataForm } from '@/components/CreateProfileBiodataForm';
+import { LanguageLogoToggle } from '@/components/LanguageLogoToggle';
 import { adminColors } from '@/constants/admin';
 import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 import { publishProfileFromValues } from '@/constants/memberDirectory';
@@ -26,10 +27,6 @@ export default function AdminAddMemberScreen() {
   const [step, setStep] = useState(1);
   const [editProfileValues, setEditProfileValues] = useState<Record<string, string> | null>(null);
   const [isEditLoading, setIsEditLoading] = useState(false);
-  const [photoToggleSlot, setPhotoToggleSlot] = useState<{
-    value: boolean;
-    onValueChange: (next: boolean) => void;
-  } | null>(null);
   const isEditing = Boolean(editPhone?.trim());
 
   useEffect(() => {
@@ -116,12 +113,7 @@ export default function AdminAddMemberScreen() {
             {isEditing ? translate('adminEditMember') : translate('adminAddMember')}
           </Text>
         </View>
-        {photoToggleSlot ? (
-          <PhotoVisibilityToggle
-            value={photoToggleSlot.value}
-            onValueChange={photoToggleSlot.onValueChange}
-          />
-        ) : null}
+        <LanguageLogoToggle variant="maroon" compact dense />
       </View>
 
       <View style={styles.stepRow}>
@@ -141,7 +133,6 @@ export default function AdminAddMemberScreen() {
         profileValues={editProfileValues ?? undefined}
         onSave={handleSave}
         onStepChange={setStep}
-        onPhotoToggleSlotChange={setPhotoToggleSlot}
       />
     </SafeAreaView>
   );
