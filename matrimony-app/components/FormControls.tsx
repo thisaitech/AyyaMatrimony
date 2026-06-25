@@ -193,10 +193,10 @@ export function SelectField({
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; left: number; width: number } | null>(null);
   const selectedLabel = options.find((option) => option.value === value)?.label;
-  const compactRowHeight = 20;
+  const compactRowHeight = 26;
   const compactListMaxHeight = Math.min(
     options.length * compactRowHeight + 2,
-    compact ? 110 : 220,
+    compact ? 140 : 220,
   );
 
   const closeDropdown = useCallback(() => {
@@ -278,7 +278,7 @@ export function SelectField({
               {option.label}
             </Text>
             {isSelected ? (
-              <MaterialIcons name="check" size={compact ? 14 : 20} color={colors.primary} />
+              <MaterialIcons name="check" size={compact ? 16 : 20} color={colors.primary} />
             ) : null}
           </Pressable>
         );
@@ -401,7 +401,7 @@ export function ComboBoxField({
     setSearchText(getOptionLabelSafely(value));
   }, [value, getOptionLabelSafely]);
 
-  const compactRowHeight = 20;
+  const compactRowHeight = 26;
 
   const filteredOptions = useMemo(() => {
     if (!searchText) return options;
@@ -415,7 +415,7 @@ export function ComboBoxField({
 
   const compactListMaxHeight = Math.min(
     Math.max(filteredOptions.length, 1) * compactRowHeight + 10,
-    compact ? 130 : 220,
+    compact ? 160 : 220,
   );
 
   const closeDropdown = useCallback(() => {
@@ -1094,7 +1094,7 @@ const styles = StyleSheet.create({
     maxHeight: 220,
   },
   inlineOptionsListCompact: {
-    maxHeight: 110,
+    maxHeight: 140,
   },
   dobMainLabel: {
     ...formFieldStyles.fieldLabel,
@@ -1124,9 +1124,9 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(226, 191, 185, 0.1)',
   },
   optionRowCompact: {
-    paddingHorizontal: 8,
-    paddingVertical: 1,
-    minHeight: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minHeight: 26,
   },
   optionRowSelected: {
     backgroundColor: colors.surfaceContainerLow,
@@ -1139,8 +1139,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   optionTextCompact: {
-    fontSize: 11,
-    lineHeight: 12,
+    fontSize: 13,
+    lineHeight: 17,
     fontFamily: fonts.interMedium,
     paddingRight: 4,
   },

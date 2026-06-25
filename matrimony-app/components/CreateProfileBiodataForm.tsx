@@ -42,9 +42,8 @@ import { useLanguage } from '@/context/LanguageContext';
 import { borderRadius, colors, fonts, spacing } from '@/constants/theme';
 import { applyDefaultRegistrationCommunity } from '@/constants/profileCompletion';
 import { CONTACT_PHONE_KEY, normalizePhoneDigits } from '@/constants/contactDetails';
-import { getProfileAvatarUri } from '@/constants/profileDisplay';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { applyExportPhotoToPrintBox, type BiodataExportOptions } from '@/lib/biodataExport';
+import type { BiodataExportOptions } from '@/lib/biodataExport';
 import { shareBiodataSheetAsImage } from '@/lib/biodataShare';
 import {
   getPhotoUploadStepLabels,
@@ -58,7 +57,6 @@ import {
   parseProfilePhotos,
   PROFILE_PHOTOS_DRAFT_KEY,
   PROFILE_PHOTOS_KEY,
-  resolveDisplayPhotoUri,
   serializePersistedProfilePhotos,
   serializeProfilePhotos,
 } from '@/constants/profilePhotos';
@@ -260,21 +258,6 @@ const BIODATA_PRINT_CSS = `
       height: 48px !important;
     }
 
-    body.biodata-print-hindu #biodata-print-photo-box {
-      width: 20mm !important;
-      min-width: 20mm !important;
-      min-height: 22mm !important;
-      border: 1px solid #570000 !important;
-      background: #d9d9d9 !important;
-      display: flex !important;
-    }
-
-    body.biodata-print-hindu #biodata-print-photo-box img {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: cover !important;
-    }
-
     body.biodata-print-hindu #biodata-print-body-row {
       flex: 1 1 auto !important;
       display: flex !important;
@@ -324,6 +307,18 @@ const BIODATA_PRINT_CSS = `
       font-size: 18px !important;
       line-height: 24px !important;
       font-weight: 600 !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-summary-meta {
+      display: flex !important;
+      flex-direction: row !important;
+      width: 100% !important;
+      border-bottom: 1px solid #570000 !important;
+    }
+
+    body.biodata-print-hindu #biodata-print-summary-meta * {
+      font-size: 18px !important;
+      line-height: 24px !important;
     }
 
     body.biodata-print-hindu #biodata-print-left-pane > div {
@@ -576,14 +571,6 @@ const BIODATA_PRINT_CSS = `
       line-height: 16px !important;
     }
 
-    body.biodata-print-christian #biodata-print-photo-box {
-      width: 12mm !important;
-      min-width: 12mm !important;
-      min-height: 14mm !important;
-      border: 1px solid #570000 !important;
-      background: #d9d9d9 !important;
-    }
-
     body.biodata-print-christian #biodata-print-letterhead img {
       width: 38px !important;
       height: 38px !important;
@@ -738,7 +725,7 @@ function ensureBiodataPrintStyles(): void {
   style.textContent = BIODATA_PRINT_CSS;
 }
 
-function printBiodataSheetWeb(exportOptions?: BiodataExportOptions): void {
+function printBiodataSheetWeb(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return;
   }
@@ -757,11 +744,6 @@ function printBiodataSheetWeb(exportOptions?: BiodataExportOptions): void {
     window.print();
     return;
   }
-
-  const restorePhoto =
-    exportOptions !== undefined
-      ? applyExportPhotoToPrintBox(exportOptions.includePhoto !== false, exportOptions.photoUri ?? '')
-      : undefined;
 
   const savedPrintStyles = {
     width: printRoot.style.width,
@@ -798,7 +780,6 @@ function printBiodataSheetWeb(exportOptions?: BiodataExportOptions): void {
       originalParent.insertBefore(printRoot, placeholder);
       originalParent.removeChild(placeholder);
     }
-    restorePhoto?.();
   };
 
   const cleanup = () => {
@@ -878,6 +859,7 @@ type BiodataState = {
   education: string;
   dateOfBirth: string;
   birthTiming: string;
+  birthTimingMeridiem: string;
   religion: string;
   natchathiram: string;
   rasi: string;
@@ -891,6 +873,8 @@ type BiodataState = {
   propertyHouseCount: string;
   fatherName: string;
   motherName: string;
+  fatherPhone: string;
+  motherPhone: string;
   irupidam: string;
   nativePlace: string;
   totalFamilyMembers: string;
@@ -917,6 +901,8 @@ type BiodataState = {
   livingStatus: string;
   eatingHabits: string;
   birthOrderRelation: string;
+  biodataSource: string;
+  biodataFilledDate: string;
 };
 
 function generateRegistrationNumber(): string {
@@ -933,6 +919,13 @@ function normalizeRegistrationNumber(value: string): string {
 
 function sanitizeRegistrationInput(text: string): string {
   return text.replace(/\D/g, '').slice(0, 4);
+}
+
+function formatBiodataFilledDate(date = new Date()): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day} / ${month} / ${year}`;
 }
 
 function buildBiodataDraftValues({
@@ -970,6 +963,7 @@ function buildBiodataDraftValues({
     education: form.education.trim(),
     dateOfBirth: form.dateOfBirth.trim(),
     birthTiming: form.birthTiming.trim(),
+    birthTimingMeridiem: form.birthTimingMeridiem.trim() || 'am',
     religion: form.religion,
     natchathiram: form.natchathiram.trim(),
     rasi: form.rasi.trim(),
@@ -984,6 +978,8 @@ function buildBiodataDraftValues({
     propertyHouseCount: form.propertyHouseCount.trim(),
     fatherName: form.fatherName.trim(),
     motherName: form.motherName.trim(),
+    fatherPhone: normalizePhoneDigits(form.fatherPhone),
+    motherPhone: normalizePhoneDigits(form.motherPhone),
     irupidam: form.irupidam.trim(),
     nativePlace: form.nativePlace.trim(),
     totalFamilyMembers: form.totalFamilyMembers.trim(),
@@ -1010,6 +1006,8 @@ function buildBiodataDraftValues({
     livingStatus: form.livingStatus.trim(),
     eatingHabits: form.eatingHabits.trim(),
     birthOrderRelation: form.birthOrder.trim(),
+    biodataSource: form.biodataSource.trim(),
+    biodataFilledDate: form.biodataFilledDate.trim() || formatBiodataFilledDate(),
     biodataHoroscopeRasi: JSON.stringify(rasiChart),
     biodataHoroscopeAmsam: JSON.stringify(amsamChart),
     biodataDetailGrid: JSON.stringify(detailGrid),
@@ -1800,30 +1798,88 @@ function formatBiodataTimeDigits(digits: string): string {
   return `${digits.slice(0, 2)} : ${digits.slice(2)}`;
 }
 
+type BirthTimingMeridiem = 'am' | 'pm';
+
+const BIRTH_TIMING_MERIDIEM_OPTIONS: { value: BirthTimingMeridiem; label: string }[] = [
+  { value: 'am', label: 'AM' },
+  { value: 'pm', label: 'PM' },
+];
+
+function resolveBirthTimingMeridiem(storedMeridiem: string, time: string): BirthTimingMeridiem {
+  if (storedMeridiem === 'am' || storedMeridiem === 'pm') {
+    return storedMeridiem;
+  }
+
+  const match = time.trim().match(/^(\d{1,2})\s*:\s*(\d{2})$/);
+  if (!match) {
+    return 'am';
+  }
+
+  const hour = Number(match[1]);
+  if (hour >= 12) {
+    return 'pm';
+  }
+  return 'am';
+}
+
+function migrateBirthTimingToTwelveHour(time: string, meridiem: BirthTimingMeridiem): string {
+  const match = time.trim().match(/^(\d{1,2})\s*:\s*(\d{2})$/);
+  if (!match) {
+    return time;
+  }
+
+  let hour = Number(match[1]);
+  const minute = match[2];
+  if (hour >= 1 && hour <= 12) {
+    return `${String(hour).padStart(2, '0')} : ${minute}`;
+  }
+
+  if (hour > 12) {
+    hour -= 12;
+  } else if (hour === 0) {
+    hour = 12;
+  }
+
+  return `${String(hour).padStart(2, '0')} : ${minute}`;
+}
+
 function normalizeBiodataTimeValue(digits: string): string {
   if (digits.length < 4) {
     return formatBiodataTimeDigits(digits);
   }
 
-  const hour = Number(digits.slice(0, 2));
-  const minute = Number(digits.slice(2, 4));
-  if (hour > 23 || minute > 59) {
-    return formatBiodataTimeDigits(digits);
+  let hour = Number(digits.slice(0, 2));
+  let minute = Number(digits.slice(2, 4));
+  if (hour < 1) {
+    hour = 1;
+  }
+  if (hour > 12) {
+    hour = 12;
+  }
+  if (minute > 59) {
+    minute = 59;
   }
 
   return `${String(hour).padStart(2, '0')} : ${String(minute).padStart(2, '0')}`;
 }
 
-function parseBiodataTime(value: string): Date | null {
+function parseBiodataTime(value: string, meridiem: BirthTimingMeridiem = 'am'): Date | null {
   const match = value.trim().match(/^(\d{1,2})\s*:\s*(\d{2})$/);
   if (!match) {
     return null;
   }
 
-  const hour = Number(match[1]);
+  let hour = Number(match[1]);
   const minute = Number(match[2]);
-  if (hour > 23 || minute > 59) {
+  if (hour < 1 || hour > 12 || minute > 59) {
     return null;
+  }
+
+  if (meridiem === 'pm' && hour < 12) {
+    hour += 12;
+  }
+  if (meridiem === 'am' && hour === 12) {
+    hour = 0;
   }
 
   const date = new Date();
@@ -1831,12 +1887,19 @@ function parseBiodataTime(value: string): Date | null {
   return date;
 }
 
-function formatBiodataTimeFromDate(date: Date): string {
-  return `${String(date.getHours()).padStart(2, '0')} : ${String(date.getMinutes()).padStart(2, '0')}`;
+function formatBiodataTimeFromDate(date: Date): { time: string; meridiem: BirthTimingMeridiem } {
+  const hours24 = date.getHours();
+  const meridiem: BirthTimingMeridiem = hours24 >= 12 ? 'pm' : 'am';
+  const hour12 = hours24 % 12 || 12;
+
+  return {
+    time: `${String(hour12).padStart(2, '0')} : ${String(date.getMinutes()).padStart(2, '0')}`,
+    meridiem,
+  };
 }
 
-function toWebTimeInputValue(value: string): string {
-  const parsed = parseBiodataTime(value);
+function toWebTimeInputValue(value: string, meridiem: BirthTimingMeridiem): string {
+  const parsed = parseBiodataTime(value, meridiem);
   if (!parsed) {
     return '';
   }
@@ -1844,12 +1907,15 @@ function toWebTimeInputValue(value: string): string {
   return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
 }
 
-function fromWebTimeInputValue(value: string): string {
+function fromWebTimeInputValue(value: string): { time: string; meridiem: BirthTimingMeridiem } | null {
   const [hour, minute] = value.split(':');
   if (!hour || !minute) {
-    return '';
+    return null;
   }
-  return `${hour} : ${minute}`;
+
+  const date = new Date();
+  date.setHours(Number(hour), Number(minute), 0, 0);
+  return formatBiodataTimeFromDate(date);
 }
 
 function BiodataDateRow({
@@ -2035,29 +2101,36 @@ function BiodataDateRow({
 function BiodataTimeRow({
   label,
   value,
+  meridiem,
   onValueChange,
+  onMeridiemChange,
   editable,
   dense,
   placeholder,
 }: {
   label: string;
   value: string;
+  meridiem: string;
   onValueChange: (value: string) => void;
+  onMeridiemChange: (value: BirthTimingMeridiem) => void;
   editable: boolean;
   dense?: boolean;
   placeholder?: string;
 }) {
   const { translate } = useLanguage();
   const webTimeInputRef = useRef<HTMLInputElement | null>(null);
+  const resolvedMeridiem = resolveBirthTimingMeridiem(meridiem, value);
   const [showPicker, setShowPicker] = useState(false);
-  const [pickerTime, setPickerTime] = useState(() => parseBiodataTime(value) ?? new Date());
+  const [pickerTime, setPickerTime] = useState(
+    () => parseBiodataTime(value, resolvedMeridiem) ?? new Date(),
+  );
 
   useEffect(() => {
-    const parsed = parseBiodataTime(value);
+    const parsed = parseBiodataTime(value, resolvedMeridiem);
     if (parsed) {
       setPickerTime(parsed);
     }
-  }, [value]);
+  }, [resolvedMeridiem, value]);
 
   const handleTimeChange = useCallback(
     (text: string) => {
@@ -2069,10 +2142,12 @@ function BiodataTimeRow({
 
   const applyPickedTime = useCallback(
     (date: Date) => {
-      onValueChange(formatBiodataTimeFromDate(date));
+      const formatted = formatBiodataTimeFromDate(date);
+      onValueChange(formatted.time);
+      onMeridiemChange(formatted.meridiem);
       setPickerTime(date);
     },
-    [onValueChange],
+    [onMeridiemChange, onValueChange],
   );
 
   const openTimePicker = useCallback(() => {
@@ -2089,9 +2164,9 @@ function BiodataTimeRow({
       return;
     }
 
-    setPickerTime(parseBiodataTime(value) ?? new Date());
+    setPickerTime(parseBiodataTime(value, resolvedMeridiem) ?? new Date());
     setShowPicker(true);
-  }, [value]);
+  }, [resolvedMeridiem, value]);
 
   const handleNativePickerChange = useCallback(
     (event: DateTimePickerEvent, date?: Date) => {
@@ -2114,23 +2189,25 @@ function BiodataTimeRow({
     [applyPickedTime],
   );
 
+  const readonlyDisplay = [value.trim(), resolvedMeridiem.toUpperCase()].filter(Boolean).join(' ');
+
   if (!editable) {
     return (
       <View style={[styles.fieldGroup, dense && styles.fieldGroupDense]}>
         <Text style={[styles.fieldLabel, dense && styles.fieldLabelDense]}>{label}</Text>
         <View style={[styles.fieldInput, styles.fieldInputReadonly, dense && styles.fieldInputDense]}>
-          <Text style={styles.fieldReadonlyText}>{value || ''}</Text>
+          <Text style={styles.fieldReadonlyText}>{readonlyDisplay}</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.fieldGroup, dense && styles.fieldGroupDense]}>
+    <View style={[styles.fieldGroup, dense && styles.fieldGroupDense, styles.selectFieldGroup]}>
       <Text style={[styles.fieldLabel, dense && styles.fieldLabelDense]}>{label}</Text>
-      <View style={[styles.dateFieldShell, dense && styles.dateFieldShellDense]}>
+      <View style={[styles.heightFieldShell, dense && styles.heightFieldShellDense]}>
         <TextInput
-          style={[styles.dateFieldInput, dense && styles.dateFieldInputDense]}
+          style={[styles.heightFieldInput, dense && styles.heightFieldInputDense]}
           value={value}
           onChangeText={handleTimeChange}
           onFocus={Platform.OS !== 'web' ? openTimePicker : undefined}
@@ -2140,16 +2217,31 @@ function BiodataTimeRow({
           keyboardType="number-pad"
           maxLength={8}
         />
+        <View style={styles.heightFieldDivider} />
+        <View style={[styles.heightUnitPicker, dense && styles.heightUnitPickerDense]}>
+          <SelectField
+            label=""
+            value={resolvedMeridiem}
+            onValueChange={(next) => onMeridiemChange(next as BirthTimingMeridiem)}
+            options={BIRTH_TIMING_MERIDIEM_OPTIONS}
+            showLabel={false}
+            compact
+            variant="premium"
+            embedded
+            tight
+          />
+        </View>
       </View>
       {Platform.OS === 'web'
         ? createElement('input', {
             ref: webTimeInputRef,
             type: 'time',
-            value: toWebTimeInputValue(value),
+            value: toWebTimeInputValue(value, resolvedMeridiem),
             onChange: (event: { target: { value: string } }) => {
               const nextValue = fromWebTimeInputValue(event.target.value);
               if (nextValue) {
-                onValueChange(nextValue);
+                onValueChange(nextValue.time);
+                onMeridiemChange(nextValue.meridiem);
               }
             },
             style: {
@@ -2363,15 +2455,24 @@ function sanitizeHeightInput(text: string, unit: HeightUnit): string {
   const cleaned = text.replace(/[^\d.]/g, '');
   const dotIndex = cleaned.indexOf('.');
   if (dotIndex < 0) {
-    return cleaned.slice(0, 2);
+    return cleaned.slice(0, 1);
   }
 
   const whole = cleaned.slice(0, dotIndex).replace(/\./g, '').slice(0, 1);
-  const fraction = cleaned.slice(dotIndex + 1).replace(/\./g, '').slice(0, 1);
+  let fraction = cleaned.slice(dotIndex + 1).replace(/\./g, '').slice(0, 2);
   if (cleaned.endsWith('.') && !fraction) {
     return `${whole}.`;
   }
-  return fraction ? `${whole}.${fraction}` : whole;
+
+  if (fraction) {
+    const inches = Number(fraction);
+    if (!Number.isNaN(inches) && inches > 11) {
+      fraction = '11';
+    }
+    return `${whole}.${fraction}`;
+  }
+
+  return whole;
 }
 
 const HEIGHT_UNIT_OPTIONS: { value: HeightUnit; label: string }[] = [
@@ -2882,28 +2983,50 @@ function DetailCellPicker({
   index,
   onChange,
   dense,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onLongPressEnterSelect,
 }: {
   value: string;
   index: number;
   onChange: (value: string) => void;
   dense?: boolean;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  onLongPressEnterSelect?: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
 
   const displayValue = value || String(index + 1);
+  const isCustomized = value.trim() === '' || (value.trim() !== '' && value !== String(index + 1));
+
+  const handlePress = useCallback(() => {
+    if (selectionMode) {
+      onToggleSelect?.();
+      return;
+    }
+    setTempValue(value);
+    setIsOpen(true);
+  }, [onToggleSelect, selectionMode, value]);
 
   return (
     <>
-      <Pressable 
-        onPress={() => { setTempValue(value); setIsOpen(true); }} 
-        style={{flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center'}}
+      <Pressable
+        onPress={handlePress}
+        onLongPress={onLongPressEnterSelect}
+        delayLongPress={280}
+        style={{ flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}
       >
-        <Text 
+        <Text
           style={[
-            styles.detailCellText, 
+            styles.detailCellText,
             dense && styles.detailCellTextDense,
-            !value && { color: 'rgba(87, 0, 0, 0.4)' }
+            !value && { color: 'rgba(87, 0, 0, 0.4)' },
+            isCustomized && !isSelected && styles.detailCellTextFilled,
+            isSelected && styles.detailCellTextSelected,
           ]}
           numberOfLines={1}
           adjustsFontSizeToFit
@@ -2954,16 +3077,81 @@ function DetailGrid({
   editable,
   dense,
   onCellChange,
+  translate,
 }: {
   cells: string[];
   editable: boolean;
   dense?: boolean;
   onCellChange: (index: number, value: string) => void;
+  translate: (key: string) => string;
 }) {
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   let cellOffset = 0;
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIndices([]);
+  }, []);
+
+  const enterSelectionMode = useCallback((index?: number) => {
+    setSelectionMode(true);
+    setSelectedIndices(index === undefined ? [] : [index]);
+  }, []);
+
+  const toggleIndex = useCallback((index: number) => {
+    setSelectedIndices((current) =>
+      current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index],
+    );
+  }, []);
+
+  const deleteSelected = useCallback(() => {
+    selectedIndices.forEach((index) => onCellChange(index, ''));
+    exitSelectionMode();
+  }, [exitSelectionMode, onCellChange, selectedIndices]);
 
   return (
     <View style={styles.detailGridContainer} nativeID="biodata-print-detail-grid" collapsable={false}>
+      {editable ? (
+        <View style={styles.detailGridToolbar}>
+          {!selectionMode ? (
+            <Pressable
+              style={styles.detailGridToolbarBtn}
+              onPress={() => enterSelectionMode()}
+              hitSlop={6}
+            >
+              <Text style={styles.detailGridToolbarBtnText}>{translate('biodataDetailGridSelect')}</Text>
+            </Pressable>
+          ) : (
+            <>
+              <Pressable
+                style={[
+                  styles.detailGridToolbarBtn,
+                  styles.detailGridToolbarBtnPrimary,
+                  selectedIndices.length === 0 && styles.detailGridToolbarBtnDisabled,
+                ]}
+                onPress={deleteSelected}
+                disabled={selectedIndices.length === 0}
+                hitSlop={6}
+              >
+                <Text
+                  style={[
+                    styles.detailGridToolbarBtnText,
+                    styles.detailGridToolbarBtnTextPrimary,
+                    selectedIndices.length === 0 && styles.detailGridToolbarBtnTextDisabled,
+                  ]}
+                >
+                  {translate('biodataDetailGridDeleteSelected')}
+                  {selectedIndices.length > 0 ? ` (${selectedIndices.length})` : ''}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.detailGridToolbarBtn} onPress={exitSelectionMode} hitSlop={6}>
+                <Text style={styles.detailGridToolbarBtnText}>{translate('biodataDetailGridCancelSelect')}</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      ) : null}
       <View style={styles.detailGridWrap}>
         <View style={styles.detailGrid}>
           {DETAIL_GRID_ROW_SIZES.map((rowSize, rowIndex) => {
@@ -2975,10 +3163,18 @@ function DetailGrid({
               <View key={rowIndex} style={styles.detailGridRow}>
                 {rowCells.map((cell, colIndex) => {
                   const index = rowStart + colIndex;
+                  const isSelected = selectedIndices.includes(index);
+                  const isCustomized =
+                    cell.trim() === '' || (cell.trim() !== '' && cell !== String(index + 1));
                   return (
                     <View
                       key={index}
-                      style={[styles.detailCellWrap, dense && styles.detailCellWrapDense]}
+                      style={[
+                        styles.detailCellWrap,
+                        dense && styles.detailCellWrapDense,
+                        editable && isCustomized && styles.detailCellWrapFilled,
+                        isSelected && styles.detailCellWrapSelected,
+                      ]}
                     >
                       {editable ? (
                         <DetailCellPicker
@@ -2986,6 +3182,10 @@ function DetailGrid({
                           index={index}
                           onChange={(text) => onCellChange(index, text)}
                           dense={dense}
+                          selectionMode={selectionMode}
+                          isSelected={isSelected}
+                          onToggleSelect={() => toggleIndex(index)}
+                          onLongPressEnterSelect={() => enterSelectionMode(index)}
                         />
                       ) : (
                         <Text
@@ -3504,21 +3704,11 @@ export function PhotoVisibilityToggle({
 function BiodataLetterheadHeader({
   registrationNumber,
   translate,
-  primaryPhotoUri = '',
 }: {
   registrationNumber: string;
   translate: (key: string) => string;
-  primaryPhotoUri?: string;
 }) {
-  const { width: screenWidth } = useWindowDimensions();
   const logoUri = Platform.OS === 'web' ? getLogoUri() : undefined;
-  const photoUri = primaryPhotoUri.trim();
-  const photoBoxStyle = useMemo(() => {
-    const compact = screenWidth < 380;
-    const width = compact ? 50 : 56;
-    const height = compact ? 66 : 74;
-    return { width, height, maxWidth: width, maxHeight: height };
-  }, [screenWidth]);
 
   return (
     <View nativeID="biodata-print-letterhead" style={reviewStyles.letterhead}>
@@ -3590,36 +3780,6 @@ function BiodataLetterheadHeader({
           </View>
         </View>
       </View>
-
-      <View
-        nativeID="biodata-print-photo-box"
-        style={[reviewStyles.letterheadPhotoBox, photoBoxStyle]}
-        collapsable={false}
-      >
-        {photoUri ? (
-          Platform.OS === 'web' ? (
-            createElement('img', {
-              src: photoUri,
-              alt: 'Profile',
-              style: {
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-              },
-            })
-          ) : (
-            <Image
-              source={{ uri: photoUri }}
-              style={reviewStyles.letterheadPhotoImage}
-              resizeMode="cover"
-            />
-          )
-        ) : null}
-      </View>
     </View>
   );
 }
@@ -3629,13 +3789,11 @@ function ChristianBiodataReviewSheet({
   language,
   translate,
   registrationCommunity,
-  primaryPhotoUri = '',
 }: {
   form: BiodataState;
   language: Language;
   translate: (key: string) => string;
   registrationCommunity: RegistrationCommunityId;
-  primaryPhotoUri?: string;
 }) {
   const { getValue } = useProfileForm();
   const nativePlace = form.nativePlace.trim();
@@ -3679,7 +3837,6 @@ function ChristianBiodataReviewSheet({
       <BiodataLetterheadHeader
         registrationNumber={form.registrationNumber}
         translate={translate}
-        primaryPhotoUri={primaryPhotoUri}
       />
       <View
         nativeID="biodata-print-christian-body"
@@ -3814,7 +3971,9 @@ export function HoroscopeSection({
             <BiodataTimeRow
               label={translate('biodataFieldBirthTiming')}
               value={form.birthTiming}
+              meridiem={form.birthTimingMeridiem}
               onValueChange={(text) => onFieldChange('birthTiming', text)}
+              onMeridiemChange={(next) => onFieldChange('birthTimingMeridiem', next)}
               editable={editable}
               dense={dense}
               placeholder={translate('biodataTimePlaceholder')}
@@ -3923,13 +4082,19 @@ export function HoroscopeSection({
         />
       </View>
 
-      <DetailGrid cells={detailGrid} onCellChange={(index, value) => {
-        onDetailGridChange((prev) => {
-          const next = [...prev];
-          next[index] = value;
-          return next;
-        });
-      }} editable={editable} dense={dense} />
+      <DetailGrid
+        cells={detailGrid}
+        onCellChange={(index, value) => {
+          onDetailGridChange((prev) => {
+            const next = [...prev];
+            next[index] = value;
+            return next;
+          });
+        }}
+        editable={editable}
+        dense={dense}
+        translate={translate}
+      />
       </View>
     </>
   );
@@ -4034,6 +4199,62 @@ export function HoroscopeStepView({
   );
 }
 
+function ReviewSummaryMetaRow({
+  sourceLabel,
+  dateLabel,
+  sourceValue,
+  dateValue,
+  editable,
+  onSourceChange,
+  onDateChange,
+}: {
+  sourceLabel: string;
+  dateLabel: string;
+  sourceValue: string;
+  dateValue: string;
+  editable: boolean;
+  onSourceChange: (value: string) => void;
+  onDateChange: (value: string) => void;
+}) {
+  return (
+    <View nativeID="biodata-print-summary-meta" style={reviewStyles.summaryMetaRow}>
+      <View style={reviewStyles.summaryMetaCell}>
+        <Text style={reviewStyles.summaryMetaLabel}>{sourceLabel}</Text>
+        <Text style={reviewStyles.summaryMetaColon}>:</Text>
+        {editable ? (
+          <TextInput
+            style={reviewStyles.summaryMetaInput}
+            value={sourceValue}
+            onChangeText={onSourceChange}
+            placeholderTextColor="rgba(87, 0, 0, 0.35)"
+          />
+        ) : (
+          <Text style={reviewStyles.summaryMetaValue} numberOfLines={1}>
+            {reviewDisplayValue(sourceValue)}
+          </Text>
+        )}
+      </View>
+      <View style={[reviewStyles.summaryMetaCell, reviewStyles.summaryMetaCellDivider]}>
+        <Text style={reviewStyles.summaryMetaLabel}>{dateLabel}</Text>
+        <Text style={reviewStyles.summaryMetaColon}>:</Text>
+        {editable ? (
+          <TextInput
+            style={reviewStyles.summaryMetaInput}
+            value={dateValue}
+            onChangeText={onDateChange}
+            placeholder={formatBiodataFilledDate()}
+            placeholderTextColor="rgba(87, 0, 0, 0.35)"
+          />
+        ) : (
+          <Text style={reviewStyles.summaryMetaValue} numberOfLines={1}>
+            {reviewDisplayValue(dateValue)}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 function BiodataReviewSheet({
   form,
   rasiChart,
@@ -4047,7 +4268,6 @@ function BiodataReviewSheet({
   dense,
   registrationCommunity,
   religion,
-  primaryPhotoUri = '',
   printRootRef,
 }: {
   form: BiodataState;
@@ -4062,7 +4282,6 @@ function BiodataReviewSheet({
   dense?: boolean;
   registrationCommunity?: string;
   religion?: string;
-  primaryPhotoUri?: string;
   printRootRef?: RefObject<View>;
 }) {
   const { translate, language } = useLanguage();
@@ -4130,7 +4349,6 @@ function BiodataReviewSheet({
       <BiodataLetterheadHeader
         registrationNumber={form.registrationNumber}
         translate={translate}
-        primaryPhotoUri={primaryPhotoUri}
       />
       <View nativeID="biodata-print-body-row" style={reviewStyles.bodyRow}>
         <View
@@ -4215,6 +4433,16 @@ function BiodataReviewSheet({
             />
           </View>
         </View>
+
+      <ReviewSummaryMetaRow
+        sourceLabel={translate('biodataReviewSource')}
+        dateLabel={translate('biodataReviewFilledDate')}
+        sourceValue={form.biodataSource}
+        dateValue={form.biodataFilledDate}
+        editable={editable}
+        onSourceChange={(value) => onFieldChange('biodataSource', value)}
+        onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
+      />
 
       {showHoroscopeFields ? (
         <View
@@ -4368,19 +4596,6 @@ const reviewStyles = StyleSheet.create({
     gap: 1,
     paddingTop: 2,
   },
-  letterheadPhotoBox: {
-    flexShrink: 0,
-    flexGrow: 0,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: '#D9D9D9',
-    marginLeft: 4,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  letterheadPhotoImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
   registrationLabel: {
     color: colors.primary,
     fontFamily: fonts.interSemi,
@@ -4402,6 +4617,71 @@ const reviewStyles = StyleSheet.create({
     borderBottomColor: colors.primary,
     width: '100%',
     overflow: 'visible',
+  },
+  summaryMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: '100%',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+    overflow: 'visible',
+  },
+  summaryMetaCell: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    minHeight: 28,
+    gap: 4,
+  },
+  summaryMetaCellDivider: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.primary,
+  },
+  summaryMetaLabel: {
+    color: colors.primary,
+    fontFamily: fonts.interBold,
+    fontSize: IS_NATIVE ? 9 : 11,
+    lineHeight: IS_NATIVE ? 12 : 14,
+    flexShrink: 0,
+    ...reviewTextAndroid,
+  },
+  summaryMetaColon: {
+    color: colors.primary,
+    fontFamily: fonts.interBold,
+    fontSize: IS_NATIVE ? 9 : 11,
+    lineHeight: IS_NATIVE ? 12 : 14,
+    flexShrink: 0,
+    ...reviewTextAndroid,
+  },
+  summaryMetaValue: {
+    flex: 1,
+    minWidth: 0,
+    color: colors.primary,
+    fontFamily: fonts.interMedium,
+    fontSize: IS_NATIVE ? 9 : 11,
+    lineHeight: IS_NATIVE ? 12 : 14,
+    ...reviewTextAndroid,
+  },
+  summaryMetaInput: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    margin: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    color: colors.primary,
+    fontFamily: fonts.interMedium,
+    fontSize: IS_NATIVE ? 9 : 11,
+    lineHeight: IS_NATIVE ? 12 : 14,
+    ...Platform.select({
+      web: { outlineStyle: 'none' },
+      default: {},
+    }),
+    ...reviewTextAndroid,
   },
   leftPane: {
     flex: 1.38,
@@ -4846,7 +5126,7 @@ type CreateProfileBiodataFormProps = {
   profileValues?: Record<string, string>;
   hideActionBar?: boolean;
   getExportOptions?: () => BiodataExportOptions;
-  /** Live preview + print photo from export panel (admin/user view profile). */
+  /** @deprecated Summary biodata no longer shows a header photo; kept for API compatibility. */
   exportPhotoOptions?: BiodataExportOptions;
   /** Hint Tamil keyboard on text fields (admin biodata entry). */
   preferTamilKeyboard?: boolean;
@@ -4885,8 +5165,6 @@ export function CreateProfileBiodataForm({
   viewOnly = false,
   profileValues,
   hideActionBar = false,
-  getExportOptions,
-  exportPhotoOptions,
   preferTamilKeyboard = false,
   showAdminPhoneField = false,
 }: CreateProfileBiodataFormProps) {
@@ -4911,48 +5189,13 @@ export function CreateProfileBiodataForm({
   const [isSharing, setIsSharing] = useState(false);
   const [stepState, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const step = viewOnly ? 5 : stepState;
-  const reviewPhotoUri = useMemo(() => {
-    const displayPlatform = Platform.OS === 'web' ? 'web' : 'native';
-    const exportOpts = exportPhotoOptions ?? getExportOptions?.();
-
-    if (exportOpts) {
-      if (exportOpts.includePhoto === false) {
-        return '';
-      }
-      const exportUri = resolveDisplayPhotoUri(exportOpts.photoUri ?? '', displayPlatform);
-      if (exportUri) {
-        return exportUri;
-      }
-    }
-
-    if (!showPhotoInBiodata) {
-      return '';
-    }
-    if (profileValues) {
-      return getProfileAvatarUri(profileValues);
-    }
-    if (!isReady) {
-      return '';
-    }
-    return getProfileAvatarUri({
-      [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(photos) || getValue(PROFILE_PHOTOS_KEY),
-      profilePhotoUrls: getValue('profilePhotoUrls'),
-    });
-  }, [
-    exportPhotoOptions,
-    getExportOptions,
-    profileValues,
-    getValue,
-    isReady,
-    photos,
-    showPhotoInBiodata,
-  ]);
   const [form, setForm] = useState<BiodataState>({
     fullName: '',
     gender: '',
     education: '',
     dateOfBirth: '',
     birthTiming: '',
+    birthTimingMeridiem: 'am',
     religion: '',
     natchathiram: '',
     rasi: '',
@@ -4966,6 +5209,8 @@ export function CreateProfileBiodataForm({
     propertyHouseCount: '',
     fatherName: '',
     motherName: '',
+    fatherPhone: '',
+    motherPhone: '',
     irupidam: '',
     nativePlace: '',
     totalFamilyMembers: '',
@@ -4992,6 +5237,8 @@ export function CreateProfileBiodataForm({
     livingStatus: 'with-family',
     eatingHabits: 'veg',
     birthOrderRelation: '',
+    biodataSource: '',
+    biodataFilledDate: '',
   });
 
   useEffect(() => {
@@ -5035,7 +5282,14 @@ export function CreateProfileBiodataForm({
       gender: readValue('gender'),
       education: readValue('education'),
       dateOfBirth: readValue('dateOfBirth'),
-      birthTiming: readValue('birthTiming'),
+      birthTiming: migrateBirthTimingToTwelveHour(
+        readValue('birthTiming'),
+        resolveBirthTimingMeridiem(readValue('birthTimingMeridiem'), readValue('birthTiming')),
+      ),
+      birthTimingMeridiem: resolveBirthTimingMeridiem(
+        readValue('birthTimingMeridiem'),
+        readValue('birthTiming'),
+      ),
       religion: normalizeRegistrationReligion(readValue('religion')),
       natchathiram: readValue('natchathiram'),
       rasi: readValue('rasi'),
@@ -5049,6 +5303,8 @@ export function CreateProfileBiodataForm({
       propertyHouseCount: readValue('propertyHouseCount'),
       fatherName: readValue('fatherName'),
       motherName: readValue('motherName'),
+      fatherPhone: normalizePhoneDigits(readValue('fatherPhone')),
+      motherPhone: normalizePhoneDigits(readValue('motherPhone')),
       irupidam: readValue('irupidam'),
       nativePlace: readValue('nativePlace'),
       totalFamilyMembers: readValue('totalFamilyMembers'),
@@ -5075,6 +5331,8 @@ export function CreateProfileBiodataForm({
       livingStatus: readValue('livingStatus') || 'with-family',
       eatingHabits: readValue('eatingHabits') || 'veg',
       birthOrderRelation: readValue('birthOrderRelation') || readValue('birthOrder'),
+      biodataSource: readValue('biodataSource'),
+      biodataFilledDate: readValue('biodataFilledDate') || formatBiodataFilledDate(),
     });
     const mergedPhotos = mergeDraftProfilePhotos(
       readValue(PROFILE_PHOTOS_DRAFT_KEY),
@@ -5125,7 +5383,14 @@ export function CreateProfileBiodataForm({
       gender: readValue('gender'),
       education: readValue('education'),
       dateOfBirth: readValue('dateOfBirth'),
-      birthTiming: readValue('birthTiming'),
+      birthTiming: migrateBirthTimingToTwelveHour(
+        readValue('birthTiming'),
+        resolveBirthTimingMeridiem(readValue('birthTimingMeridiem'), readValue('birthTiming')),
+      ),
+      birthTimingMeridiem: resolveBirthTimingMeridiem(
+        readValue('birthTimingMeridiem'),
+        readValue('birthTiming'),
+      ),
       religion: normalizeRegistrationReligion(readValue('religion')),
       natchathiram: readValue('natchathiram'),
       rasi: readValue('rasi'),
@@ -5139,6 +5404,8 @@ export function CreateProfileBiodataForm({
       propertyHouseCount: readValue('propertyHouseCount'),
       fatherName: readValue('fatherName'),
       motherName: readValue('motherName'),
+      fatherPhone: normalizePhoneDigits(readValue('fatherPhone')),
+      motherPhone: normalizePhoneDigits(readValue('motherPhone')),
       irupidam: readValue('irupidam'),
       nativePlace: readValue('nativePlace'),
       totalFamilyMembers: readValue('totalFamilyMembers'),
@@ -5165,6 +5432,8 @@ export function CreateProfileBiodataForm({
       livingStatus: readValue('livingStatus') || 'with-family',
       eatingHabits: readValue('eatingHabits') || 'veg',
       birthOrderRelation: readValue('birthOrderRelation') || readValue('birthOrder'),
+      biodataSource: readValue('biodataSource'),
+      biodataFilledDate: readValue('biodataFilledDate') || formatBiodataFilledDate(),
     });
     const mergedPhotos = mergeDraftProfilePhotos(
       readValue(PROFILE_PHOTOS_DRAFT_KEY),
@@ -5303,17 +5572,6 @@ export function CreateProfileBiodataForm({
     [setValue, syncDraftToContext, viewOnly],
   );
 
-  const handleShowPhotoInBiodataChange = useCallback(
-    (next: boolean) => {
-      setShowPhotoInBiodata(next);
-      if (!viewOnly) {
-        setValue(BIODATA_SHOW_PHOTO_KEY, next ? 'true' : 'false');
-        void syncDraftToContextRef.current().catch(() => undefined);
-      }
-    },
-    [setValue, viewOnly],
-  );
-
   const handleAdminContactPhoneChange = useCallback(
     (text: string) => {
       const digits = normalizePhoneDigits(text);
@@ -5327,24 +5585,8 @@ export function CreateProfileBiodataForm({
   );
 
   useEffect(() => {
-    if (!onPhotoToggleSlotChange) {
-      return;
-    }
-    if (viewOnly || step !== 5) {
-      onPhotoToggleSlotChange(null);
-      return;
-    }
-    onPhotoToggleSlotChange({
-      value: showPhotoInBiodata,
-      onValueChange: handleShowPhotoInBiodataChange,
-    });
-  }, [
-    handleShowPhotoInBiodataChange,
-    onPhotoToggleSlotChange,
-    showPhotoInBiodata,
-    step,
-    viewOnly,
-  ]);
+    onPhotoToggleSlotChange?.(null);
+  }, [onPhotoToggleSlotChange]);
 
   useEffect(
     () => () => {
@@ -5432,14 +5674,13 @@ export function CreateProfileBiodataForm({
   }, [form.gender, isSaving, onSave, persistForm, translate, validateOccupationFields]);
 
   const handlePrintPress = useCallback(() => {
-    const exportOptions = getExportOptions?.();
     if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined') {
-      printBiodataSheetWeb(exportOptions);
+      printBiodataSheetWeb();
       return;
     }
 
     Alert.alert(translate('downloadPdfAlertTitle'), translate('downloadPdfAlertBody'));
-  }, [getExportOptions, translate]);
+  }, [translate]);
 
   const handleSharePress = useCallback(async () => {
     if (isSharing) {
@@ -5815,6 +6056,30 @@ export function CreateProfileBiodataForm({
                   />
                 </View>
               </View>
+              <View style={styles.fieldPairRow}>
+                <View style={styles.fieldPairItem}>
+                  <BiodataRow
+                    label={translate('biodataFieldFatherPhone')}
+                    value={form.fatherPhone}
+                    onChangeText={(text) => updateField('fatherPhone', normalizePhoneDigits(text))}
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('biodataPlaceholderFatherPhone')}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+                <View style={styles.fieldPairItem}>
+                  <BiodataRow
+                    label={translate('biodataFieldMotherPhone')}
+                    value={form.motherPhone}
+                    onChangeText={(text) => updateField('motherPhone', normalizePhoneDigits(text))}
+                    editable={editable}
+                    dense={dense}
+                    placeholder={translate('biodataPlaceholderMotherPhone')}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </View>
             </SectionCard>
 
             <SectionCard dense={dense}>
@@ -5926,7 +6191,6 @@ export function CreateProfileBiodataForm({
           dense={dense}
           registrationCommunity={registrationCommunity}
           religion={currentReligion}
-          primaryPhotoUri={reviewPhotoUri}
           printRootRef={biodataPrintRef}
         />
       ) : null}
@@ -5942,14 +6206,6 @@ export function CreateProfileBiodataForm({
         isChristianReview && styles.wrapperFullScreen,
       ]}
     >
-      {!viewOnly && step === 5 && !onPhotoToggleSlotChange ? (
-        <View style={styles.photoToggleHeaderOverlay} pointerEvents="box-none">
-          <PhotoVisibilityToggle
-            value={showPhotoInBiodata}
-            onValueChange={handleShowPhotoInBiodataChange}
-          />
-        </View>
-      ) : null}
       {viewOnly ? (
         <View style={styles.embeddedContent}>{biodataSheet}</View>
       ) : isChristianReview ? (
@@ -6249,12 +6505,6 @@ const styles = StyleSheet.create({
   },
   scrollContentWebReview: {
     paddingBottom: 72,
-  },
-  photoToggleHeaderOverlay: {
-    position: 'absolute',
-    top: 8,
-    right: 10,
-    zIndex: 20,
   },
   wrapperEmbedded: {
     flex: 0,
@@ -7655,6 +7905,41 @@ const styles = StyleSheet.create({
     width: '100%',
     flexShrink: 0,
     overflow: 'visible',
+    gap: 8,
+  },
+  detailGridToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  detailGridToolbarBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(87, 0, 0, 0.18)',
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  detailGridToolbarBtnPrimary: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  detailGridToolbarBtnDisabled: {
+    opacity: 0.45,
+  },
+  detailGridToolbarBtnText: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: colors.primary,
+    fontFamily: fonts.interSemi,
+  },
+  detailGridToolbarBtnTextPrimary: {
+    color: '#fff',
+  },
+  detailGridToolbarBtnTextDisabled: {
+    color: '#fff',
   },
   detailGridBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -7674,6 +7959,15 @@ const styles = StyleSheet.create({
   detailCellWrapDense: {
     minHeight: 20,
   },
+  detailCellWrapFilled: {
+    backgroundColor: '#F0E0F0',
+    borderColor: 'rgba(139, 0, 0, 0.45)',
+  },
+  detailCellWrapSelected: {
+    backgroundColor: '#E8C8E8',
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
   detailCellText: {
     width: '100%',
     fontSize: 9,
@@ -7685,6 +7979,14 @@ const styles = StyleSheet.create({
   detailCellTextDense: {
     fontSize: 8,
     lineHeight: 11,
+  },
+  detailCellTextFilled: {
+    color: colors.primary,
+    fontFamily: fonts.interBold,
+  },
+  detailCellTextSelected: {
+    color: colors.primary,
+    fontFamily: fonts.interBold,
   },
   detailCellInput: {
     width: '100%',
