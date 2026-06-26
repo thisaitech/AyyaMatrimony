@@ -188,13 +188,44 @@ export async function updatePaymentStatus(
 }
 
 export async function countVerifiedPayments(): Promise<number> {
-  const entries = await listPayments('verified');
-  return entries.length;
+  const stats = await getPaymentDashboardStats();
+  return stats.verifiedCount;
 }
 
 export async function sumVerifiedRevenue(): Promise<number> {
-  const entries = await listPayments('verified');
-  return entries.reduce((total, entry) => total + entry.amount, 0);
+  const stats = await getPaymentDashboardStats();
+  return stats.totalRevenue;
+}
+
+export async function getPaymentDashboardStats(): Promise<{
+  pendingCount: number;
+  verifiedCount: number;
+  totalRevenue: number;
+}> {
+  const db = await getFirebaseFirestore();
+  if (!db) {
+    return { pendingCount: 0, verifiedCount: 0, totalRevenue: 0 };
+  }
+
+  const docs = await getDocsResilient<FirestorePaymentDoc>(db, FIRESTORE_COLLECTIONS.payments, {
+    orderByField: 'updatedAt',
+    preferServer: true,
+  });
+
+  let pendingCount = 0;
+  let verifiedCount = 0;
+  let totalRevenue = 0;
+  for (const entry of docs) {
+    if (entry.status === 'pending') {
+      pendingCount += 1;
+    }
+    if (entry.status === 'verified') {
+      verifiedCount += 1;
+      totalRevenue += entry.amount;
+    }
+  }
+
+  return { pendingCount, verifiedCount, totalRevenue };
 }
 
 export async function fetchLatestPaymentStatus(

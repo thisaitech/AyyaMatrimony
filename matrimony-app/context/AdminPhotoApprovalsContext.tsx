@@ -51,12 +51,14 @@ export function AdminPhotoApprovalsProvider({ children }: { children: ReactNode 
   const [items, setItems] = useState<AdminPhotoApprovalRecord[]>([]);
 
   const refresh = useCallback(async () => {
+    const cached = await readCachedPhotoApprovals();
+    if (cached && cached.length > 0) {
+      setItems(cached);
+      setIsReady(true);
+    }
+
     const db = await getFirebaseFirestore();
     if (!db) {
-      const cached = await readCachedPhotoApprovals();
-      if (cached && cached.length > 0) {
-        setItems(cached);
-      }
       setIsReady(true);
       return;
     }
@@ -66,9 +68,11 @@ export function AdminPhotoApprovalsProvider({ children }: { children: ReactNode 
       setItems(remote);
       await AsyncStorage.setItem(ADMIN_PHOTO_APPROVALS_KEY, JSON.stringify(remote));
     } catch {
-      const cached = await readCachedPhotoApprovals();
-      if (cached && cached.length > 0) {
-        setItems(cached);
+      if (!cached || cached.length === 0) {
+        const fallback = await readCachedPhotoApprovals();
+        if (fallback && fallback.length > 0) {
+          setItems(fallback);
+        }
       }
     } finally {
       setIsReady(true);

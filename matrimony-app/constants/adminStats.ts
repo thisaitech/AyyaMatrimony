@@ -1,5 +1,4 @@
 import type { AdminApprovalRecord, AdminUserRecord } from '@/constants/adminMockData';
-import type { PublishedMember } from '@/constants/memberDirectory';
 import { PROFILE_ACCESS_PRICE } from '@/constants/subscription';
 
 export type AdminDashboardStats = {
@@ -18,7 +17,6 @@ export type AdminDashboardStats = {
 
 export function computeAdminDashboardStats(
   users: AdminUserRecord[],
-  published: PublishedMember[],
   approvals: AdminApprovalRecord[],
   options: {
     unreadCount?: number;
@@ -31,8 +29,8 @@ export function computeAdminDashboardStats(
 ): AdminDashboardStats {
   const totalUsers = users.length;
   const activeToday = users.filter((user) => user.status === 'active').length;
-  const adminAdded = published.filter((entry) => entry.ownerKey.startsWith('admin-')).length;
-  const selfRegistered = published.filter((entry) => !entry.ownerKey.startsWith('admin-')).length;
+  const adminAdded = users.filter((user) => user.registrationSource === 'admin').length;
+  const selfRegistered = users.filter((user) => user.registrationSource === 'self').length;
   const pendingApprovals = approvals.filter((item) => item.status === 'pending').length;
 
   return {

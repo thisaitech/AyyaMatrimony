@@ -22,7 +22,7 @@ import { publishProfileFromValues } from '@/constants/memberDirectory';
 import { images } from '@/constants/images';
 import {
   BIODATA_WIZARD_COMPLETE_KEY,
-  hasSavedBiodata,
+  hasCompletedProfile,
   prepareProfileForPublish,
 } from '@/constants/profileCompletion';
 import { submitLoginApproval } from '@/lib/firestore/approvalService';
@@ -42,20 +42,25 @@ export default function EditProfileScreen() {
   const [step, setStep] = useState(1);
 
   const handleSave = useCallback(
-    (profileValues: Record<string, string>) => {
+    (profileValues: Record<string, string>): Promise<void> => {
       if (isSaving.current) {
-        return;
+        return Promise.resolve();
       }
       isSaving.current = true;
 
-      void (async () => {
+      return (async () => {
         try {
-          if (!hasSavedBiodata(profileValues)) {
-            Alert.alert(translate('saveChanges'), translate('profileIncompleteSave'));
+          const readyValues = prepareProfileForPublish(profileValues);
+          if (!hasCompletedProfile(readyValues)) {
+            const message = translate('profileIncompleteSave');
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              window.alert(message);
+            } else {
+              Alert.alert(translate('saveChanges'), message);
+            }
             return;
           }
 
-          const readyValues = prepareProfileForPublish(profileValues);
           const published = await publishProfileFromValues(readyValues, 'current-user');
           const syncedValues = {
             ...(published?.biodata ?? { ...readyValues, approvalStatus: 'pending' }),
@@ -73,11 +78,22 @@ export default function EditProfileScreen() {
               source: 'profile',
             }).catch(() => undefined);
           }
+
+          if (Platform.OS === 'web') {
+            router.back();
+            return;
+          }
+
           Alert.alert(translate('saveChanges'), translate('profileUpdated'), [
             { text: translate('ok'), onPress: () => router.back() },
           ]);
         } catch {
-          Alert.alert(translate('saveChanges'), translate('profileSaveFailed'));
+          const message = translate('profileSaveFailed');
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            window.alert(message);
+          } else {
+            Alert.alert(translate('saveChanges'), message);
+          }
         } finally {
           isSaving.current = false;
         }
@@ -141,11 +157,13 @@ export default function EditProfileScreen() {
         />
       </View>
 
-      <CreateProfileBiodataForm
-        editable
-        onSave={handleSave}
-        onStepChange={setStep}
-      />
+      <View style={styles.formWrap}>
+        <CreateProfileBiodataForm
+          editable
+          onSave={handleSave}
+          onStepChange={setStep}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -160,6 +178,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#F3F7FC',
+  },
+  formWrap: {
+    flex: 1,
+    minHeight: 0,
   },
   pageHeaderWrap: {
     borderBottomWidth: 1,

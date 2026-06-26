@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useChat } from '@/context/ChatContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { useRequirePaidContact } from '@/hooks/useOpenMemberProfile';
+import { useOpenChat } from '@/hooks/useOpenMemberProfile';
 import { colors, fonts, spacing, typography } from '@/constants/theme';
 import { useBrowsableMembers } from '@/hooks/useBrowsableMembers';
 
@@ -62,10 +61,9 @@ function MessageRow({ item, onPress }: { item: MessageItem; onPress: () => void 
 }
 
 export default function ChatScreen() {
-  const router = useRouter();
   const { translate } = useLanguage();
   const { isPaidMember } = useSubscription();
-  const requirePaidContact = useRequirePaidContact();
+  const openChat = useOpenChat();
   const { threads } = useChat();
   const [activeTab, setActiveTab] = useState<MessageTab>('received');
   const recommendedMatches = useBrowsableMembers();
@@ -97,19 +95,8 @@ export default function ChatScreen() {
     [recommendedMatches, threads, translate],
   );
 
-  const openChat = (item: MessageItem) => {
-    if (!requirePaidContact()) {
-      return;
-    }
-
-    router.push({
-      pathname: '/conversation/[id]',
-      params: {
-        id: item.id,
-        name: item.name,
-        image: item.image,
-      },
-    });
+  const handleOpenChat = (item: MessageItem) => {
+    openChat(item.id, item.name, item.image);
   };
 
   const visibleMessages = useMemo(() => {
@@ -154,7 +141,7 @@ export default function ChatScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {visibleMessages.map((item) => (
-          <MessageRow key={item.id} item={item} onPress={() => openChat(item)} />
+          <MessageRow key={item.id} item={item} onPress={() => handleOpenChat(item)} />
         ))}
       </ScrollView>
     </SafeAreaView>

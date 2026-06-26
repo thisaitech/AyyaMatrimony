@@ -86,15 +86,14 @@ function resolveProfilePhone(profile: FirestoreProfileDoc): string {
   );
 }
 
-/** Uploaded cloud photos only — excludes primaryPhotoUrl / approved fallbacks. */
+/** Uploaded cloud photos only — excludes approved-only biodata slots. */
 function resolveUploadedPhotoSlots(profile: FirestoreProfileDoc): string[] {
   const biodata = profile.biodata ?? {};
   const fromDoc = Array.isArray(profile.photoUrls) ? profile.photoUrls : [];
-  const fromBiodataPhotos = parseProfilePhotos(biodata[PROFILE_PHOTOS_KEY] ?? '');
   const fromPipe = (biodata.profilePhotoUrls ?? '').split('|');
 
   return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
-    for (const candidate of [fromDoc[index], fromBiodataPhotos[index], fromPipe[index]]) {
+    for (const candidate of [fromDoc[index], fromPipe[index]]) {
       const trimmed = candidate?.trim() ?? '';
       if (isRemotePhotoUri(trimmed)) {
         return trimmed;
@@ -128,6 +127,23 @@ function resolveModerationStatus(
     return 'rejected';
   }
   return approvedUrl.trim() === uploadedUrl.trim() ? 'approved' : 'pending';
+}
+
+function resolveRecordStatus(
+  entry: FirestorePhotoApprovalDoc,
+  photoUrl: string,
+  approvedUrl: string,
+): FirestorePhotoApprovalDoc['status'] {
+  if (entry.status === 'rejected') {
+    return 'rejected';
+  }
+  if (entry.status === 'pending') {
+    return 'pending';
+  }
+  if (entry.status === 'approved') {
+    return approvedUrl.trim() === photoUrl.trim() ? 'approved' : 'pending';
+  }
+  return resolveModerationStatus(photoUrl, approvedUrl);
 }
 
 async function runWithFirestoreRetry(task: () => Promise<void>, attempts = 3): Promise<void> {
@@ -233,11 +249,87 @@ async function listStoragePhotoApprovals(
   return records;
 }
 
+function resolveSlotModerationStatus(
+  profile: FirestoreProfileDoc,
+  slot: number,
+  approvalDoc?: FirestorePhotoApprovalDoc,
+): FirestorePhotoApprovalDoc['status'] {
+  const uploaded = resolveUploadedPhotoSlots(profile)[slot]?.trim() ?? '';
+  const approved = resolveStrictApprovedPhotoSlots(profile)[slot]?.trim() ?? '';
+
+  if (approvalDoc?.status === 'rejected') {
+    return 'rejected';
+  }
+  if (approvalDoc?.status === 'pending') {
+    return 'pending';
+  }
+  if (!uploaded || !isRemotePhotoUri(uploaded)) {
+    return 'rejected';
+  }
+  if (approvalDoc?.status === 'approved' && approved === uploaded) {
+    return 'approved';
+  }
+  if (approved === uploaded) {
+    const isAdminMember =
+      profile.registrationSource === 'admin' || profile.ownerKey?.startsWith('admin-');
+    if (!isAdminMember && approvalDoc?.status !== 'approved') {
+      return approvalDoc?.status === 'rejected' ? 'rejected' : 'pending';
+    }
+    return 'approved';
+  }
+  return 'pending';
+}
+
+/** Create or refresh pending photo approval docs for uploaded-but-unapproved profile slots. */
+export async function ensurePendingPhotoApprovalDocs(
+  phone: string,
+  profile: FirestoreProfileDoc,
+  memberName?: string,
+): Promise<void> {
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) {
+    return;
+  }
+
+  const uploadedSlots = resolveUploadedPhotoSlots(profile);
+  const approvedSlots = resolveStrictApprovedPhotoSlots(profile);
+  const name = memberName?.trim() || profileMemberName(profile, digits);
+
+  await Promise.all(
+    uploadedSlots.map(async (photoUrl, slot) => {
+      const uploaded = photoUrl.trim();
+      if (!isRemotePhotoUri(uploaded)) {
+        return;
+      }
+      if (approvedSlots[slot]?.trim() === uploaded) {
+        return;
+      }
+
+      await submitPhotoForApproval(digits, {
+        memberName: name,
+        photoUrl: uploaded,
+        slot,
+        autoApprove: false,
+      });
+    }),
+  );
+}
+
 function mergePhotoApprovalRecords(
   approvalDocs: FirestorePhotoApprovalDoc[],
   profiles: FirestoreProfileDoc[],
   storageRecords: AdminPhotoApprovalRecord[] = [],
 ): AdminPhotoApprovalRecord[] {
+  const approvalDocById = new Map<string, FirestorePhotoApprovalDoc>();
+  for (const entry of approvalDocs) {
+    const phone = entry.phone.replace(/\D/g, '');
+    if (!phone) {
+      continue;
+    }
+    const id = entry.photoApprovalId || photoApprovalDocId(phone, entry.slot);
+    approvalDocById.set(id, entry);
+  }
+
   const profileByPhone = new Map<string, FirestoreProfileDoc>();
   for (const profile of profiles) {
     const phone = resolveProfilePhone(profile);
@@ -264,15 +356,9 @@ function mergePhotoApprovalRecords(
     }
 
     const id = entry.photoApprovalId || photoApprovalDocId(phone, slot);
-    const profileStatus = resolveModerationStatus(photoUrl, approvedSlots[slot] ?? '');
-    const status: FirestorePhotoApprovalDoc['status'] =
-      entry.status === 'rejected'
-        ? 'rejected'
-        : profileStatus === 'pending'
-          ? 'pending'
-          : entry.status === 'approved' && profileStatus === 'approved'
-            ? 'approved'
-            : profileStatus;
+    const status = profile
+      ? resolveSlotModerationStatus(profile, slot, entry)
+      : resolveRecordStatus(entry, photoUrl, approvedSlots[slot]?.trim() ?? '');
 
     records.set(id, {
       record: {
@@ -300,12 +386,11 @@ function mergePhotoApprovalRecords(
 
     const memberName = profileMemberName(profile, phone);
     const uploadedSlots = resolveUploadedPhotoSlots(profile);
-    const approvedSlots = resolveStrictApprovedPhotoSlots(profile);
     const sortTime = profile.updatedAt ?? profile.createdAt ?? 0;
 
     for (let slot = 0; slot < MAX_PROFILE_PHOTOS; slot++) {
       const photoUrl = uploadedSlots[slot]?.trim() ?? '';
-      if (!photoUrl) {
+      if (!photoUrl || !isRemotePhotoUri(photoUrl)) {
         continue;
       }
 
@@ -314,7 +399,11 @@ function mergePhotoApprovalRecords(
         continue;
       }
 
-      const status = resolveModerationStatus(photoUrl, approvedSlots[slot] ?? '');
+      const status = resolveSlotModerationStatus(profile, slot, approvalDocById.get(id));
+      if (status === 'rejected') {
+        continue;
+      }
+
       records.set(id, {
         record: {
           id,
@@ -450,7 +539,13 @@ export async function submitPhotoForApproval(
       ...(profile?.biodata ?? {}),
       [CONTACT_PHONE_KEY]: digits,
       profilePhotoUrls: serializeRemotePhotoUrls(photoUrls),
-      [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(photoUrls),
+      [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(approvedPhotoUrls),
+      [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(
+        status === 'approved'
+          ? approvedPhotoUrls
+          : photoUrls.map((url) => (isRemotePhotoUri(url) ? url : '')),
+      ),
+      listingImage: approvedPhotoUrls.find(Boolean) || photoUrls.find(isRemotePhotoUri) || '',
     };
 
     await runWithFirestoreRetry(async () => {
@@ -459,6 +554,7 @@ export async function submitPhotoForApproval(
         throw new Error('Firestore unavailable');
       }
 
+      const approvedPrimary = approvedPhotoUrls.find(Boolean) || '';
       await setDoc(
         profileRef,
         {
@@ -467,10 +563,8 @@ export async function submitPhotoForApproval(
           photoUrls,
           approvedPhotoUrls,
           biodata,
-          primaryPhotoUrl: approvedPhotoUrls.find(Boolean) || profile?.primaryPhotoUrl || '',
-          ...(status === 'approved'
-            ? { 'listing.image': approvedPhotoUrls.find(Boolean) || '' }
-            : {}),
+          primaryPhotoUrl: approvedPrimary,
+          ...(status === 'approved' ? { 'listing.image': approvedPrimary } : {}),
           updatedAt: now,
           ...(profile ? {} : { createdAt: now, published: true, approvalStatus: 'pending', accountStatus: 'active' }),
         },
@@ -529,16 +623,43 @@ export async function listPhotoApprovals(
     return [];
   }
 
-  const [approvalDocs, profiles] = await Promise.all([
-    getDocsResilient<FirestorePhotoApprovalDoc>(db, FIRESTORE_COLLECTIONS.photoApprovals, {
-      orderByField: 'updatedAt',
-      preferServer: true,
+  const profiles = await getDocsResilient<FirestoreProfileDoc>(db, FIRESTORE_COLLECTIONS.profiles, {
+    orderByField: 'updatedAt',
+    preferServer: true,
+  }).then((entries) => entries.filter((profile) => profile.accountStatus !== 'deleted'));
+
+  await Promise.all(
+    profiles.map(async (profile) => {
+      const phone = resolveProfilePhone(profile);
+      if (!phone) {
+        return;
+      }
+      const isAdminMember =
+        profile.registrationSource === 'admin' || profile.ownerKey?.startsWith('admin-');
+      if (isAdminMember) {
+        return;
+      }
+      const uploaded = resolveUploadedPhotoSlots(profile);
+      const approved = resolveStrictApprovedPhotoSlots(profile);
+      const needsDoc = uploaded.some(
+        (url, slot) =>
+          isRemotePhotoUri(url) && approved[slot]?.trim() !== url.trim(),
+      );
+      if (!needsDoc) {
+        return;
+      }
+      await ensurePendingPhotoApprovalDocs(phone, profile).catch(() => undefined);
     }),
-    getDocsResilient<FirestoreProfileDoc>(db, FIRESTORE_COLLECTIONS.profiles, {
+  );
+
+  const approvalDocs = await getDocsResilient<FirestorePhotoApprovalDoc>(
+    db,
+    FIRESTORE_COLLECTIONS.photoApprovals,
+    {
       orderByField: 'updatedAt',
       preferServer: true,
-    }).then((entries) => entries.filter((profile) => profile.accountStatus !== 'deleted')),
-  ]);
+    },
+  );
 
   const storageRecords = await listStoragePhotoApprovals(profiles);
   const merged = mergePhotoApprovalRecords(approvalDocs, profiles, storageRecords);
@@ -615,7 +736,10 @@ export async function updatePhotoApprovalStatus(
     const profileSnap = await getDocResilient(profileRef);
     if (profileSnap?.exists()) {
       const profile = profileSnap.data() as FirestoreProfileDoc;
-      const approvedPhotoUrls = [...(profile.approvedPhotoUrls ?? profile.photoUrls ?? [])];
+      const approvedPhotoUrls = Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+        const existing = profile.approvedPhotoUrls?.[index]?.trim() ?? '';
+        return existing;
+      });
       if (status === 'approved') {
         approvedPhotoUrls[current.slot] = current.photoUrl;
       } else {
@@ -625,12 +749,22 @@ export async function updatePhotoApprovalStatus(
         await setDoc(profileRef, { photoUrls, updatedAt: now }, { merge: true });
       }
 
+      const approvedPrimary = approvedPhotoUrls.find(Boolean) || '';
+      const biodata = {
+        ...(profile.biodata ?? {}),
+        profilePhotoUrls: serializeRemotePhotoUrls(profile.photoUrls ?? []),
+        [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(approvedPhotoUrls),
+        [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(approvedPhotoUrls),
+        listingImage: approvedPrimary,
+      };
+
       await setDoc(
         profileRef,
         {
           approvedPhotoUrls,
-          primaryPhotoUrl: approvedPhotoUrls.find(Boolean) || profile.primaryPhotoUrl || '',
-          'listing.image': approvedPhotoUrls.find(Boolean) || '',
+          biodata,
+          primaryPhotoUrl: approvedPrimary,
+          'listing.image': approvedPrimary,
           updatedAt: now,
         },
         { merge: true },
@@ -639,9 +773,13 @@ export async function updatePhotoApprovalStatus(
   }
 }
 
-export async function countPendingPhotos(): Promise<number> {
+export async function countPendingPhotoApprovalsFast(): Promise<number> {
   const entries = await listPhotoApprovals('pending');
   return entries.length;
+}
+
+export async function countPendingPhotos(): Promise<number> {
+  return countPendingPhotoApprovalsFast();
 }
 
 export function isPhotoApprovedForProfile(

@@ -9,8 +9,6 @@ import {
   type FirestoreApprovalDoc,
   type FirestoreProfileDoc,
 } from '@/lib/firestore/collections';
-import { fetchSubscription } from '@/lib/firestore/subscriptionService';
-
 function formatRegisteredDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -83,7 +81,6 @@ export async function listAdminUsers(): Promise<AdminUserRecord[]> {
 
     const approval = approvalsByPhone.get(phone);
     const approvalStatus = resolveUserApprovalStatus(approval?.status, profile.approvalStatus);
-    const subscription = await fetchSubscription(phone).catch(() => null);
 
     usersByPhone.set(phone, {
       id: profile.profileId,
@@ -91,7 +88,7 @@ export async function listAdminUsers(): Promise<AdminUserRecord[]> {
       phone,
       status: mapApprovalToUserStatus(approvalStatus, profile.accountStatus),
       registeredAt: formatRegisteredDate(profile.createdAt),
-      paidBatches: subscription?.batchesPaid ?? profile.paidBatches ?? 0,
+      paidBatches: profile.paidBatches ?? 0,
       registrationSource: profile.registrationSource ?? (profile.ownerKey.startsWith('admin-') ? 'admin' : 'self'),
       sortTime: profile.createdAt,
     });

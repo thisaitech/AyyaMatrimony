@@ -251,8 +251,16 @@ export async function publishProfileFromValues(
         approvalStatus: remoteProfile.approvalStatus ?? biodataWithApproval.approvalStatus,
         profilePhotoUrls: (remoteProfile.photoUrls ?? []).join('|'),
         approvedProfilePhotoUrls: serializeRemotePhotoUrls(remoteProfile.approvedPhotoUrls ?? []),
-        [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(remoteProfile.photoUrls ?? []),
-        listingImage: resolvePortableListingPhotoUri(remoteProfile.approvedPhotoUrls ?? []),
+        [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(
+          resolvedOwnerKey.startsWith('admin-')
+            ? (remoteProfile.photoUrls ?? [])
+            : (remoteProfile.approvedPhotoUrls ?? []),
+        ),
+        listingImage: resolvePortableListingPhotoUri(
+          resolvedOwnerKey.startsWith('admin-')
+            ? (remoteProfile.photoUrls ?? [])
+            : (remoteProfile.approvedPhotoUrls ?? []),
+        ),
         _profileUpdatedAt: String(remoteProfile.updatedAt ?? Date.now()),
       }
     : {

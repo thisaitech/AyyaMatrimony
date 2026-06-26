@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -12,15 +11,17 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { CreateProfileBiodataForm } from '@/components/CreateProfileBiodataForm';
-import { BiodataExportPanel } from '@/components/BiodataExportPanel';
 import { adminColors } from '@/constants/admin';
 import { getOptionLabel } from '@/constants/formOptions';
+import { ProfilePhotoCarousel } from '@/components/ProfilePhotoCarousel';
 import { getProfileAvatarUri } from '@/constants/profileDisplay';
-import { getAdminProfilePhotoUri, parseProfilePhotos, PROFILE_PHOTOS_KEY, resolveDisplayPhotoUri } from '@/constants/profilePhotos';
-import { images } from '@/constants/images';
+import {
+  getAdminProfilePhotoUris,
+  parseProfilePhotos,
+  PROFILE_PHOTOS_DRAFT_KEY,
+  PROFILE_PHOTOS_KEY,
+} from '@/constants/profilePhotos';
 import { useLanguage } from '@/context/LanguageContext';
-import { useBiodataExportPhoto } from '@/hooks/useBiodataExportPhoto';
-import type { BiodataExportOptions } from '@/lib/biodataExport';
 import type { FirestoreProfileDoc } from '@/lib/firestore/collections';
 
 type AdminMatrimonyProfileViewProps = {
@@ -32,7 +33,6 @@ type AdminMatrimonyProfileViewProps = {
   onBrowseHiddenChange?: (hidden: boolean) => void;
   onBack: () => void;
   onEdit: () => void;
-  showExportPanel?: boolean;
 };
 
 export function AdminMatrimonyProfileView({
@@ -44,7 +44,6 @@ export function AdminMatrimonyProfileView({
   onBrowseHiddenChange,
   onBack,
   onEdit,
-  showExportPanel = true,
 }: AdminMatrimonyProfileViewProps) {
   const { language, translate } = useLanguage();
   const [hiddenFromBrowse, setHiddenFromBrowse] = useState(browseHidden);
@@ -52,48 +51,37 @@ export function AdminMatrimonyProfileView({
   useEffect(() => {
     setHiddenFromBrowse(browseHidden);
   }, [browseHidden]);
-  const exportOptionsRef = useRef<BiodataExportOptions>({ includePhoto: false, photoUri: '' });
-  const profilePhotoUri = useMemo(() => {
+  const profilePhotos = useMemo(() => {
+    const platform = Platform.OS === 'web' ? 'web' : 'native';
+    const fallbackSlots = parseProfilePhotos(
+      profileValues[PROFILE_PHOTOS_DRAFT_KEY] ?? profileValues[PROFILE_PHOTOS_KEY] ?? '',
+    );
+
     if (profileDoc) {
-      const fromDoc = getAdminProfilePhotoUri(
-        profileDoc,
-        Platform.OS === 'web' ? 'web' : 'native',
-      );
-      if (fromDoc) {
+      const fromDoc = getAdminProfilePhotoUris(profileDoc, platform, fallbackSlots);
+      if (fromDoc.length > 0) {
         return fromDoc;
       }
     }
 
-    const avatar = getProfileAvatarUri(profileValues);
-    if (avatar) {
-      return avatar;
-    }
-
-    return getAdminProfilePhotoUri(
+    const fromValues = getAdminProfilePhotoUris(
       {
         biodata: profileValues,
         listing: { image: profileValues.listingImage },
         primaryPhotoUrl: profileValues.profilePhotoUrls?.split('|').find(Boolean),
         photoUrls: profileValues.profilePhotoUrls?.split('|').filter(Boolean),
+        approvedPhotoUrls: profileValues.approvedProfilePhotoUrls?.split('|').filter(Boolean),
       },
-      Platform.OS === 'web' ? 'web' : 'native',
+      platform,
+      fallbackSlots,
     );
+    if (fromValues.length > 0) {
+      return fromValues;
+    }
+
+    const avatar = getProfileAvatarUri(profileValues);
+    return avatar ? [avatar] : [];
   }, [profileDoc, profileValues]);
-  const displayPhoto = resolveDisplayPhotoUri(
-    profilePhotoUri || profileValues.listingImage || '',
-    Platform.OS === 'web' ? 'web' : 'native',
-  );
-
-  const {
-    includePhoto,
-    setIncludePhoto,
-    exportPhotoUri,
-    exportOptions,
-    pickExportPhoto,
-  } = useBiodataExportPhoto({ profilePhotoUri });
-
-  exportOptionsRef.current = exportOptions;
-  const getExportOptions = useCallback(() => exportOptionsRef.current, []);
 
   const name = profileValues.fullName?.trim() || translate('adminMember');
   const rawCommunity =
@@ -125,10 +113,22 @@ export function AdminMatrimonyProfileView({
         <Text style={styles.headerTitle} numberOfLines={1}>
           {name}
         </Text>
-        <Pressable onPress={onEdit} hitSlop={8} style={styles.editBtn}>
-          <MaterialIcons name="edit" size={18} color="#fff" />
-          <Text style={styles.editBtnText}>{translate('adminEdit')}</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          {onBrowseHiddenChange ? (
+            <Switch
+              value={hiddenFromBrowse}
+              onValueChange={handleBrowseHiddenToggle}
+              trackColor={{ true: adminColors.primary, false: adminColors.border }}
+              thumbColor={Platform.OS === 'android' ? '#FFFFFF' : undefined}
+              accessibilityLabel={translate('adminBrowseHiddenLabel')}
+              style={styles.headerSwitch}
+            />
+          ) : null}
+          <Pressable onPress={onEdit} hitSlop={8} style={styles.editBtn}>
+            <MaterialIcons name="edit" size={18} color="#fff" />
+            <Text style={styles.editBtnText}>{translate('adminEdit')}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -137,60 +137,39 @@ export function AdminMatrimonyProfileView({
         nestedScrollEnabled
       >
         <View style={styles.photoSection}>
-          <View style={styles.imageWrap}>
-            {displayPhoto ? (
-              <Image source={{ uri: displayPhoto }} style={styles.image} resizeMode="cover" />
-            ) : (
-              <Image source={images.logo} style={styles.imagePlaceholder} resizeMode="contain" />
-            )}
-          </View>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{name}</Text>
-            <MaterialIcons name="verified" size={20} color={adminColors.success} />
-          </View>
-          <View style={styles.phoneRow}>
-            <MaterialIcons name="phone" size={16} color={adminColors.primary} />
-            <Text style={styles.phone}>+91 {phone}</Text>
-          </View>
-          <Text style={styles.meta}>
-            {communityLabel}
-            {genderLabel ? ` · ${genderLabel}` : ''}
-          </Text>
-        </View>
-
-        {onBrowseHiddenChange ? (
-          <View style={styles.visibilityCard}>
-            <View style={styles.visibilityRow}>
-              <Text style={styles.visibilityLabel}>{translate('adminBrowseHiddenLabel')}</Text>
-              <Switch
-                value={hiddenFromBrowse}
-                onValueChange={handleBrowseHiddenToggle}
-                trackColor={{ true: adminColors.primary, false: adminColors.border }}
-                thumbColor={Platform.OS === 'android' ? '#FFFFFF' : undefined}
-              />
-            </View>
-            <Text style={styles.visibilityHint}>
-              {hiddenFromBrowse
-                ? translate('adminBrowseHiddenOn')
-                : translate('adminBrowseHiddenOff')}
-              {' · '}
-              {translate('adminBrowseHiddenHint')}
-            </Text>
-          </View>
-        ) : null}
-
-        {showExportPanel ? (
-          <View style={styles.exportWrap}>
-            <BiodataExportPanel
-            variant="admin"
-            includePhoto={includePhoto}
-            onIncludePhotoChange={setIncludePhoto}
-            onPickPhoto={pickExportPhoto}
-            hasExportPhoto={Boolean(exportPhotoUri)}
-            hasProfilePhoto={Boolean(profilePhotoUri)}
+          <ProfilePhotoCarousel
+            photos={profilePhotos}
+            arrowColor="#fff"
+            counterColor="#fff"
+            imageWrapStyle={styles.imageWrap}
+            style={styles.carousel}
+            maxWidth={undefined}
+            aspectRatio={0.9}
+            overlay={
+              <>
+                <View style={styles.nameRow}>
+                  <Text style={styles.overlayName} numberOfLines={2}>
+                    {name}
+                  </Text>
+                  <View style={styles.verifiedBadge}>
+                    <MaterialIcons name="verified" size={15} color="#fff" />
+                  </View>
+                </View>
+                <View style={styles.phoneRow}>
+                  <View style={styles.phoneIconWrap}>
+                    <MaterialIcons name="phone" size={13} color="#fff" />
+                  </View>
+                  <Text style={styles.overlayPhone}>+91 {phone}</Text>
+                </View>
+                {communityLabel || genderLabel ? (
+                  <Text style={styles.overlayMeta}>
+                    {[communityLabel, genderLabel].filter(Boolean).join(' · ')}
+                  </Text>
+                ) : null}
+              </>
+            }
           />
-          </View>
-        ) : null}
+        </View>
 
         <View style={styles.formWrap}>
           <CreateProfileBiodataForm
@@ -198,8 +177,6 @@ export function AdminMatrimonyProfileView({
             editable={false}
             viewOnly
             profileValues={profileValues}
-            exportPhotoOptions={exportOptions}
-            getExportOptions={getExportOptions}
             onSave={() => undefined}
           />
         </View>
@@ -242,6 +219,16 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: adminColors.text,
+    minWidth: 0,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  headerSwitch: {
+    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
   },
   editBtn: {
     flexDirection: 'row',
@@ -262,88 +249,77 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   photoSection: {
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 8,
-    gap: 8,
+    paddingBottom: 16,
     backgroundColor: adminColors.surface,
     borderBottomWidth: 1,
     borderBottomColor: adminColors.border,
   },
-  imageWrap: {
+  carousel: {
     width: '100%',
-    maxWidth: 280,
-    aspectRatio: 0.82,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: adminColors.primaryLight,
-    borderWidth: 1,
-    borderColor: adminColors.border,
+    maxWidth: '100%',
+    alignSelf: 'stretch',
   },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.35,
-  },
+  imageWrap: {},
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  name: {
+  overlayName: {
+    flex: 1,
     fontSize: 22,
-    fontWeight: '700',
-    color: adminColors.primary,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.2,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  verifiedBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.success,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    marginTop: 2,
   },
-  phone: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: adminColors.text,
-  },
-  meta: {
-    fontSize: 14,
-    color: adminColors.textMuted,
-    textAlign: 'center',
-  },
-  visibilityCard: {
-    marginHorizontal: 16,
-    marginTop: 4,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: adminColors.surface,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    gap: 6,
-  },
-  visibilityRow: {
-    flexDirection: 'row',
+  phoneIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
-  visibilityLabel: {
-    flex: 1,
-    color: adminColors.text,
-    fontSize: 14,
+  overlayPhone: {
+    fontSize: 15,
     fontWeight: '600',
+    color: '#fff',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  visibilityHint: {
-    color: adminColors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  exportWrap: {
-    marginHorizontal: 16,
+  overlayMeta: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.92)',
+    marginTop: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   formWrap: {
     marginHorizontal: 16,

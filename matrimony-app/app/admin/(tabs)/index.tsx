@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -12,17 +13,43 @@ import { useAdminApprovals } from '@/context/AdminApprovalsContext';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useAdminNotifications } from '@/context/AdminNotificationsContext';
 import { useAdminPhotoApprovals } from '@/context/AdminPhotoApprovalsContext';
-import { useMemberDirectory } from '@/context/MemberDirectoryContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { adminStatusLabelKey } from '@/constants/adminLabels';
 import { listAdminUsers } from '@/lib/firestore/adminUserService';
-import { countVerifiedPayments, listPayments, sumVerifiedRevenue } from '@/lib/firestore/paymentService';
+import { getPaymentDashboardStats } from '@/lib/firestore/paymentService';
+
+const ADMIN_DASHBOARD_CACHE_KEY = 'ayya_admin_dashboard_v1';
+const DASHBOARD_REFRESH_STALE_MS = 30_000;
+
+type AdminDashboardCache = {
+  users: AdminUserRecord[];
+  pendingPayments: number;
+  verifiedPayments: number;
+  totalRevenue: number;
+  pendingPhotos: number;
+};
+
+async function readDashboardCache(): Promise<AdminDashboardCache | null> {
+  const raw = await AsyncStorage.getItem(ADMIN_DASHBOARD_CACHE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as AdminDashboardCache;
+  } catch {
+    return null;
+  }
+}
+
+async function writeDashboardCache(cache: AdminDashboardCache): Promise<void> {
+  await AsyncStorage.setItem(ADMIN_DASHBOARD_CACHE_KEY, JSON.stringify(cache));
+}
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const { signOut } = useAdminAuth();
   const { translate, translateFormat } = useLanguage();
-  const { published, refresh } = useMemberDirectory();
   const { items: approvals, refresh: refreshApprovals } = useAdminApprovals();
   const { items: photoApprovals, refresh: refreshPhotoApprovals } = useAdminPhotoApprovals();
   const { unreadCount } = useAdminNotifications();
@@ -30,37 +57,80 @@ export default function AdminDashboardScreen() {
   const [pendingPayments, setPendingPayments] = useState(0);
   const [verifiedPayments, setVerifiedPayments] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
-
-  const pendingPhotos = useMemo(
+  const [pendingPhotos, setPendingPhotos] = useState(0);
+  const photoPendingCount = useMemo(
     () => photoApprovals.filter((item) => item.status === 'pending').length,
     [photoApprovals],
   );
+  const lastRefreshAtRef = useRef(0);
+  const cacheHydratedRef = useRef(false);
+
+  useEffect(() => {
+    if (cacheHydratedRef.current) {
+      return;
+    }
+    cacheHydratedRef.current = true;
+
+    void (async () => {
+      const cached = await readDashboardCache();
+      if (!cached) {
+        return;
+      }
+
+      setUsers(cached.users);
+      setPendingPayments(cached.pendingPayments);
+      setVerifiedPayments(cached.verifiedPayments);
+      setTotalRevenue(cached.totalRevenue);
+      setPendingPhotos(cached.pendingPhotos);
+    })();
+  }, []);
 
   const refreshUsers = useCallback(async () => {
-    const [entries, pendingPay, verifiedCount, revenue] = await Promise.all([
+    const [entries, paymentStats] = await Promise.all([
       listAdminUsers(),
-      listPayments('pending'),
-      countVerifiedPayments(),
-      sumVerifiedRevenue(),
+      getPaymentDashboardStats(),
     ]);
+
     setUsers(entries);
-    setPendingPayments(pendingPay.length);
-    setVerifiedPayments(verifiedCount);
-    setTotalRevenue(revenue);
-  }, []);
+    setPendingPayments(paymentStats.pendingCount);
+    setVerifiedPayments(paymentStats.verifiedCount);
+    setTotalRevenue(paymentStats.totalRevenue);
+
+    void writeDashboardCache({
+      users: entries,
+      pendingPayments: paymentStats.pendingCount,
+      verifiedPayments: paymentStats.verifiedCount,
+      totalRevenue: paymentStats.totalRevenue,
+      pendingPhotos: photoPendingCount,
+    });
+  }, [photoPendingCount]);
+
+  useEffect(() => {
+    setPendingPhotos(photoPendingCount);
+  }, [photoPendingCount]);
+
+  const refreshDashboard = useCallback(
+    async (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastRefreshAtRef.current < DASHBOARD_REFRESH_STALE_MS) {
+        return;
+      }
+      lastRefreshAtRef.current = now;
+
+      await Promise.all([refreshApprovals(), refreshPhotoApprovals(), refreshUsers()]);
+    },
+    [refreshApprovals, refreshPhotoApprovals, refreshUsers],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      void refresh();
-      void refreshApprovals();
-      void refreshPhotoApprovals();
-      void refreshUsers();
-    }, [refresh, refreshApprovals, refreshPhotoApprovals, refreshUsers]),
+      void refreshDashboard();
+    }, [refreshDashboard]),
   );
 
   const stats = useMemo(
     () =>
-      computeAdminDashboardStats(users, published, approvals, {
+      computeAdminDashboardStats(users, approvals, {
         unreadCount,
         pendingPayments,
         pendingPhotos,
@@ -68,7 +138,7 @@ export default function AdminDashboardScreen() {
         totalRevenue,
         paidMembers: users.filter((user) => (user.paidBatches ?? 0) > 0).length,
       }),
-    [approvals, pendingPayments, pendingPhotos, published, totalRevenue, unreadCount, users, verifiedPayments],
+    [approvals, pendingPayments, pendingPhotos, totalRevenue, unreadCount, users, verifiedPayments],
   );
 
   const handleSignOut = useCallback(() => {

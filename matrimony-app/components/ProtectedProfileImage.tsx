@@ -31,6 +31,7 @@ export function ProtectedProfileImage({
         <Image
           source={{ uri: displayUri }}
           style={[styles.image, imageStyle, isLocked && styles.imageLocked]}
+          resizeMode="cover"
           blurRadius={isLocked ? 18 : 0}
         />
       ) : (

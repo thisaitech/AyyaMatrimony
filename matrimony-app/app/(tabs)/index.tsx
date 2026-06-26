@@ -1,13 +1,23 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -23,6 +33,8 @@ import { useMemberDirectory } from '@/context/MemberDirectoryContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useUserApproval } from '@/context/UserApprovalContext';
 import { useMatchActions } from '@/context/MatchActionsContext';
+import { getMemberBiodataValues, type PublishedMember } from '@/constants/memberDirectory';
+import { getOptionLabel } from '@/constants/formOptions';
 import { useOpenMemberProfile, useRequirePaidContact } from '@/hooks/useOpenMemberProfile';
 import {
   getProfileAvatarSource,
@@ -38,14 +50,15 @@ export default function HomeScreen() {
   const router = useRouter();
   const { translate, translateFormat, toggleLanguage, language } = useLanguage();
   const { values, refreshFromFirestore } = useProfileForm();
-  const { refresh: refreshDirectory } = useMemberDirectory();
-  const { isPaidMember, isPrimeViewActive, membershipViewMode, setMembershipViewMode, profilesAllowed } =
+  const { refresh: refreshDirectory, published } = useMemberDirectory();
+  const { isPaidMember, isPrimeViewActive, membershipViewMode, setMembershipViewMode, profilesAllowed, skipProfile } =
     useSubscription();
   const { canSeeMemberProfiles, canViewFullProfile } = useMemberAccess();
   const { refresh: refreshApproval } = useUserApproval();
   const recommendedMatches = useBrowsableMembers();
   const profileName = getProfileFirstName(values.fullName ?? '') || translate('profile');
-  const avatarSource = getProfileAvatarSource(values);
+  const avatarSource = getProfileAvatarSource(values, { includePendingUploads: true });
+  const recommendCardWidth = useWindowDimensions().width - spacing.containerMargin * 2;
   const homeMatches = useMemo(() => {
     if (!isPaidMember) {
       return recommendedMatches;
@@ -176,19 +189,13 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          >
-            {homeMatches.map((match) => (
-              <HomeRecommendationCard
-                key={match.id}
-                match={match}
-                locked={!canViewFullProfile(match.id)}
-              />
-            ))}
-          </ScrollView>
+          <HomeRecommendationDeck
+            matches={homeMatches}
+            cardWidth={recommendCardWidth}
+            published={published}
+            canViewFullProfile={canViewFullProfile}
+            onSkip={skipProfile}
+          />
 
           <View style={styles.matchesSubsectionDivider} />
 
@@ -265,39 +272,234 @@ function HomeAllMatchPreviewCard({ match, locked }: { match: HomeMatch; locked: 
   );
 }
 
-function HomeRecommendationCard({ match, locked }: { match: HomeMatch; locked: boolean }) {
+function getRecommendationMatchPercent(matchId: string): number {
+  let hash = 0;
+  for (let index = 0; index < matchId.length; index += 1) {
+    hash = (hash + matchId.charCodeAt(index) * (index + 3)) % 97;
+  }
+  return 85 + (hash % 13);
+}
+
+const RECOMMEND_CARD_HEIGHT = 430;
+const STACK_PEEK_OFFSET = 14;
+const STACK_SCALE_STEP = 0.045;
+
+function SwipeableRecommendationCard({
+  cardWidth,
+  onSwipeLeft,
+  onSwipeRight,
+  canSwipeRight,
+  children,
+}: {
+  cardWidth: number;
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+  canSwipeRight: () => boolean;
+  children: React.ReactNode;
+}) {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const threshold = cardWidth * 0.22;
+  const exitDistance = cardWidth * 1.25;
+
+  const resetPosition = () => {
+    translateX.value = withSpring(0, { damping: 18, stiffness: 220 });
+    translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
+  };
+
+  const dismissCard = (direction: 'left' | 'right') => {
+    const targetX = direction === 'left' ? -exitDistance : exitDistance;
+    translateX.value = withTiming(targetX, { duration: 220 }, (finished) => {
+      if (!finished) {
+        return;
+      }
+
+      if (direction === 'left') {
+        runOnJS(onSwipeLeft)();
+      } else {
+        runOnJS(onSwipeRight)();
+      }
+    });
+  };
+
+  const handleRelease = (translationX: number, velocityX: number) => {
+    const swipeLeft = translationX < -threshold || velocityX < -650;
+    const swipeRight = translationX > threshold || velocityX > 650;
+
+    if (swipeLeft) {
+      dismissCard('left');
+      return;
+    }
+
+    if (swipeRight) {
+      if (!canSwipeRight()) {
+        resetPosition();
+        return;
+      }
+      dismissCard('right');
+      return;
+    }
+
+    resetPosition();
+  };
+
+  const pan = Gesture.Pan()
+    .activeOffsetX([-16, 16])
+    .failOffsetY([-14, 14])
+    .onUpdate((event) => {
+      translateX.value = event.translationX;
+      translateY.value = event.translationY * 0.12;
+    })
+    .onEnd((event) => {
+      runOnJS(handleRelease)(event.translationX, event.velocityX);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { rotate: `${(translateX.value / cardWidth) * 12}deg` },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={pan}>
+      <Animated.View style={animatedStyle}>{children}</Animated.View>
+    </GestureDetector>
+  );
+}
+
+function HomeRecommendationDeck({
+  matches,
+  cardWidth,
+  published,
+  canViewFullProfile,
+  onSkip,
+}: {
+  matches: HomeMatch[];
+  cardWidth: number;
+  published: PublishedMember[];
+  canViewFullProfile: (profileId: string) => boolean;
+  onSkip: (profileId: string) => Promise<void>;
+}) {
+  const { translate } = useLanguage();
+  const [deckDismissedIds, setDeckDismissedIds] = useState<string[]>([]);
+  const deckMatches = useMemo(
+    () => matches.filter((match) => !deckDismissedIds.includes(match.id)).slice(0, 3),
+    [deckDismissedIds, matches],
+  );
+  const dismissFromDeck = useCallback((profileId: string) => {
+    setDeckDismissedIds((current) =>
+      current.includes(profileId) ? current : [...current, profileId],
+    );
+  }, []);
+  const maxDepth = Math.max(0, deckMatches.length - 1);
+  const deckHeight = RECOMMEND_CARD_HEIGHT + maxDepth * STACK_PEEK_OFFSET;
+
+  if (deckMatches.length === 0) {
+    return (
+      <View style={[styles.recommendDeck, { height: RECOMMEND_CARD_HEIGHT + STACK_PEEK_OFFSET }]}>
+        <Text style={styles.recommendDeckEmpty}>{translate('noMoreRecommendations')}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.recommendDeck,
+        { height: deckHeight, paddingTop: maxDepth * STACK_PEEK_OFFSET },
+      ]}
+    >
+      {deckMatches.map((match, index) => {
+        const depth = deckMatches.length - 1 - index;
+        const isTop = depth === 0;
+
+        return (
+          <View
+            key={match.id}
+            pointerEvents={isTop ? 'auto' : 'none'}
+            style={[
+              styles.recommendDeckLayer,
+              {
+                width: cardWidth,
+                top: -depth * STACK_PEEK_OFFSET,
+                zIndex: 10 - depth,
+                transform: [{ scale: 1 - depth * STACK_SCALE_STEP }],
+              },
+            ]}
+          >
+            <HomeRecommendationCard
+              match={match}
+              locked={!canViewFullProfile(match.id)}
+              cardWidth={cardWidth}
+              published={published}
+              onSkip={onSkip}
+              showActions={isTop}
+              onDismissFromDeck={() => dismissFromDeck(match.id)}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function HomeRecommendationCard({
+  match,
+  locked,
+  cardWidth,
+  published,
+  onSkip,
+  showActions = true,
+  onDismissFromDeck,
+}: {
+  match: HomeMatch;
+  locked: boolean;
+  cardWidth: number;
+  published: PublishedMember[];
+  onSkip: (profileId: string) => Promise<void>;
+  showActions?: boolean;
+  onDismissFromDeck?: () => void;
+}) {
   const router = useRouter();
   const openProfile = useOpenMemberProfile();
   const requirePaidContact = useRequirePaidContact();
   const { translate, translateFormat, language } = useLanguage();
-  const { isShortlisted, hasSentInterest, toggleShortlist, sendInterest } = useMatchActions();
+  const { hasSentInterest, sendInterest } = useMatchActions();
 
-  const shortlisted = isShortlisted(match.id);
   const interestSent = hasSentInterest(match.id);
+  const biodata = getMemberBiodataValues(match.id, published) ?? {};
+  const education = biodata.education?.trim();
+  const occupation = biodata.occupationDesignation?.trim() || biodata.occupation?.trim();
+  const religion =
+    biodata.registrationCommunity?.trim() || biodata.religion?.trim() || match.community;
+  const maritalStatus = biodata.maritalStatus?.trim();
+  const maritalLabel = maritalStatus
+    ? getOptionLabel('maritalStatusBiodata', maritalStatus, language, translate('neverMarried'))
+    : translate('neverMarried');
+  const workLine = [education, occupation].filter(Boolean).join(', ');
+  const matchPercent = getRecommendationMatchPercent(match.id);
 
-  const handleShortlist = () => {
+  const handleSkip = () => {
+    onDismissFromDeck?.();
+    void onSkip(match.id);
+  };
+
+  const handleInterest = (fromSwipe = false) => {
     if (!requirePaidContact()) {
       return;
     }
 
-    void toggleShortlist(match.id).then((result) => {
-      Alert.alert(
-        translate('shortlist'),
-        result === 'added'
-          ? translateFormat('shortlistAddedFormat', { name: match.name })
-          : translateFormat('shortlistRemovedFormat', { name: match.name }),
-      );
-    });
-  };
-
-  const handleInterest = () => {
-    if (!requirePaidContact()) {
-      return;
+    if (fromSwipe) {
+      onDismissFromDeck?.();
     }
 
     if (interestSent) {
-      Alert.alert(translate('interest'), translateFormat('interestAlreadySentFormat', { name: match.name }));
-      router.push({ pathname: '/(tabs)/interests', params: { direction: 'sent' } });
+      if (!fromSwipe) {
+        Alert.alert(translate('interest'), translateFormat('interestAlreadySentFormat', { name: match.name }));
+        router.push({ pathname: '/(tabs)/interests', params: { direction: 'sent' } });
+      }
       return;
     }
 
@@ -309,6 +511,16 @@ function HomeRecommendationCard({ match, locked }: { match: HomeMatch; locked: b
       community: match.community,
       location: match.location,
     }).then((result) => {
+      if (fromSwipe) {
+        Alert.alert(
+          translate('interest'),
+          result === 'sent'
+            ? translateFormat('interestSentFormat', { name: match.name })
+            : translateFormat('interestAlreadySentFormat', { name: match.name }),
+        );
+        return;
+      }
+
       Alert.alert(
         translate('interest'),
         result === 'sent'
@@ -319,57 +531,126 @@ function HomeRecommendationCard({ match, locked }: { match: HomeMatch; locked: b
     });
   };
 
-  return (
-    <View style={styles.recommendCard}>
-      <Pressable
-        style={styles.recommendCardPressable}
-        onPress={() => openProfile(match.id)}
-      >
+  const canSwipeRight = useCallback(() => requirePaidContact(), [requirePaidContact]);
+
+  const cardBody = (
+    <View style={[styles.recommendCard, { width: cardWidth }]}>
+      <Pressable style={styles.recommendCardPressable} onPress={() => openProfile(match.id)}>
         <ProtectedProfileImage
           imageUri={match.image}
           locked={locked}
           style={styles.recommendImage}
           imageStyle={styles.recommendImage}
         />
-        {match.verified ? (
-          <View style={styles.crownBadge}>
-            <MaterialIcons name="workspace-premium" size={14} color="#fff" />
-          </View>
-        ) : null}
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.recommendGradient} />
-        <View style={styles.recommendFooter}>
-          <Text style={styles.recommendName} numberOfLines={1}>
-            {match.name}
+
+        <View style={styles.matchScoreBadge}>
+          <Text style={styles.matchScoreText}>
+            {translateFormat('matchScoreFormat', { percent: matchPercent })}
           </Text>
+        </View>
+
+        <Pressable
+          style={styles.recommendInfoBtn}
+          onPress={(event) => {
+            event.stopPropagation();
+            openProfile(match.id);
+          }}
+          hitSlop={8}
+        >
+          <MaterialIcons name="info-outline" size={18} color={colors.onSurface} />
+        </Pressable>
+
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.82)']} style={styles.recommendGradient} />
+
+        <View style={styles.recommendFooter}>
+          <View style={styles.recommendNameRow}>
+            <Text style={styles.recommendName} numberOfLines={1}>
+              {match.name}
+            </Text>
+            <View style={styles.onlineDot} />
+          </View>
+
           <Text style={styles.recommendMeta} numberOfLines={1}>
             {locked ? translate('detailsLocked') : match.age}
           </Text>
+          {!locked && workLine ? (
+            <Text style={styles.recommendMeta} numberOfLines={1}>
+              {workLine}
+            </Text>
+          ) : null}
+          {!locked ? (
+            <Text style={styles.recommendMeta} numberOfLines={1}>
+              {match.location}
+            </Text>
+          ) : null}
+
+          <View style={styles.recommendTags}>
+            {!locked ? (
+              <>
+                <View style={styles.recommendTag}>
+                  <MaterialIcons name="school" size={12} color="#fff" />
+                  <Text style={styles.recommendTagText} numberOfLines={1}>
+                    {religion}
+                  </Text>
+                </View>
+                <View style={styles.recommendTag}>
+                  <MaterialIcons name="work-outline" size={12} color="#fff" />
+                  <Text style={styles.recommendTagText} numberOfLines={1}>
+                    {maritalLabel}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+          </View>
         </View>
       </Pressable>
-      <View style={styles.recommendActions}>
-        <Pressable style={styles.recommendOutlineBtn} onPress={handleShortlist}>
-          <MaterialIcons
-            name={shortlisted ? 'star' : 'star-outline'}
-            size={14}
-            color={colors.primary}
-          />
-        </Pressable>
-        <Pressable style={styles.recommendPrimaryBtn} onPress={handleInterest}>
-          <MaterialIcons name="favorite" size={14} color={colors.onPrimary} />
-          <Text
-            style={[
-              styles.recommendPrimaryText,
-              language === 'ta' && styles.recommendPrimaryTextTamil,
-            ]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
+
+      {showActions ? (
+        <View style={styles.recommendActionRow}>
+          <Pressable
+            style={styles.recommendActionSkipBtn}
+            onPress={handleSkip}
+            accessibilityRole="button"
+            accessibilityLabel={translate('skip')}
           >
-            {interestSent ? translate('interestSentBtn') : translate('interest')}
-          </Text>
-        </Pressable>
-      </View>
+            <Text style={styles.recommendActionSkipText}>{translate('skip')}</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.recommendActionInterestBtn,
+              interestSent && styles.recommendActionInterestBtnSent,
+            ]}
+            onPress={() => handleInterest()}
+            accessibilityRole="button"
+            accessibilityLabel={translate('interest')}
+          >
+            <Text
+              style={[
+                styles.recommendActionInterestText,
+                interestSent && styles.recommendActionInterestTextSent,
+              ]}
+            >
+              {interestSent ? translate('interestSentBtn') : translate('interest')}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
+  );
+
+  if (!showActions) {
+    return cardBody;
+  }
+
+  return (
+    <SwipeableRecommendationCard
+      cardWidth={cardWidth}
+      onSwipeLeft={handleSkip}
+      onSwipeRight={() => handleInterest(true)}
+      canSwipeRight={canSwipeRight}
+    >
+      {cardBody}
+    </SwipeableRecommendationCard>
   );
 }
 
@@ -557,8 +838,25 @@ const styles = StyleSheet.create({
   },
   horizontalList: {
     paddingHorizontal: spacing.containerMargin,
-    gap: spacing.sm,
+    gap: spacing.md,
     alignItems: 'flex-start',
+  },
+  recommendDeck: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: spacing.containerMargin,
+    marginBottom: spacing.xs,
+  },
+  recommendDeckLayer: {
+    position: 'absolute',
+    top: 0,
+    alignSelf: 'center',
+  },
+  recommendDeckEmpty: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    marginTop: spacing.xl,
   },
   dailyHeaderText: {
     flex: 1,
@@ -577,15 +875,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.interSemi,
   },
   recommendCard: {
-    width: 148,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ECEFF1',
   },
   recommendCardPressable: {
-    height: 176,
+    height: RECOMMEND_CARD_HEIGHT,
     overflow: 'hidden',
   },
   recommendImage: {
@@ -595,14 +892,29 @@ const styles = StyleSheet.create({
   recommendGradient: {
     ...StyleSheet.absoluteFillObject,
   },
-  crownBadge: {
+  matchScoreBadge: {
     position: 'absolute',
-    top: spacing.xs,
-    right: spacing.xs,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(115, 92, 0, 0.92)',
+    top: spacing.md,
+    left: spacing.md,
+    backgroundColor: '#F8BBD0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+  },
+  matchScoreText: {
+    ...typography.labelSm,
+    color: colors.primary,
+    fontFamily: fonts.interSemi,
+    fontSize: 12,
+  },
+  recommendInfoBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -610,57 +922,101 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    padding: spacing.sm,
+    bottom: 72,
+    paddingHorizontal: spacing.md,
+    gap: 4,
   },
-  recommendName: {
-    ...typography.labelLg,
-    color: '#fff',
-    fontFamily: fonts.interSemi,
-  },
-  recommendMeta: {
-    ...typography.labelSm,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: 2,
-  },
-  recommendActions: {
+  recommendNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    padding: spacing.xs,
   },
-  recommendOutlineBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(226, 191, 185, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  recommendName: {
+    ...typography.titleLg,
+    color: '#fff',
+    fontFamily: fonts.interSemi,
+    flexShrink: 1,
   },
-  recommendPrimaryBtn: {
-    flex: 1,
-    minWidth: 0,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.primary,
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+  },
+  recommendMeta: {
+    ...typography.bodyMd,
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  recommendTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 4,
+  },
+  recommendTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
+    gap: 4,
+    maxWidth: '48%',
   },
-  recommendPrimaryText: {
+  recommendTagText: {
     ...typography.labelSm,
-    color: colors.onPrimary,
+    color: '#fff',
     fontSize: 11,
     flexShrink: 1,
-    minWidth: 0,
-    textAlign: 'center',
   },
-  recommendPrimaryTextTamil: {
-    fontSize: 8,
-    lineHeight: 11,
+  recommendActionRow: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  recommendActionSkipBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(226, 191, 185, 0.5)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  recommendActionSkipText: {
+    ...typography.labelLg,
+    color: colors.primary,
+    fontFamily: fonts.interSemi,
+    fontSize: 14,
+  },
+  recommendActionInterestBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  recommendActionInterestBtnSent: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  recommendActionInterestText: {
+    ...typography.labelLg,
+    color: '#fff',
+    fontFamily: fonts.interSemi,
+    fontSize: 14,
+  },
+  recommendActionInterestTextSent: {
+    color: colors.primary,
   },
   homePromoHeaderRow: {
     flexDirection: 'row',

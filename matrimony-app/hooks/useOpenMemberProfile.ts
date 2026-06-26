@@ -55,7 +55,7 @@ export function useOpenMemberProfile() {
 
 export function useRequirePaidContact() {
   const router = useRouter();
-  const { isPaidMember, isReady, pendingPayment } = useSubscription();
+  const { isPaidMember, isReady, pendingPayment, needsPaymentAccess } = useSubscription();
   const { isProfileApproved, hasVerifiedPayment } = useMemberAccess();
 
   return useCallback(() => {
@@ -68,13 +68,65 @@ export function useRequirePaidContact() {
     }
 
     if (!hasVerifiedPayment || pendingPayment || !isPaidMember) {
-      router.push({
-        pathname: '/payment-access',
-        params: { reason: 'initial' },
-      });
+      if (needsPaymentAccess) {
+        router.push({
+          pathname: '/payment-access',
+          params: { reason: 'initial' },
+        });
+      } else {
+        router.push('/upgrade');
+      }
       return false;
     }
 
     return true;
-  }, [hasVerifiedPayment, isPaidMember, isProfileApproved, isReady, pendingPayment, router]);
+  }, [hasVerifiedPayment, isPaidMember, isProfileApproved, isReady, needsPaymentAccess, pendingPayment, router]);
+}
+
+export function useOpenChat() {
+  const router = useRouter();
+  const { isPaidMember, isReady, pendingPayment, needsPaymentAccess } = useSubscription();
+  const { isProfileApproved, hasVerifiedPayment } = useMemberAccess();
+
+  return useCallback(
+    (memberId: string, memberName: string, memberImage: string) => {
+      if (!isReady || !memberId.trim()) {
+        return;
+      }
+
+      if (!isProfileApproved) {
+        return;
+      }
+
+      if (!hasVerifiedPayment || pendingPayment || !isPaidMember) {
+        if (needsPaymentAccess) {
+          router.push({
+            pathname: '/payment-access',
+            params: { reason: 'initial' },
+          });
+        } else {
+          router.push('/upgrade');
+        }
+        return;
+      }
+
+      router.push({
+        pathname: '/conversation/[id]',
+        params: {
+          id: memberId,
+          name: memberName,
+          image: memberImage,
+        },
+      });
+    },
+    [
+      hasVerifiedPayment,
+      isPaidMember,
+      isProfileApproved,
+      isReady,
+      needsPaymentAccess,
+      pendingPayment,
+      router,
+    ],
+  );
 }

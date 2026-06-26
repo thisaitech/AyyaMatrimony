@@ -4,6 +4,7 @@ import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 import {
   isLocalPhotoUri,
   mergeDraftProfilePhotos,
+  mergeHydratedProfilePhotoFields,
   parseProfilePhotos,
   PROFILE_PHOTOS_DRAFT_KEY,
   PROFILE_PHOTOS_KEY,
@@ -59,12 +60,15 @@ export function ProfileFormProvider({ children }: { children: ReactNode }) {
       if (phone) {
         const remoteProfile = await hydrateLocalProfileFromFirestore(phone).catch(() => null);
         if (remoteProfile) {
-          nextValues = {
+          nextValues = mergeHydratedProfilePhotoFields(nextValues, {
             ...nextValues,
             ...remoteProfile,
             [CONTACT_PHONE_KEY]: phone,
             whatsappNumber: remoteProfile.whatsappNumber || nextValues.whatsappNumber || phone,
-          };
+          });
+          nextValues[CONTACT_PHONE_KEY] = phone;
+          nextValues.whatsappNumber =
+            remoteProfile.whatsappNumber || nextValues.whatsappNumber || phone;
           await AsyncStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(nextValues));
         }
       }
@@ -127,12 +131,11 @@ export function ProfileFormProvider({ children }: { children: ReactNode }) {
     }
 
     setValues((current) => {
-      const next = {
-        ...current,
+      const next = mergeHydratedProfilePhotoFields(current, {
         ...remoteProfile,
         [CONTACT_PHONE_KEY]: phone,
         whatsappNumber: remoteProfile.whatsappNumber || current.whatsappNumber || phone,
-      };
+      });
       void persistValues(next).catch(() => undefined);
       return next;
     });

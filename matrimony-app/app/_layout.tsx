@@ -74,7 +74,7 @@ export default function RootLayout() {
           <Stack.Screen name="change-password" />
           <Stack.Screen name="info" />
           <Stack.Screen name="member/[id]" />
-          <Stack.Screen name="conversation/[id]" />
+          <Stack.Screen name="conversation/[id]" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="payment-access" />
           <Stack.Screen name="upgrade" />
           <Stack.Screen name="notifications" />

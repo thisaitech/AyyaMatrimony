@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MatchCard } from '@/components/MatchCard';
 import { ApprovalStatusBanner } from '@/components/ApprovalStatusBanner';
 import { PendingPaymentBanner } from '@/components/PendingPaymentBanner';
 import { getMemberBiodataValues, type PublishedMember } from '@/constants/memberDirectory';
+import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 import { resolveUserGender } from '@/constants/matchFilters';
 import { useLanguage } from '@/context/LanguageContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
@@ -15,11 +16,6 @@ import { useBrowsableMembers } from '@/hooks/useBrowsableMembers';
 import { useMemberAccess } from '@/hooks/useMemberAccess';
 import { useMemberDirectory } from '@/context/MemberDirectoryContext';
 import { borderRadius, colors, spacing, typography } from '@/constants/theme';
-
-function getMatchOccupation(id: string, published: PublishedMember[]): string {
-  const biodata = getMemberBiodataValues(id, published);
-  return biodata?.occupationDesignation?.trim() || biodata?.occupation?.trim() || '—';
-}
 
 function formatMatchCommunity(
   community: string,
@@ -33,6 +29,26 @@ function formatMatchCommunity(
     return `${caste} - ${subCaste}`;
   }
   return community.replace(',', ' -').trim();
+}
+
+function getMatchPhone(id: string, published: PublishedMember[]): string {
+  const biodata = getMemberBiodataValues(id, published);
+  const phone = biodata?.[CONTACT_PHONE_KEY] || biodata?.phoneNumber || '';
+  const digits = phone.replace(/\D/g, '');
+  return digits || phone.trim();
+}
+
+function formatMatchMetaLine(
+  match: { id: string; age: string; community: string },
+  published: PublishedMember[],
+): string {
+  const biodata = getMemberBiodataValues(match.id, published);
+  const label =
+    biodata?.registrationCommunity?.trim() ||
+    biodata?.religion?.trim() ||
+    formatMatchCommunity(match.community, match.id, published);
+  const age = match.age?.trim() || '—';
+  return `${label} - ${age}`;
 }
 
 export default function MatchesScreen() {
@@ -107,7 +123,8 @@ export default function MatchesScreen() {
                 community={formatMatchCommunity(match.community, match.id, published)}
                 location={match.location}
                 image={match.image}
-                occupation={getMatchOccupation(match.id, published)}
+                phoneNumber={getMatchPhone(match.id, published) || match.phoneNumber}
+                metaLine={formatMatchMetaLine(match, published)}
                 verified={match.verified ?? true}
               />
             ))
@@ -124,7 +141,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scroll: {
-    paddingBottom: spacing.xl,
+    paddingBottom: Platform.OS === 'web' ? spacing.xl : spacing.xl + 88,
+    flexGrow: 1,
   },
   heroSection: {
     paddingHorizontal: spacing.containerMargin,
@@ -146,6 +164,8 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.containerMargin,
     paddingTop: spacing.md,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   emptyState: {
     paddingVertical: spacing.xl,

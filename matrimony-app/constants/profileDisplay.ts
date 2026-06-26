@@ -3,9 +3,14 @@ import { getOptionLabel } from '@/constants/formOptions';
 import { Language } from '@/constants/i18n';
 import { images } from '@/constants/images';
 import {
-  parseApprovedProfilePhotoUrls,
-  PROFILE_PHOTOS_KEY,
   firstDisplayablePhotoUri,
+  mergeEditableProfilePhotos,
+  parseApprovedProfilePhotoUrls,
+  parseProfilePhotos,
+  parseRemotePhotoUrls,
+  PROFILE_PHOTOS_DRAFT_KEY,
+  PROFILE_PHOTOS_KEY,
+  resolveDisplayPhotoUri,
 } from '@/constants/profilePhotos';
 
 const displayPlatform = Platform.OS === 'web' ? 'web' : 'native';
@@ -19,13 +24,78 @@ export function getProfileFirstName(fullName: string): string {
   return trimmed.split(/\s+/)[0] ?? trimmed;
 }
 
-export function getProfileAvatarUri(values: Record<string, string>): string {
+export function getProfileAvatarUri(
+  values: Record<string, string>,
+  options: { includePendingUploads?: boolean } = {},
+): string {
   const approvedPhotos = parseApprovedProfilePhotoUrls(values.approvedProfilePhotoUrls);
-  return firstDisplayablePhotoUri(approvedPhotos, displayPlatform);
+  const approvedUri = firstDisplayablePhotoUri(approvedPhotos, displayPlatform);
+  if (approvedUri) {
+    return approvedUri;
+  }
+
+  if (!options.includePendingUploads) {
+    const listingImage = resolveDisplayPhotoUri(values.listingImage ?? '', displayPlatform);
+    return listingImage;
+  }
+
+  const uploadedPhotos = parseRemotePhotoUrls(values.profilePhotoUrls);
+  for (let index = 0; index < uploadedPhotos.length; index += 1) {
+    const uploaded = uploadedPhotos[index]?.trim() ?? '';
+    const approved = approvedPhotos[index]?.trim() ?? '';
+    if (uploaded && uploaded !== approved) {
+      const resolved = resolveDisplayPhotoUri(uploaded, displayPlatform);
+      if (resolved) {
+        return resolved;
+      }
+    }
+  }
+
+  const editablePhotos = mergeEditableProfilePhotos(
+    values[PROFILE_PHOTOS_DRAFT_KEY] ?? '',
+    values[PROFILE_PHOTOS_KEY] ?? '',
+    values.profilePhotoUrls ?? '',
+  );
+  const draftUri = firstDisplayablePhotoUri(editablePhotos, displayPlatform);
+  if (draftUri) {
+    return draftUri;
+  }
+
+  return resolveDisplayPhotoUri(values.listingImage ?? '', displayPlatform);
 }
 
-export function getProfileAvatarSource(values: Record<string, string>): ImageSourcePropType {
-  const uri = getProfileAvatarUri(values);
+export function hasPendingProfilePhoto(values: Record<string, string>): boolean {
+  const approvedPhotos = parseApprovedProfilePhotoUrls(values.approvedProfilePhotoUrls);
+  const uploadedPhotos = parseRemotePhotoUrls(values.profilePhotoUrls);
+  const hasPendingRemote = uploadedPhotos.some((uploaded, index) => {
+    const normalized = uploaded?.trim() ?? '';
+    const approved = approvedPhotos[index]?.trim() ?? '';
+    return Boolean(normalized) && normalized !== approved;
+  });
+  if (hasPendingRemote) {
+    return true;
+  }
+
+  const editablePhotos = mergeEditableProfilePhotos(
+    values[PROFILE_PHOTOS_DRAFT_KEY] ?? '',
+    values[PROFILE_PHOTOS_KEY] ?? '',
+    values.profilePhotoUrls ?? '',
+  );
+  return editablePhotos.some((photo, index) => {
+    const normalized = photo?.trim() ?? '';
+    if (!normalized) {
+      return false;
+    }
+    const approved = approvedPhotos[index]?.trim() ?? '';
+    return normalized !== approved;
+  });
+}
+
+export function getProfileAvatarSource(
+  values: Record<string, string>,
+  options: { includePendingUploads?: boolean } = {},
+): ImageSourcePropType {
+  const uri = getProfileAvatarUri(values, options);
   return uri ? { uri } : images.logo;
 }
 

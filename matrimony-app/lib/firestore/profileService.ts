@@ -26,6 +26,7 @@ import {
 } from '@/lib/firestore/collections';
 import { uploadProfilePhotos, shouldAttemptCloudPhotoUpload } from '@/lib/firestore/storageService';
 import {
+  ensurePendingPhotoApprovalDocs,
   listPhotoApprovals,
   listPhotoApprovalsForPhone,
   queueUploadedPhotosForApproval,
@@ -42,9 +43,11 @@ import {
   parseApprovedProfilePhotoUrls,
   parseProfilePhotos,
   parseRemotePhotoUrls,
+  APPROVED_PROFILE_PHOTO_URLS_KEY,
   PROFILE_PHOTOS_DRAFT_KEY,
   PROFILE_PHOTOS_KEY,
   resolveDisplayPhotoUri,
+  resolveApprovedProfilePhotoSlots,
   resolvePortableListingPhotoUri,
   resolveProfilePhotoSlots,
   serializeProfilePhotos,
@@ -149,23 +152,39 @@ function profileDocFromValues(
   }
 
   const profileId = profileDocIdFromPhone(phone) || listingIdFromValues(values);
-  const mergedPhotos = resolveListingPhotos(values);
   const isAdminRegistration = ownerKey.startsWith('admin-');
+  const allPhotos = resolveListingPhotos(values);
+  const approvedPhotos = isAdminRegistration
+    ? allPhotos.filter((url) => isRemotePhotoUri(url) || isLocalPhotoUri(url))
+    : resolveApprovedListingPhotos(values);
   const slotPhotoUrls = resolveProfilePhotoSlots(
     {
-      photoUrls: mergedPhotos,
-      primaryPhotoUrl: mergedPhotos.find(isRemotePhotoUri) ?? '',
+      photoUrls: allPhotos,
+      approvedPhotoUrls: approvedPhotos,
+      primaryPhotoUrl: approvedPhotos.find(isRemotePhotoUri) ?? '',
       biodata: values,
     },
-    mergedPhotos,
+    allPhotos,
   );
+  const approvedSlotUrls = Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+    const approved = approvedPhotos[index]?.trim() ?? '';
+    if (isRemotePhotoUri(approved)) {
+      return approved;
+    }
+    return isAdminRegistration && isRemotePhotoUri(slotPhotoUrls[index] ?? '')
+      ? slotPhotoUrls[index]
+      : '';
+  });
   const now = Date.now();
 
   const listing = buildListingFromValues(
     {
       ...values,
       profilePhotoUrls: serializeRemotePhotoUrls(slotPhotoUrls),
-      [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(slotPhotoUrls),
+      [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(approvedSlotUrls),
+      [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(
+        isAdminRegistration ? slotPhotoUrls : approvedSlotUrls,
+      ),
     },
     listingIdFromValues(values),
     { adminRegistration: isAdminRegistration },
@@ -178,12 +197,20 @@ function profileDocFromValues(
     phone,
     ownerKey,
     biodata: {
-      ...biodataForFirestore(values),
+      ...biodataForFirestore({
+        ...values,
+        profilePhotoUrls: serializeRemotePhotoUrls(slotPhotoUrls),
+        [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(approvedSlotUrls),
+        [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(
+          isAdminRegistration ? slotPhotoUrls : approvedSlotUrls,
+        ),
+      }),
       gender: resolvedGender,
       memberListingId: listingIdFromValues(values),
     },
     photoUrls: slotPhotoUrls,
-    primaryPhotoUrl: slotPhotoUrls.find(Boolean) ?? '',
+    approvedPhotoUrls: approvedSlotUrls,
+    primaryPhotoUrl: approvedSlotUrls.find(isRemotePhotoUri) ?? '',
     registrationCommunity: values.registrationCommunity?.trim() ?? '',
     gender: resolvedGender,
     fullName: values.fullName?.trim() ?? '',
@@ -196,12 +223,13 @@ function profileDocFromValues(
 
 export function publishedMemberFromProfileDoc(docData: FirestoreProfileDoc): PublishedMember {
   const approvedImage = docData.approvedPhotoUrls?.find((url) => Boolean(url?.trim())) ?? '';
+  const uploadedImage = docData.photoUrls?.find((url) => Boolean(url?.trim())) ?? '';
   const listing = docData.listing;
+  const isAdminMember =
+    docData.registrationSource === 'admin' || docData.ownerKey?.startsWith('admin-');
   const rawImage =
     approvedImage ||
-    (docData.registrationSource === 'admin' || docData.ownerKey?.startsWith('admin-')
-      ? docData.primaryPhotoUrl || listing?.image || ''
-      : '');
+    (isAdminMember ? uploadedImage || docData.primaryPhotoUrl || listing?.image || '' : '');
   const image = resolveDisplayPhotoUri(rawImage, Platform.OS === 'web' ? 'web' : 'native');
 
   return {
@@ -264,33 +292,70 @@ export async function upsertProfileFromValues(
     );
     const needsUpload =
       shouldAttemptCloudPhotoUpload() && localPhotos.some((uri) => isLocalPhotoUri(uri));
+    const autoApprovePhotos = options.autoApprovePhotos ?? ownerKey.startsWith('admin-');
     if (needsUpload) {
       try {
         const uploaded = await uploadProfilePhotos(phone, localPhotos);
         const merged = mergeUploadedPhotos(localPhotos, uploaded);
         uploadedSlots = merged;
+        const preservedApproved = parseApprovedProfilePhotoUrls(
+          nextValues[APPROVED_PROFILE_PHOTO_URLS_KEY],
+        );
         nextValues = {
           ...nextValues,
           profilePhotoUrls: serializeRemotePhotoUrls(merged),
-          [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(merged),
+          [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(autoApprovePhotos ? merged : []),
           [PROFILE_PHOTOS_DRAFT_KEY]: '',
+          ...(autoApprovePhotos
+            ? {
+                [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(merged),
+                listingImage: resolvePortableListingPhotoUri(merged),
+              }
+            : {
+                [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(preservedApproved),
+                listingImage: resolvePortableListingPhotoUri(preservedApproved),
+              }),
         };
       } catch {
         // Keep local photo URIs so profile save still succeeds; admin can approve later.
         nextValues = {
           ...nextValues,
           [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(localPhotos),
+          [PROFILE_PHOTOS_DRAFT_KEY]: serializeProfilePhotos(localPhotos),
         };
         uploadedSlots = localPhotos;
       }
     } else {
       uploadedSlots = localPhotos;
+      const remotePipe = serializeRemotePhotoUrls(localPhotos);
+      if (remotePipe) {
+        nextValues = {
+          ...nextValues,
+          profilePhotoUrls: remotePipe,
+          ...(autoApprovePhotos
+            ? {
+                [APPROVED_PROFILE_PHOTO_URLS_KEY]: remotePipe,
+                listingImage: resolvePortableListingPhotoUri(localPhotos),
+                [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(localPhotos),
+              }
+            : {}),
+        };
+      }
     }
   }
 
   const profileId = profileDocIdFromPhone(phone);
   const docRef = doc(db, FIRESTORE_COLLECTIONS.profiles, profileId);
   const existing = await getDocResilient(docRef);
+  const existingData = existing?.exists() ? (existing.data() as FirestoreProfileDoc) : null;
+  const incomingHasPhotos = resolveListingPhotos(nextValues).some((uri) => uri.trim().length > 0);
+  if (existingData && !incomingHasPhotos) {
+    nextValues = mergeProfilePhotosIntoBiodata(nextValues, existingData);
+    if (!uploadedSlots.some(Boolean)) {
+      uploadedSlots = resolveProfilePhotoSlots(existingData);
+    }
+  }
+
   const payload = profileDocFromValues(nextValues, ownerKey, options.published ?? true);
   if (!payload) {
     return null;
@@ -301,27 +366,58 @@ export async function upsertProfileFromValues(
     registrationSource: ownerKey.startsWith('admin-') ? 'admin' : 'self',
     approvalStatus: ownerKey.startsWith('admin-')
       ? 'approved'
-      : existing?.exists()
-        ? (existing.data() as FirestoreProfileDoc).approvalStatus ?? 'pending'
+      : existingData
+        ? existingData.approvalStatus ?? 'pending'
         : 'pending',
     browseHidden: ownerKey.startsWith('admin-')
       ? false
-      : existing?.exists()
-        ? (existing.data() as FirestoreProfileDoc).browseHidden ?? false
+      : existingData
+        ? existingData.browseHidden ?? false
         : false,
-    accountStatus: existing?.exists()
-      ? (existing.data() as FirestoreProfileDoc).accountStatus ?? 'active'
-      : 'active',
-    createdAt: existing?.exists() ? (existing.data() as FirestoreProfileDoc).createdAt : payload.createdAt,
+    accountStatus: existingData?.accountStatus ?? 'active',
+    createdAt: existingData?.createdAt ?? payload.createdAt,
     updatedAt: Date.now(),
   };
 
+  if (existingData) {
+    const preservedPhotos = resolveProfilePhotoSlots(existingData).filter(isRemotePhotoUri);
+    const nextPhotos = resolveProfilePhotoSlots(merged).filter(isRemotePhotoUri);
+    if (preservedPhotos.length > 0 && nextPhotos.length === 0) {
+      const existingUploaded = resolveProfilePhotoSlots(existingData);
+      const existingApproved = resolveApprovedProfilePhotoSlots(existingData);
+      merged.photoUrls = existingUploaded;
+      merged.approvedPhotoUrls = existingApproved;
+      merged.primaryPhotoUrl =
+        existingApproved.find(Boolean) || existingData.primaryPhotoUrl?.trim() || '';
+      merged.listing = {
+        ...merged.listing,
+        image: merged.primaryPhotoUrl || merged.listing.image,
+      };
+      merged.biodata = mergeProfilePhotosIntoBiodata(merged.biodata ?? {}, {
+        ...existingData,
+        photoUrls: existingUploaded,
+        approvedPhotoUrls: existingApproved,
+      });
+    }
+  }
+
   await setDoc(docRef, merged, { merge: true });
+
+  const refreshed = await getDocResilient(docRef);
+  const savedProfile = refreshed?.exists() ? (refreshed.data() as FirestoreProfileDoc) : merged;
+
+  if (!ownerKey.startsWith('admin-') && !options.autoApprovePhotos) {
+    await ensurePendingPhotoApprovalDocs(
+      phone,
+      savedProfile,
+      savedProfile.fullName || preparedValues.fullName,
+    ).catch(() => undefined);
+  }
 
   if (options.uploadPhotos !== false) {
     const slots = resolveProfilePhotoSlots(merged, uploadedSlots);
-    const previousSlots = existing?.exists()
-      ? resolveProfilePhotoSlots(existing.data() as FirestoreProfileDoc)
+    const previousSlots = existingData
+      ? resolveProfilePhotoSlots(existingData)
       : [];
 
     const remoteSlots = slots.filter(isRemotePhotoUri);
@@ -359,14 +455,140 @@ export async function upsertProfileFromValues(
 
   if (!ownerKey.startsWith('admin-')) {
     await submitLoginApproval(phone, {
-      name: merged.fullName || preparedValues.fullName?.trim(),
-      profileId: merged.profileId,
-      registrationCommunity: merged.registrationCommunity,
+      name: savedProfile.fullName || preparedValues.fullName?.trim(),
+      profileId: savedProfile.profileId,
+      registrationCommunity: savedProfile.registrationCommunity,
       source: 'profile',
     }).catch(() => undefined);
   }
 
-  return merged;
+  return savedProfile;
+}
+
+/** Sync uploaded cloud photo URLs to Firestore and queue admin approval (no full profile required). */
+export async function syncUploadedPhotosToProfile(
+  values: Record<string, string>,
+  ownerKey = 'current-user',
+): Promise<void> {
+  const phone =
+    values[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ||
+    values.phoneNumber?.replace(/\D/g, '') ||
+    '';
+  if (!phone) {
+    return;
+  }
+
+  const uploaded = parseRemotePhotoUrls(values.profilePhotoUrls);
+  if (!uploaded.some(isRemotePhotoUri)) {
+    return;
+  }
+
+  const autoApprove = ownerKey.startsWith('admin-');
+  await Promise.all(
+    uploaded.map((photoUrl, slot) => {
+      if (!isRemotePhotoUri(photoUrl)) {
+        return Promise.resolve();
+      }
+      return submitPhotoForApproval(phone, {
+        memberName: values.fullName,
+        photoUrl,
+        slot,
+        autoApprove,
+      });
+    }),
+  );
+
+  const profile = await fetchProfileByPhone(phone);
+  if (profile && !autoApprove) {
+    await ensurePendingPhotoApprovalDocs(phone, profile, values.fullName);
+  }
+}
+
+/** Save uploaded cloud photo URLs before the biodata profile is complete. */
+export async function upsertPartialProfilePhotos(
+  values: Record<string, string>,
+  ownerKey = 'current-user',
+): Promise<void> {
+  const phone =
+    values[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ||
+    values.phoneNumber?.replace(/\D/g, '') ||
+    '';
+  if (!phone) {
+    return;
+  }
+
+  const uploaded = parseRemotePhotoUrls(values.profilePhotoUrls);
+  if (!uploaded.some(isRemotePhotoUri)) {
+    return;
+  }
+
+  const db = await getFirebaseFirestore();
+  const profileId = profileDocIdFromPhone(phone);
+  if (!db || !profileId) {
+    return;
+  }
+
+  const autoApprove = ownerKey.startsWith('admin-');
+  const docRef = doc(db, FIRESTORE_COLLECTIONS.profiles, profileId);
+  const existing = await getDocResilient(docRef);
+  const existingData = existing?.exists() ? (existing.data() as FirestoreProfileDoc) : null;
+  const now = Date.now();
+
+  const photoUrls = uploaded;
+  const preservedApproved = parseApprovedProfilePhotoUrls(
+    existingData?.biodata?.[APPROVED_PROFILE_PHOTO_URLS_KEY] ??
+      values[APPROVED_PROFILE_PHOTO_URLS_KEY],
+  );
+  const approvedPhotoUrls = autoApprove ? photoUrls : preservedApproved;
+  const approvedPrimary = approvedPhotoUrls.find(Boolean) || '';
+
+  const biodata = mergeProfilePhotosIntoBiodata(
+    {
+      ...(existingData?.biodata ?? {}),
+      ...values,
+      [CONTACT_PHONE_KEY]: phone,
+    },
+    {
+      photoUrls,
+      approvedPhotoUrls,
+      biodata: existingData?.biodata,
+      registrationSource: ownerKey.startsWith('admin-') ? 'admin' : existingData?.registrationSource,
+      ownerKey: existingData?.ownerKey ?? ownerKey,
+    },
+  );
+
+  const merged: Partial<FirestoreProfileDoc> = {
+    profileId,
+    phone,
+    photoUrls,
+    approvedPhotoUrls,
+    biodata,
+    primaryPhotoUrl: approvedPrimary,
+    fullName: values.fullName?.trim() || existingData?.fullName || biodata.fullName,
+    updatedAt: now,
+    ownerKey: existingData?.ownerKey ?? ownerKey,
+    registrationSource: ownerKey.startsWith('admin-') ? 'admin' : existingData?.registrationSource ?? 'self',
+    ...(autoApprove ? { 'listing.image': approvedPrimary } : {}),
+    ...(existingData
+      ? {}
+      : {
+          createdAt: now,
+          published: false,
+          approvalStatus: 'pending',
+          accountStatus: 'active',
+        }),
+  };
+
+  await setDoc(docRef, merged, { merge: true });
+
+  const savedProfile = (await getDocResilient(docRef))?.data() as FirestoreProfileDoc | undefined;
+  if (!autoApprove) {
+    await ensurePendingPhotoApprovalDocs(
+      phone,
+      savedProfile ?? ({ ...merged, biodata } as FirestoreProfileDoc),
+      values.fullName,
+    ).catch(() => undefined);
+  }
 }
 
 export async function fetchProfileByPhone(phone: string): Promise<FirestoreProfileDoc | null> {

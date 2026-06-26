@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { resolveMemberListing } from '@/constants/memberDirectory';
 import { getDefaultChatSeed, useChat } from '@/context/ChatContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -73,17 +74,6 @@ export default function ChatConversationScreen() {
   const messages = thread?.messages ?? [];
 
   useEffect(() => {
-    if (!subscriptionReady || isPaidMember) {
-      return;
-    }
-
-    router.replace({
-      pathname: '/payment-access',
-      params: { reason: 'initial' },
-    });
-  }, [isPaidMember, router, subscriptionReady]);
-
-  useEffect(() => {
     if (!isReady || !memberId || initializedRef.current === memberId) {
       return;
     }
@@ -141,7 +131,23 @@ export default function ChatConversationScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <MaterialIcons name="arrow-back" size={24} color={colors.primary} />
           </Pressable>
-          <Text style={styles.headerName}>{translate('detailsLocked')}</Text>
+          {memberImage ? (
+            <Image source={{ uri: memberImage }} style={styles.headerAvatar} />
+          ) : (
+            <View style={[styles.headerAvatar, styles.headerAvatarPlaceholder]}>
+              <MaterialIcons name="person" size={20} color={colors.onSurfaceVariant} />
+            </View>
+          )}
+          <View style={styles.headerText}>
+            <Text style={styles.headerName} numberOfLines={1}>
+              {memberName}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.lockedWrap}>
+          <MaterialIcons name="lock" size={32} color={colors.primary} />
+          <Text style={styles.lockedTitle}>{translate('upgradeMembershipBanner')}</Text>
+          <PrimaryButton label={translate('upgrade')} onPress={() => router.push('/upgrade')} />
         </View>
       </SafeAreaView>
     );
@@ -385,5 +391,18 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     opacity: 0.45,
+  },
+  lockedWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.containerMargin,
+    gap: spacing.md,
+  },
+  lockedTitle: {
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 });

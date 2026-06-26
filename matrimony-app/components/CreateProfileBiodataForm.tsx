@@ -58,6 +58,7 @@ import { applyDefaultRegistrationCommunity, hasCompletedProfile, prepareProfileF
 import { CONTACT_PHONE_KEY, normalizePhoneDigits } from '@/constants/contactDetails';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { BiodataExportOptions } from '@/lib/biodataExport';
+import { uploadAndSyncProfilePhotosForApproval } from '@/lib/firestore/profilePhotoSync';
 import { shareBiodataSheetAsImage } from '@/lib/biodataShare';
 import {
   getPhotoUploadStepLabels,
@@ -67,12 +68,13 @@ import {
   BIODATA_SHOW_PHOTO_KEY,
   parseBiodataShowPhoto,
   isLocalPhotoUri,
-  mergeDraftProfilePhotos,
   parseProfilePhotos,
   PROFILE_PHOTOS_DRAFT_KEY,
   PROFILE_PHOTOS_KEY,
+  resolveBiodataFormPhotoSlots,
   serializePersistedProfilePhotos,
   serializeProfilePhotos,
+  serializeRemotePhotoUrls,
 } from '@/constants/profilePhotos';
 
 const IS_NATIVE = Platform.OS !== 'web';
@@ -979,17 +981,25 @@ function buildBiodataDraftValues({
   const occupationWorkKey = resolveStoredOptionValue('occupation', form.occupation, language);
   const serializedPhotos = serializeProfilePhotos(photos);
   const persistedPhotos = serializePersistedProfilePhotos(photos);
+  const remoteProfilePhotoUrls = serializeRemotePhotoUrls(photos);
   const phoneDigits = normalizePhoneDigits(adminContactPhone);
 
   const next = applyDefaultRegistrationCommunity({
     ...existingValues,
     fullName: form.fullName.trim(),
-    gender: resolveStoredOptionValue('gender', form.gender, language),
+    gender: resolveStoredOptionValue(
+      'gender',
+      form.gender.trim() || existingValues.gender?.trim() || '',
+      language,
+    ),
     education: form.education.trim(),
     dateOfBirth: form.dateOfBirth.trim(),
     birthTiming: form.birthTiming.trim(),
     birthTimingMeridiem: form.birthTimingMeridiem.trim() || 'am',
-    religion: form.religion.trim() || existingValues.religion?.trim() || '',
+    religion:
+      normalizeRegistrationReligion(form.religion.trim() || existingValues.religion?.trim() || '') ||
+      existingValues.religion?.trim() ||
+      '',
     natchathiram: form.natchathiram.trim(),
     rasi: form.rasi.trim(),
     lagnam: form.lagnam.trim(),
@@ -1038,6 +1048,7 @@ function buildBiodataDraftValues({
     biodataDetailGrid: JSON.stringify(detailGrid),
     [PROFILE_PHOTOS_KEY]: persistedPhotos,
     [PROFILE_PHOTOS_DRAFT_KEY]: serializedPhotos,
+    ...(remoteProfilePhotoUrls ? { profilePhotoUrls: remoteProfilePhotoUrls } : {}),
     [BIODATA_SHOW_PHOTO_KEY]: showPhotoInBiodata ? 'true' : 'false',
     ...(phoneDigits
       ? {
@@ -2996,12 +3007,14 @@ function DetailGrid({
   dense,
   onCellChange,
   translate,
+  footer,
 }: {
   cells: string[];
   editable: boolean;
   dense?: boolean;
   onCellChange: (index: number, value: string) => void;
   translate: (key: string) => string;
+  footer?: ReactNode;
 }) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
@@ -3071,7 +3084,7 @@ function DetailGrid({
         </View>
       ) : null}
       <View style={styles.detailGridWrap}>
-        <View style={styles.detailGrid}>
+        <View style={[styles.detailGrid, footer ? styles.detailGridWithFooter : null]}>
           {DETAIL_GRID_ROW_SIZES.map((rowSize, rowIndex) => {
             const rowStart = cellOffset;
             const rowCells = cells.slice(rowStart, rowStart + rowSize);
@@ -3119,6 +3132,7 @@ function DetailGrid({
               </View>
             );
           })}
+          {footer ? <View style={styles.detailGridFooter}>{footer}</View> : null}
         </View>
       </View>
     </View>
@@ -4092,20 +4106,23 @@ export function HoroscopeSection({
         editable={editable}
         dense={dense}
         translate={translate}
+        footer={
+          showSummaryMeta ? (
+            <ReviewSummaryMetaRow
+              sourceLabel={translate('biodataReviewSource')}
+              dateLabel={translate('biodataReviewFilledDate')}
+              sourceValue={form.biodataSource}
+              dateValue={form.biodataFilledDate}
+              editable={summaryMetaEditable ?? editable}
+              onSourceChange={(value) => onFieldChange('biodataSource', value)}
+              onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
+              language={language}
+              attached
+            />
+          ) : undefined
+        }
       />
 
-      {showSummaryMeta ? (
-        <ReviewSummaryMetaRow
-          sourceLabel={translate('biodataReviewSource')}
-          dateLabel={translate('biodataReviewFilledDate')}
-          sourceValue={form.biodataSource}
-          dateValue={form.biodataFilledDate}
-          editable={summaryMetaEditable ?? editable}
-          onSourceChange={(value) => onFieldChange('biodataSource', value)}
-          onDateChange={(value) => onFieldChange('biodataFilledDate', value)}
-          language={language}
-        />
-      ) : null}
       </View>
     </>
   );
@@ -4219,6 +4236,7 @@ function ReviewSummaryMetaRow({
   onSourceChange,
   onDateChange,
   language = 'en',
+  attached = false,
 }: {
   sourceLabel: string;
   dateLabel: string;
@@ -4228,6 +4246,7 @@ function ReviewSummaryMetaRow({
   onSourceChange: (value: string) => void;
   onDateChange: (value: string) => void;
   language?: Language;
+  attached?: boolean;
 }) {
   const labelStyle = language === 'ta' ? reviewStyles.summaryMetaLabelTamil : reviewStyles.summaryMetaLabel;
   const colonStyle = language === 'ta' ? reviewStyles.summaryMetaColonTamil : reviewStyles.summaryMetaColon;
@@ -4239,6 +4258,7 @@ function ReviewSummaryMetaRow({
     value: string,
     onChange: (value: string) => void,
     placeholder?: string,
+    wideInput = false,
   ) => (
     <View style={reviewStyles.summaryMetaCell}>
       <View style={labelSlotStyle}>
@@ -4247,7 +4267,10 @@ function ReviewSummaryMetaRow({
       <Text style={colonStyle}>:</Text>
       {editable ? (
         <TextInput
-          style={reviewStyles.summaryMetaInput}
+          style={[
+            reviewStyles.summaryMetaInput,
+            wideInput && reviewStyles.summaryMetaDateInput,
+          ]}
           {...WEB_ANSWER_PROPS}
           value={value}
           onChangeText={onChange}
@@ -4269,11 +4292,11 @@ function ReviewSummaryMetaRow({
   return (
     <View
       nativeID="biodata-print-summary-meta"
-      style={reviewStyles.summaryMetaRow}
+      style={[reviewStyles.summaryMetaRow, attached && reviewStyles.summaryMetaRowAttached]}
     >
-      <View style={reviewStyles.summaryMetaRightGroup}>
+      <View style={[reviewStyles.summaryMetaRightGroup, attached && reviewStyles.summaryMetaRightGroupAttached]}>
         {renderCell(sourceLabel, sourceValue, onSourceChange)}
-        {renderCell(dateLabel, dateValue, onDateChange, formatBiodataFilledDate())}
+        {renderCell(dateLabel, dateValue, onDateChange, formatBiodataFilledDate(), true)}
       </View>
     </View>
   );
@@ -4694,21 +4717,28 @@ const reviewStyles = StyleSheet.create({
   summaryMetaRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     width: '100%',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primary,
     overflow: 'visible',
     paddingVertical: 4,
     paddingRight: 8,
   },
+  summaryMetaRowAttached: {
+    paddingVertical: 1,
+    paddingRight: 4,
+    marginTop: 0,
+  },
   summaryMetaRightGroup: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'flex-end',
     alignSelf: 'flex-end',
-    gap: 2,
+    gap: IS_NATIVE ? 10 : 16,
     flexShrink: 0,
+    flexWrap: 'nowrap',
+  },
+  summaryMetaRightGroupAttached: {
+    gap: IS_NATIVE ? 6 : 10,
   },
   summaryMetaCell: {
     flexDirection: 'row',
@@ -4778,6 +4808,7 @@ const reviewStyles = StyleSheet.create({
     paddingHorizontal: 0,
     margin: 0,
     borderWidth: 0,
+    borderBottomWidth: 0,
     backgroundColor: 'transparent',
     color: REVIEW_ANSWER_COLOR,
     fontFamily: fonts.interSemi,
@@ -4785,10 +4816,13 @@ const reviewStyles = StyleSheet.create({
     lineHeight: IS_NATIVE ? 11 : 13,
     textAlign: 'left',
     ...Platform.select({
-      web: { outlineStyle: 'none' },
+      web: { outlineStyle: 'none', borderBottomWidth: 0 },
       default: {},
     }),
     ...reviewTextAndroid,
+  },
+  summaryMetaDateInput: {
+    width: IS_NATIVE ? 88 : 96,
   },
   leftPane: {
     flex: 1.38,
@@ -5303,6 +5337,7 @@ export function CreateProfileBiodataForm({
   }, []);
   const photosRef = useRef<string[]>(parseProfilePhotos(''));
   const photosDirtyRef = useRef(false);
+  const photosUploadVersionRef = useRef(0);
   const syncDraftSeqRef = useRef(0);
   const formHydratedRef = useRef(false);
   const profileSeedHydratedRef = useRef('');
@@ -5451,9 +5486,14 @@ export function CreateProfileBiodataForm({
       biodataSource: readValue('biodataSource'),
       biodataFilledDate: readValue('biodataFilledDate') || formatBiodataFilledDate(),
     });
-    const mergedPhotos = mergeDraftProfilePhotos(
-      readValue(PROFILE_PHOTOS_DRAFT_KEY),
-      readValue(PROFILE_PHOTOS_KEY),
+    const mergedPhotos = resolveBiodataFormPhotoSlots(
+      {
+        [PROFILE_PHOTOS_DRAFT_KEY]: readValue(PROFILE_PHOTOS_DRAFT_KEY),
+        [PROFILE_PHOTOS_KEY]: readValue(PROFILE_PHOTOS_KEY),
+        profilePhotoUrls: readValue('profilePhotoUrls'),
+        approvedProfilePhotoUrls: readValue('approvedProfilePhotoUrls'),
+      },
+      { viewOnly, adminEntry: showAdminPhoneField },
     );
     setPhotos((current) => {
       if (shouldKeepCurrentPhotos(current, mergedPhotos, editable, viewOnly, photosDirtyRef.current)) {
@@ -5552,9 +5592,14 @@ export function CreateProfileBiodataForm({
       biodataSource: readValue('biodataSource'),
       biodataFilledDate: readValue('biodataFilledDate') || formatBiodataFilledDate(),
     });
-    const mergedPhotos = mergeDraftProfilePhotos(
-      readValue(PROFILE_PHOTOS_DRAFT_KEY),
-      readValue(PROFILE_PHOTOS_KEY),
+    const mergedPhotos = resolveBiodataFormPhotoSlots(
+      {
+        [PROFILE_PHOTOS_DRAFT_KEY]: readValue(PROFILE_PHOTOS_DRAFT_KEY),
+        [PROFILE_PHOTOS_KEY]: readValue(PROFILE_PHOTOS_KEY),
+        profilePhotoUrls: readValue('profilePhotoUrls'),
+        approvedProfilePhotoUrls: readValue('approvedProfilePhotoUrls'),
+      },
+      { viewOnly, adminEntry: showAdminPhoneField },
     );
     setPhotos((current) => {
       if (shouldKeepCurrentPhotos(current, mergedPhotos, editable, viewOnly, photosDirtyRef.current)) {
@@ -5756,9 +5801,58 @@ export function CreateProfileBiodataForm({
         return;
       }
       setValue(PROFILE_PHOTOS_KEY, serializeProfilePhotos(nextPhotos));
+      setValue(PROFILE_PHOTOS_DRAFT_KEY, serializeProfilePhotos(nextPhotos));
       void syncDraftToContext(nextPhotos).catch(() => undefined);
+
+      if (!nextPhotos.some(isLocalPhotoUri)) {
+        return;
+      }
+
+      const phone = normalizePhoneDigits(
+        showAdminPhoneField
+          ? adminContactPhone || getValue(CONTACT_PHONE_KEY) || getValue('phoneNumber')
+          : getValue(CONTACT_PHONE_KEY) || getValue('phoneNumber'),
+      );
+      if (!phone) {
+        return;
+      }
+
+      const ownerKey = showAdminPhoneField ? `admin-${phone}` : 'current-user';
+      const uploadVersion = photosUploadVersionRef.current + 1;
+      photosUploadVersionRef.current = uploadVersion;
+
+      void uploadAndSyncProfilePhotosForApproval(nextPhotos, {
+        ownerKey,
+        setValue,
+        getPhone: () => phone,
+        getMemberName: () => form.fullName.trim() || getValue('fullName').trim(),
+        getProfileValues: () => ({
+          ...values,
+          fullName: form.fullName.trim() || values.fullName,
+          [CONTACT_PHONE_KEY]: phone,
+        }),
+      })
+        .then((result) => {
+          if (photosUploadVersionRef.current !== uploadVersion) {
+            return;
+          }
+          if (result.uploaded) {
+            photosRef.current = result.photos;
+            setPhotos(result.photos);
+          }
+        })
+        .catch(() => undefined);
     },
-    [setValue, syncDraftToContext, viewOnly],
+    [
+      adminContactPhone,
+      form.fullName,
+      getValue,
+      setValue,
+      showAdminPhoneField,
+      syncDraftToContext,
+      values,
+      viewOnly,
+    ],
   );
 
   const handleAdminContactPhoneChange = useCallback(
@@ -5850,7 +5944,9 @@ export function CreateProfileBiodataForm({
       Keyboard.dismiss();
       await syncDraftToContext().catch(() => undefined);
 
-      const normalizedGender = resolveStoredOptionValue('gender', form.gender, language);
+      const genderRaw =
+        form.gender.trim() || values.gender?.trim() || getValue('gender').trim();
+      const normalizedGender = resolveStoredOptionValue('gender', genderRaw, language);
       if (normalizedGender !== 'male' && normalizedGender !== 'female') {
         const message = translate('selectGender');
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -5893,6 +5989,7 @@ export function CreateProfileBiodataForm({
     })();
   }, [
     form.gender,
+    getValue,
     isSaving,
     language,
     onSave,
@@ -5900,6 +5997,7 @@ export function CreateProfileBiodataForm({
     syncDraftToContext,
     translate,
     validateOccupationFields,
+    values.gender,
   ]);
 
   const handlePrintPress = useCallback(() => {
@@ -7605,7 +7703,7 @@ const styles = StyleSheet.create({
   horoscopePrintFooter: {
     width: '100%',
     alignItems: 'stretch',
-    gap: spacing.sm,
+    gap: IS_NATIVE ? 4 : spacing.sm,
   },
   horoscopePrintFooterNative: {
     flexShrink: 0,
@@ -8126,16 +8224,27 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     gap: 0,
   },
+  detailGridWithFooter: {
+    borderBottomWidth: 0,
+  },
   detailGridRow: {
     flexDirection: 'row',
     overflow: 'visible',
+  },
+  detailGridFooter: {
+    borderTopWidth: 2,
+    borderTopColor: HOROSCOPE_GRID_LINE,
+    paddingTop: 1,
+    paddingBottom: 1,
+    width: '100%',
+    backgroundColor: '#fff',
   },
   detailGridContainer: {
     position: 'relative',
     width: '100%',
     flexShrink: 0,
     overflow: 'visible',
-    gap: 8,
+    gap: IS_NATIVE ? 4 : 8,
   },
   detailGridToolbar: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { adminColors, getAdminFabBottom } from '@/constants/admin';
+import { adminColors, getAdminScrollContentBottomPad } from '@/constants/admin';
 import { images } from '@/constants/images';
 import { AdminLanguageToggle } from '@/components/admin/AdminLanguageToggle';
 
@@ -30,7 +30,7 @@ export function AdminScreenShell({
   pinnedContent,
 }: AdminScreenShellProps) {
   const insets = useSafeAreaInsets();
-  const scrollBottomPad = getAdminFabBottom(insets.bottom) + 20;
+  const scrollBottomPad = getAdminScrollContentBottomPad(insets.bottom);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>

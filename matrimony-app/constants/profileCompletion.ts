@@ -1,3 +1,5 @@
+import { normalizeRegistrationReligionValue } from '@/constants/registrationNumbers';
+
 export const BIODATA_WIZARD_COMPLETE_KEY = 'biodataWizardComplete';
 
 export function hasSavedBiodata(values: Record<string, string>): boolean {
@@ -10,12 +12,18 @@ export function hasSavedBiodata(values: Record<string, string>): boolean {
 export function hasCompletedProfile(values: Record<string, string>): boolean {
   const hasName = Boolean(values.fullName?.trim());
   const hasGender = values.gender === 'male' || values.gender === 'female';
-  const hasCommunity = Boolean(values.registrationCommunity?.trim());
   const hasDateOfBirth = Boolean(values.dateOfBirth?.trim());
   const wizardCompleted = values[BIODATA_WIZARD_COMPLETE_KEY]?.trim().toLowerCase() === 'true';
   const hasPublishedListing = Boolean(values.memberListingId?.trim());
+  const hasCommunity =
+    Boolean(values.registrationCommunity?.trim()) ||
+    Boolean(normalizeRegistrationReligionValue(values.religion ?? ''));
 
-  if (!hasName || !hasGender || !hasCommunity || !hasDateOfBirth) {
+  if (!hasName || !hasGender || !hasDateOfBirth) {
+    return false;
+  }
+
+  if (!hasCommunity) {
     return false;
   }
 
@@ -25,6 +33,15 @@ export function hasCompletedProfile(values: Record<string, string>): boolean {
 /** Normalize biodata before the first Firestore publish (wizard flag is set at save time). */
 export function prepareProfileForPublish(values: Record<string, string>): Record<string, string> {
   let next = applyDefaultRegistrationCommunity(values);
+  const normalizedReligion = normalizeRegistrationReligionValue(next.religion ?? '');
+
+  if (normalizedReligion) {
+    next = {
+      ...next,
+      religion: normalizedReligion,
+      registrationCommunity: next.registrationCommunity?.trim() || normalizedReligion,
+    };
+  }
 
   if (!next.registrationCommunity?.trim()) {
     next = { ...next, registrationCommunity: DEFAULT_REGISTRATION_COMMUNITY };

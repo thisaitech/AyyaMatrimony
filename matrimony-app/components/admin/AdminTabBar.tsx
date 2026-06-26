@@ -1,18 +1,29 @@
 import { BottomTabBar, type BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { adminColors, getAdminTabBarMetrics } from '@/constants/admin';
+import {
+  adminColors,
+  getAdminNavigatorTabBarStyle,
+  getAdminTabBarInnerStyle,
+  getAdminTabBarMetrics,
+} from '@/constants/admin';
 
 /**
- * Pins the admin tab bar to the screen bottom on native.
- * Navigator `tabBarStyle` must use `getAdminNavigatorTabBarStyle` (transparent spacer).
+ * Pins the admin tab bar flush to the physical screen bottom on native APK builds.
+ * The navigator must pass `safeAreaInsets: { bottom: 0 }` and scene bottom padding.
  */
 export function AdminTabBar(props: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const metrics = getAdminTabBarMetrics(insets.bottom);
 
   if (Platform.OS === 'web') {
-    return <BottomTabBar {...props} />;
+    return (
+      <BottomTabBar
+        {...props}
+        insets={{ top: 0, right: 0, bottom: 0, left: 0 }}
+        style={[getAdminNavigatorTabBarStyle(insets.bottom), props.style]}
+      />
+    );
   }
 
   return (
@@ -20,7 +31,6 @@ export function AdminTabBar(props: BottomTabBarProps) {
       style={[
         styles.shell,
         {
-          height: metrics.height,
           paddingTop: metrics.paddingTop,
           paddingBottom: metrics.paddingBottom,
         },
@@ -29,7 +39,7 @@ export function AdminTabBar(props: BottomTabBarProps) {
       <BottomTabBar
         {...props}
         insets={{ top: 0, right: 0, bottom: 0, left: 0 }}
-        style={styles.bar}
+        style={[getAdminTabBarInnerStyle(), props.style, styles.bar]}
       />
     </View>
   );
@@ -45,7 +55,6 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.surface,
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
-    overflow: 'hidden',
     ...Platform.select({
       android: { elevation: 12 },
       default: {
@@ -57,12 +66,7 @@ const styles = StyleSheet.create({
     }),
   },
   bar: {
-    flex: 1,
+    flex: 0,
     width: '100%',
-    backgroundColor: 'transparent',
-    borderTopWidth: 0,
-    elevation: 0,
-    paddingTop: 0,
-    paddingBottom: 0,
   },
 });

@@ -78,6 +78,17 @@ export async function toggleMemberHiddenProfile(
   return next;
 }
 
+export async function hideMemberProfile(phone: string, profileId: string): Promise<string[]> {
+  const current = await fetchSubscription(phone);
+  const existing = current?.hiddenProfileIds ?? [];
+  if (existing.includes(profileId)) {
+    return existing;
+  }
+  const next = [...existing, profileId];
+  await upsertSubscription(phone, { hiddenProfileIds: next });
+  return next;
+}
+
 export async function grantVerifiedPaymentBatch(phone: string): Promise<number> {
   const current = await fetchSubscription(phone);
   const batchesPaid = (current?.batchesPaid ?? 0) + 1;

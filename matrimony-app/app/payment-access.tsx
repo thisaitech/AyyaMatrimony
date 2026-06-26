@@ -42,6 +42,7 @@ export default function PaymentAccessScreen() {
   });
 
   const isBatchRenewal = reason === 'batch' || (isPaidMember && profilesRemaining <= 0);
+  const isExplicitUpgradeRequest = reason === 'initial' || reason === 'batch';
   const shouldRedirectPaidUser = isReady && hasPaidProfileQuota && reason !== 'batch';
 
   const headline = useMemo(() => {
@@ -97,7 +98,7 @@ export default function PaymentAccessScreen() {
     return <Redirect href="/" />;
   }
 
-  if (!needsPaymentAccess && !isBatchRenewal) {
+  if (!needsPaymentAccess && !isBatchRenewal && !isExplicitUpgradeRequest) {
     return <Redirect href="/(tabs)" />;
   }
 

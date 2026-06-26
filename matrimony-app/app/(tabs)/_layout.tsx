@@ -122,12 +122,8 @@ export default function TabLayout() {
     return <LoginLandingScreen />;
   }
 
-  if (!profileComplete && !hasLoggedInPhone) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+  if (!profileComplete) {
+    return <Redirect href="/create-profile" />;
   }
 
   if (!isSubscriptionGateReady) {

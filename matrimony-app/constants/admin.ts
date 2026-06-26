@@ -65,6 +65,7 @@ export const adminTabs = {
 } as const;
 
 export const ADMIN_FAB_GAP = 12;
+export const ADMIN_FAB_SIZE = 58;
 export const ADMIN_TAB_BAR_CONTENT_HEIGHT = 58;
 const ADMIN_TAB_BAR_TOP_PADDING = 8;
 
@@ -76,8 +77,10 @@ export type AdminTabBarMetrics = {
 };
 
 export function resolveAdminBottomInset(bottomInset = 0): number {
-  const minimum = Platform.OS === 'web' ? 16 : Platform.OS === 'android' ? 10 : 4;
-  return Math.max(bottomInset, minimum);
+  if (bottomInset > 0) {
+    return bottomInset;
+  }
+  return Platform.OS === 'android' ? 8 : Platform.OS === 'ios' ? 4 : 16;
 }
 
 export function getAdminTabBarMetrics(bottomInset = 0): AdminTabBarMetrics {
@@ -93,11 +96,24 @@ export function getAdminTabBarMetrics(bottomInset = 0): AdminTabBarMetrics {
   };
 }
 
-/** Navigator tabBarStyle — pinned to bottom on native APK; web uses normal flow. */
+/** Inner tab bar style when using the pinned `AdminTabBar` wrapper on native. */
+export function getAdminTabBarInnerStyle(): ViewStyle {
+  return {
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    height: ADMIN_TAB_BAR_CONTENT_HEIGHT,
+  };
+}
+
+/** Navigator tabBarStyle for web (standard document flow). */
 export function getAdminNavigatorTabBarStyle(bottomInset = 0): ViewStyle {
   const metrics = getAdminTabBarMetrics(bottomInset);
 
-  const shared = {
+  return {
     backgroundColor: adminColors.surface,
     borderTopColor: adminColors.border,
     borderTopWidth: 1,
@@ -105,8 +121,8 @@ export function getAdminNavigatorTabBarStyle(bottomInset = 0): ViewStyle {
     minHeight: metrics.height,
     paddingTop: metrics.paddingTop,
     paddingBottom: metrics.paddingBottom,
-    width: '100%' as const,
-    alignSelf: 'stretch' as const,
+    width: '100%',
+    alignSelf: 'stretch',
     ...Platform.select({
       android: { elevation: 12 },
       ios: {
@@ -115,20 +131,11 @@ export function getAdminNavigatorTabBarStyle(bottomInset = 0): ViewStyle {
         shadowOpacity: 0.1,
         shadowRadius: 8,
       },
+      web: {
+        boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.08)',
+      },
       default: {},
     }),
-  };
-
-  if (Platform.OS === 'web') {
-    return shared;
-  }
-
-  return {
-    ...shared,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
   };
 }
 
@@ -139,4 +146,13 @@ export function getAdminFabBottom(bottomInset = 0): number {
 /** Bottom inset for scrollable admin scenes (matches tab bar footprint). */
 export function getAdminSceneBottomInset(bottomInset = 0): number {
   return getAdminTabBarMetrics(bottomInset).height;
+}
+
+/** Scroll content padding — native scenes already clear the pinned tab bar. */
+export function getAdminScrollContentBottomPad(bottomInset = 0): number {
+  const fabPad = ADMIN_FAB_SIZE + ADMIN_FAB_GAP + 20;
+  if (Platform.OS === 'web') {
+    return getAdminFabBottom(bottomInset) + 20;
+  }
+  return fabPad;
 }

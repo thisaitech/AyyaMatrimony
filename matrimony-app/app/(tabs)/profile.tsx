@@ -1,4 +1,4 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useCallback } from 'react';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -9,9 +9,11 @@ import { useProfileForm } from '@/context/ProfileFormContext';
 import { useLogout } from '@/hooks/useLogout';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
-  getProfileAvatarSource,
+  getProfileAvatarUri,
   getProfileMetaLine,
+  hasPendingProfilePhoto,
 } from '@/constants/profileDisplay';
+import { ProtectedProfileImage } from '@/components/ProtectedProfileImage';
 import { TranslationKey } from '@/constants/i18n';
 import { borderRadius, colors, fonts, spacing, typography } from '@/constants/theme';
 
@@ -37,7 +39,8 @@ export default function ProfileScreen() {
   const { isPaidMember, profilesAllowed, profilesRemaining } = useSubscription();
   const profileName = values.fullName?.trim() || translate('profile');
   const profileMeta = getProfileMetaLine(values, language);
-  const avatarSource = getProfileAvatarSource(values);
+  const pendingPhoto = hasPendingProfilePhoto(values);
+  const avatarUri = getProfileAvatarUri(values, { includePendingUploads: true });
 
   useFocusEffect(
     useCallback(() => {
@@ -56,7 +59,16 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scroll}
       >
         <View style={styles.hero}>
-          <Image source={avatarSource} style={styles.avatar} resizeMode="cover" />
+          <ProtectedProfileImage
+            imageUri={avatarUri}
+            locked={false}
+            pendingModeration={false}
+            style={styles.avatarWrap}
+            imageStyle={styles.avatar}
+          />
+          {pendingPhoto ? (
+            <Text style={styles.pendingPhotoHint}>{translate('photoPendingReview')}</Text>
+          ) : null}
           <Text style={styles.name}>{profileName}</Text>
           {profileMeta ? <Text style={styles.meta}>{profileMeta}</Text> : null}
 
@@ -132,13 +144,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.containerMargin,
     paddingBottom: spacing.lg,
   },
-  avatar: {
+  avatarWrap: {
     width: 88,
     height: 88,
     borderRadius: 44,
     borderWidth: 2,
     borderColor: 'rgba(212, 175, 55, 0.3)',
     marginBottom: spacing.sm,
+    overflow: 'hidden',
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+  },
+  pendingPhotoHint: {
+    ...typography.bodyMd,
+    fontSize: 12,
+    color: colors.primary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   name: {
     ...typography.headlineLg,

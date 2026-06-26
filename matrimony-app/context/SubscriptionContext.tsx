@@ -21,7 +21,7 @@ import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 import { submitLoginApproval } from '@/lib/firestore/approvalService';
 import { fetchLatestPaymentStatus, submitPaymentRequest } from '@/lib/firestore/paymentService';
 import { upsertProfileFromValues } from '@/lib/firestore/profileService';
-import { fetchSubscription, syncSubscriptionViewedProfiles, upsertSubscription } from '@/lib/firestore/subscriptionService';
+import { fetchSubscription, hideMemberProfile, syncSubscriptionViewedProfiles, upsertSubscription } from '@/lib/firestore/subscriptionService';
 
 const PROFILE_STORAGE_KEY = 'user_profile';
 
@@ -58,6 +58,7 @@ type SubscriptionContextValue = {
   canViewFullProfile: (profileId: string) => boolean;
   canOpenNewFullProfile: (profileId: string) => boolean;
   recordProfileView: (profileId: string) => Promise<boolean>;
+  skipProfile: (profileId: string) => Promise<void>;
   login: () => Promise<'home' | 'register'>;
   chooseUnpaidAccess: () => Promise<void>;
   resetPaymentGate: () => Promise<void>;
@@ -332,6 +333,36 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     [updateState],
   );
 
+  const skipProfile = useCallback(
+    async (profileId: string) => {
+      updateState((current) => {
+        if (current.hiddenProfileIds.includes(profileId)) {
+          return current;
+        }
+        return {
+          ...current,
+          hiddenProfileIds: [...current.hiddenProfileIds, profileId],
+        };
+      });
+
+      const profileRaw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
+      if (!profileRaw) {
+        return;
+      }
+
+      try {
+        const profileValues = JSON.parse(profileRaw) as Record<string, string>;
+        const phone = profileValues[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ?? '';
+        if (phone) {
+          await hideMemberProfile(phone, profileId);
+        }
+      } catch {
+        // ignore malformed profile cache
+      }
+    },
+    [updateState],
+  );
+
   const login = useCallback(async () => {
     const [stored, profileRaw] = await Promise.all([
       AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY),
@@ -517,6 +548,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       canViewFullProfile,
       canOpenNewFullProfile,
       recordProfileView,
+      skipProfile,
       login,
       chooseUnpaidAccess,
       resetPaymentGate,
@@ -552,6 +584,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       profilesRemaining,
       profilesViewedCount,
       recordProfileView,
+      skipProfile,
       setMembershipViewModeSafe,
       state.accessMode,
       state.batchesPaid,

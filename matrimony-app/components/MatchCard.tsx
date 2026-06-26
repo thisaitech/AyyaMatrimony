@@ -1,13 +1,10 @@
-import { Alert, Pressable, Platform, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ProtectedProfileImage } from '@/components/ProtectedProfileImage';
 import { getLimitedMemberPreview } from '@/constants/memberAccess';
-import { useLanguage } from '@/context/LanguageContext';
-import { useMatchActions } from '@/context/MatchActionsContext';
 import { useMemberAccess } from '@/hooks/useMemberAccess';
-import { useOpenMemberProfile, useRequirePaidContact } from '@/hooks/useOpenMemberProfile';
-import { borderRadius, colors, fonts, spacing, typography } from '@/constants/theme';
+import { useOpenMemberProfile } from '@/hooks/useOpenMemberProfile';
+import { colors, spacing, typography } from '@/constants/theme';
 
 type MatchCardProps = {
   id: string;
@@ -16,9 +13,9 @@ type MatchCardProps = {
   community: string;
   location: string;
   image: string;
-  occupation?: string;
+  phoneNumber?: string;
+  metaLine?: string;
   verified?: boolean;
-  online?: boolean;
 };
 
 export function MatchCard({
@@ -28,328 +25,103 @@ export function MatchCard({
   community,
   location,
   image,
-  occupation = '—',
+  phoneNumber = '',
+  metaLine,
   verified = false,
-  online = true,
 }: MatchCardProps) {
-  const router = useRouter();
   const openProfile = useOpenMemberProfile();
-  const requirePaidContact = useRequirePaidContact();
   const { canViewFullProfile } = useMemberAccess();
-  const { translate, translateFormat, language } = useLanguage();
-  const isTamil = language === 'ta';
-  const { hasSentInterest, sendInterest } = useMatchActions();
-
-  const interestSent = hasSentInterest(id);
   const profileLocked = !canViewFullProfile(id);
   const display = profileLocked
     ? getLimitedMemberPreview({ name, age, community, location, image })
-    : { name, age, community, location, image, occupation, verified };
+    : { name, age, community, location, image, verified };
 
-  const handleViewProfile = () => {
-    openProfile(id);
-  };
-
-  const handleInterest = () => {
-    if (!requirePaidContact()) {
-      return;
-    }
-
-    if (interestSent) {
-      Alert.alert(translate('interest'), translateFormat('interestAlreadySentFormat', { name }));
-      router.push({ pathname: '/(tabs)/interests', params: { direction: 'sent' } });
-      return;
-    }
-
-    void sendInterest({
-      memberId: id,
-      memberName: name,
-      memberImage: image,
-      age,
-      community,
-      location,
-    }).then((result) => {
-      Alert.alert(
-        translate('interest'),
-        result === 'sent'
-          ? translateFormat('interestSentFormat', { name })
-          : translateFormat('interestAlreadySentFormat', { name }),
-      );
-      router.push({ pathname: '/(tabs)/interests', params: { direction: 'sent' } });
-    });
-  };
+  const summaryLine =
+    metaLine?.trim() ||
+    `${display.community || '—'}${display.age ? ` - ${display.age}` : ''}`;
+  const displayPhone = profileLocked ? '—' : phoneNumber.trim() || '—';
 
   return (
-    <View style={styles.card}>
-      <View style={styles.row}>
-        <Pressable style={styles.photoWrap} onPress={handleViewProfile}>
-          <ProtectedProfileImage
-            imageUri={display.image}
-            locked={profileLocked}
-            style={styles.photoWrap}
-            imageStyle={styles.image}
-          />
-          {online ? (
-            <View style={styles.onlineBadge}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>{translate('online')}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-
-        <View style={styles.content}>
-          <View style={styles.titleRow}>
-            <View style={styles.nameRow}>
-              <Text style={styles.name} numberOfLines={1}>
-                {display.name}
-              </Text>
-              {display.verified ? (
-                <View style={styles.verifiedIconWrap}>
-                  <MaterialIcons name="verified" size={14} color={colors.gold} />
-                </View>
-              ) : null}
-            </View>
-            {display.verified ? (
-              <View style={styles.verifiedPill}>
-                <MaterialIcons name="verified-user" size={12} color={colors.primary} />
-                <Text style={styles.verifiedPillText}>{translate('verified')}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          <InfoRow icon="person-outline" text={display.age} />
-          <InfoRow icon="work-outline" text={display.occupation ?? occupation} />
-          <InfoRow icon="location-on" text={display.location} />
-          <InfoRow icon="groups" text={display.community} />
-
-          <View style={styles.actions}>
-            <Pressable style={[styles.outlineBtn, isTamil && styles.actionBtnTamil]} onPress={handleViewProfile}>
-              <MaterialIcons name="visibility" size={isTamil ? 14 : 16} color={colors.primary} style={styles.actionIcon} />
-              <Text
-                style={[styles.outlineText, isTamil && styles.actionTextTamil]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-              >
-                {translate('viewProfileBtn')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.primaryBtn, interestSent && styles.primaryBtnSent, isTamil && styles.actionBtnTamil]}
-              onPress={handleInterest}
-            >
-              <MaterialIcons name="favorite" size={isTamil ? 14 : 16} color={colors.onPrimary} style={styles.actionIcon} />
-              <Text
-                style={[styles.primaryText, isTamil && styles.actionTextTamil]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-              >
-                {interestSent ? translate('interestSentBtn') : translate('interest')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+    <Pressable style={styles.card} onPress={() => openProfile(id)}>
+      <View style={styles.cardImageWrap}>
+        <ProtectedProfileImage
+          imageUri={display.image}
+          locked={profileLocked}
+          style={styles.cardImage}
+          imageStyle={styles.cardImage}
+        />
       </View>
-    </View>
-  );
-}
 
-function InfoRow({ icon, text }: { icon: keyof typeof MaterialIcons.glyphMap; text: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <MaterialIcons name={icon} size={14} color={colors.onSurfaceVariant} />
-      <Text style={styles.infoText} numberOfLines={1}>
-        {text}
-      </Text>
-    </View>
+      <View style={styles.cardBody}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {display.name}
+        </Text>
+        <View style={styles.phoneRow}>
+          <MaterialIcons name="phone" size={13} color={colors.primary} />
+          <Text style={styles.cardPhone} numberOfLines={1}>
+            {displayPhone}
+          </Text>
+        </View>
+        <Text style={styles.cardMeta} numberOfLines={1}>
+          {summaryLine}
+        </Text>
+      </View>
+
+      <MaterialIcons name="chevron-right" size={20} color={colors.onSurfaceVariant} />
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(87, 0, 0, 0.08)',
-    ...Platform.select({
-      web: { boxShadow: '0 4px 16px rgba(87, 0, 0, 0.07)' },
-      default: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
-        elevation: 3,
-      },
-    }),
+    padding: 10,
+    marginBottom: spacing.sm,
+  },
+  cardImageWrap: {
+    width: 64,
+    height: 78,
+    borderRadius: 10,
     overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    minHeight: 188,
-  },
-  photoWrap: {
-    width: 118,
     backgroundColor: colors.surfaceContainerHigh,
+    flexShrink: 0,
   },
-  image: {
+  cardImage: {
     width: '100%',
     height: '100%',
-    minHeight: 188,
   },
-  onlineBadge: {
-    position: 'absolute',
-    left: 8,
-    bottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(20, 29, 35, 0.82)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: borderRadius.full,
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4CAF50',
-  },
-  onlineText: {
-    color: colors.onPrimary,
-    fontSize: 10,
-    lineHeight: 12,
-    fontFamily: fonts.interMedium,
-  },
-  content: {
+  cardBody: {
     flex: 1,
-    minWidth: 0,
-    padding: spacing.sm,
-    justifyContent: 'space-between',
-    gap: 2,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.xs,
-    marginBottom: 2,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flex: 1,
-    minWidth: 0,
-  },
-  name: {
-    ...typography.titleLg,
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.primary,
-    flexShrink: 1,
-  },
-  verifiedIconWrap: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#FFF8E7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  verifiedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 3,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(226, 191, 185, 0.45)',
-    flexShrink: 0,
+    minWidth: 0,
   },
-  verifiedPillText: {
-    ...typography.labelSm,
-    color: colors.primary,
-    fontSize: 10,
-    letterSpacing: 0,
+  cardName: {
+    ...typography.titleLg,
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.onSurface,
   },
-  infoRow: {
+  phoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
+    gap: 4,
   },
-  infoText: {
+  cardPhone: {
     ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.onSurface,
+    flex: 1,
+  },
+  cardMeta: {
+    ...typography.bodyMd,
     fontSize: 12,
-    lineHeight: 16,
-    flex: 1,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  outlineBtn: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceContainerLowest,
-  },
-  actionBtnTamil: {
-    paddingHorizontal: 6,
-    paddingVertical: 9,
-  },
-  actionIcon: {
-    flexShrink: 0,
-  },
-  outlineText: {
-    ...typography.labelSm,
-    color: colors.primary,
-    fontSize: 11,
-    letterSpacing: 0,
-    flexShrink: 1,
-    minWidth: 0,
-    textAlign: 'center',
-  },
-  primaryBtn: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-  },
-  primaryBtnSent: {
-    opacity: 0.85,
-  },
-  primaryText: {
-    ...typography.labelSm,
-    color: colors.onPrimary,
-    fontSize: 11,
-    letterSpacing: 0,
-    flexShrink: 1,
-    minWidth: 0,
-    textAlign: 'center',
-  },
-  actionTextTamil: {
-    fontSize: 10,
-    lineHeight: 13,
+    color: colors.onSurfaceVariant,
   },
 });
