@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { MAX_PROFILE_PHOTOS } from '@/constants/profilePhotos';
 import { Language } from '@/constants/i18n';
 import { colors, spacing, typography } from '@/constants/theme';
+import { compressNativePhotoUri } from '@/lib/firestore/storageService';
 
 type ProfilePhotoUploadStepLabels = {
   choosePhotoSource: string;
@@ -109,25 +110,30 @@ async function normalizeNativeImageUri(uri: string): Promise<string> {
     return uri;
   }
 
-  if (uri.startsWith('file://')) {
-    return uri;
-  }
-
-  if (!uri.startsWith('content://')) {
-    return uri;
-  }
-
-  const cacheDir = FileSystem.cacheDirectory;
-  if (!cacheDir) {
-    return uri;
-  }
-
-  const destination = `${cacheDir}profile_pick_${Date.now()}.jpg`;
   try {
-    await FileSystem.copyAsync({ from: uri, to: destination });
-    return destination;
+    const compressed = await compressNativePhotoUri(uri);
+    return compressed.uri;
   } catch {
-    return uri;
+    if (uri.startsWith('file://')) {
+      return uri;
+    }
+
+    if (!uri.startsWith('content://')) {
+      return uri;
+    }
+
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) {
+      return uri;
+    }
+
+    const destination = `${cacheDir}profile_pick_${Date.now()}.jpg`;
+    try {
+      await FileSystem.copyAsync({ from: uri, to: destination });
+      return destination;
+    } catch {
+      return uri;
+    }
   }
 }
 

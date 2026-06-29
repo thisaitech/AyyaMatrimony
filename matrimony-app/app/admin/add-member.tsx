@@ -14,7 +14,9 @@ import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useMemberDirectory } from '@/context/MemberDirectoryContext';
 import { useProfileForm } from '@/context/ProfileFormContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { getFirebaseFirestore, getFirebaseStorage } from '@/lib/firebase';
 import { hydrateLocalProfileFromFirestore } from '@/lib/firestore/profileService';
+import { resetCloudPhotoUploadAvailability } from '@/lib/firestore/storageService';
 
 export default function AdminAddMemberScreen() {
   const router = useRouter();
@@ -28,6 +30,12 @@ export default function AdminAddMemberScreen() {
   const [editProfileValues, setEditProfileValues] = useState<Record<string, string> | null>(null);
   const [isEditLoading, setIsEditLoading] = useState(false);
   const isEditing = Boolean(editPhone?.trim());
+
+  useEffect(() => {
+    resetCloudPhotoUploadAvailability();
+    void getFirebaseFirestore();
+    void getFirebaseStorage();
+  }, []);
 
   useEffect(() => {
     if (!authReady || !isAuthenticated || !isReady) return;
@@ -58,30 +66,39 @@ export default function AdminAddMemberScreen() {
     })();
   }, [authReady, isAuthenticated, clearProfile, editPhone, isEditing, isReady, replaceValues, setValue]);
 
-  const handleSave = useCallback((profileValues: Record<string, string>) => {
-    void (async () => {
+  const handleSave = useCallback(
+    async (profileValues: Record<string, string>) => {
       const draftPhone = profileValues[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ?? '';
       const ownerKey = draftPhone ? `admin-${draftPhone}` : `admin-${Date.now()}`;
+
       const published = await publishProfileFromValues(profileValues, ownerKey, {
         autoApprovePhotos: true,
-      });
-      const phone =
-        published?.biodata?.[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ||
-        published?.phoneNumber?.replace(/\D/g, '') ||
-        draftPhone;
-      if (phone) {
-        await updateApprovalStatus(approvalDocIdFromPhone(phone), 'approved');
+      }).catch(() => null);
+
+      if (!published) {
+        throw new Error('Profile publish failed');
       }
-      await refreshDirectory();
+
+      const phone =
+        published.biodata?.[CONTACT_PHONE_KEY]?.replace(/\D/g, '') ||
+        published.phoneNumber?.replace(/\D/g, '') ||
+        draftPhone;
+
+      if (phone) {
+        await updateApprovalStatus(approvalDocIdFromPhone(phone), 'approved').catch(() => undefined);
+      }
+      await refreshDirectory().catch(() => undefined);
       setEditProfileValues(null);
-      await clearProfile();
+      await clearProfile().catch(() => undefined);
+
       if (phone) {
         router.replace(`/admin/view-profile/${phone}` as never);
         return;
       }
       router.replace('/admin/(tabs)/matches' as never);
-    })();
-  }, [clearProfile, refreshDirectory, router]);
+    },
+    [clearProfile, refreshDirectory, router],
+  );
 
   if (!authReady) {
     return null;
@@ -103,7 +120,7 @@ export default function AdminAddMemberScreen() {
 
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 8) }]}>
         <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
           <MaterialIcons name="arrow-back" size={22} color={adminColors.text} />

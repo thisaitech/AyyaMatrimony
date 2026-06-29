@@ -75,7 +75,11 @@ export function ProfilePhotoCarousel({
           accessibilityLabel="View profile photo full screen"
         >
           {activePhoto ? (
-            <Image source={{ uri: activePhoto }} style={styles.image} resizeMode="cover" />
+            <Image
+              source={{ uri: activePhoto, cache: 'force-cache' }}
+              style={styles.image}
+              resizeMode="cover"
+            />
           ) : (
             <Image source={placeholderSource} style={styles.imagePlaceholder} resizeMode="contain" />
           )}

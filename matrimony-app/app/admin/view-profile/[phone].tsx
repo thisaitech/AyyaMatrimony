@@ -7,8 +7,7 @@ import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import type { FirestoreProfileDoc } from '@/lib/firestore/collections';
 import {
-  fetchProfileByPhone,
-  hydrateLocalProfileFromFirestore,
+  loadAdminProfileForView,
   setProfileBrowseHidden,
 } from '@/lib/firestore/profileService';
 import { StyleSheet, Text, View } from 'react-native';
@@ -34,10 +33,7 @@ export default function AdminViewProfileScreen() {
 
     setIsLoading(true);
     try {
-      const [biodata, profileDoc] = await Promise.all([
-        hydrateLocalProfileFromFirestore(phone),
-        fetchProfileByPhone(phone),
-      ]);
+      const { biodata, profileDoc } = await loadAdminProfileForView(phone);
       setProfileValues(biodata);
       setProfileDoc(profileDoc);
       setBrowseHidden(profileDoc?.browseHidden === true);

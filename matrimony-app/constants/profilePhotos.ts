@@ -13,13 +13,29 @@ export function parseBiodataShowPhoto(raw: string | undefined): boolean {
   return raw.trim().toLowerCase() !== 'false';
 }
 export const MAX_PROFILE_PHOTOS = 3;
+/** Firestore field size limit — keep compressed JPEG data URLs under this. */
+export const MAX_FIRESTORE_DATA_PHOTO_CHARS = 400_000;
 
 export function isRemotePhotoUri(uri: string): boolean {
   return uri.startsWith('http://') || uri.startsWith('https://');
 }
 
+export function isPersistableDataPhotoUri(uri: string): boolean {
+  const trimmed = uri.trim();
+  return trimmed.startsWith('data:image/') && trimmed.length <= MAX_FIRESTORE_DATA_PHOTO_CHARS;
+}
+
+/** HTTPS download URLs or compressed JPEG data URLs saved to Firestore when Storage CORS blocks web. */
+export function isPersistablePhotoUri(uri: string): boolean {
+  return isRemotePhotoUri(uri) || isPersistableDataPhotoUri(uri);
+}
+
 export function isLocalPhotoUri(uri: string): boolean {
-  return Boolean(uri.trim()) && !isRemotePhotoUri(uri);
+  const trimmed = uri.trim();
+  if (!trimmed || isRemotePhotoUri(trimmed) || isPersistableDataPhotoUri(trimmed)) {
+    return false;
+  }
+  return true;
 }
 
 /** URLs that can render in a browser (admin web, Expo web). */
@@ -73,16 +89,16 @@ export function firstDisplayablePhotoUri(
   return '';
 }
 
-/** Listing cards and Firestore should only store cloud URLs — never device cache paths. */
+/** Listing cards prefer HTTPS; data URLs are a web-admin fallback only. */
 export function resolvePortableListingPhotoUri(photos: string[]): string {
-  return photos.find(isRemotePhotoUri) ?? '';
+  return photos.find(isRemotePhotoUri) ?? photos.find(isPersistableDataPhotoUri) ?? '';
 }
 
-/** Keep only cloud URLs in persisted profile storage — never base64/blob/file paths. */
+/** Keep persistable URIs (HTTPS or compressed data URLs) — never blob/file paths. */
 export function photosForPersistence(photos: string[]): string[] {
   return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
     const photo = photos[index] ?? '';
-    return isRemotePhotoUri(photo) ? photo : '';
+    return isPersistablePhotoUri(photo) ? photo : '';
   });
 }
 
@@ -139,8 +155,17 @@ export function mergeApprovedProfilePhotos(
 /** Resolve which photo slots the biodata form should render. */
 export function resolveBiodataFormPhotoSlots(
   values: Record<string, string>,
-  options: { viewOnly?: boolean; adminEntry?: boolean } = {},
+  options: { viewOnly?: boolean; adminEntry?: boolean; adminView?: boolean } = {},
 ): string[] {
+  if (options.viewOnly && options.adminView) {
+    return mergePersistablePhotoSlotSources(
+      parsePersistablePhotoUrls(values.profilePhotoUrls),
+      parseApprovedProfilePhotoUrls(values[APPROVED_PROFILE_PHOTO_URLS_KEY]),
+      parseProfilePhotos(values[PROFILE_PHOTOS_KEY] ?? ''),
+      parseProfilePhotos(values[PROFILE_PHOTOS_DRAFT_KEY] ?? ''),
+    );
+  }
+
   if (options.viewOnly) {
     return mergeApprovedProfilePhotos(
       values[APPROVED_PROFILE_PHOTO_URLS_KEY] ?? '',
@@ -185,13 +210,13 @@ export function mergeUploadedPhotos(localPhotos: string[], uploadedPhotos: strin
   return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
     const uploaded = uploadedPhotos[index] ?? '';
     const local = localPhotos[index] ?? '';
-    if (uploaded) {
+    if (uploaded && isPersistablePhotoUri(uploaded)) {
       return uploaded;
     }
-    if (isRemotePhotoUri(local)) {
+    if (isPersistablePhotoUri(local)) {
       return local;
     }
-    return local;
+    return '';
   });
 }
 
@@ -207,14 +232,29 @@ export function parseRemotePhotoUrls(raw: string | undefined): string[] {
   });
 }
 
+export function parsePersistablePhotoUrls(raw: string | undefined): string[] {
+  const parts = (raw ?? '').split('|');
+  return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+    const url = parts[index]?.trim() ?? '';
+    return isPersistablePhotoUri(url) ? url : '';
+  });
+}
+
 export function parseApprovedProfilePhotoUrls(raw: string | undefined): string[] {
-  return parseRemotePhotoUrls(raw);
+  return parsePersistablePhotoUrls(raw);
 }
 
 export function serializeRemotePhotoUrls(photos: string[]): string {
   return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
     const url = photos[index]?.trim() ?? '';
     return isRemotePhotoUri(url) ? url : '';
+  }).join('|');
+}
+
+export function serializePersistablePhotoUrls(photos: string[]): string {
+  return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+    const url = photos[index]?.trim() ?? '';
+    return isPersistablePhotoUri(url) ? url : '';
   }).join('|');
 }
 
@@ -236,7 +276,7 @@ export function resolveApprovedProfilePhotoSlots(
     const candidates = [fromDoc[index], fromBiodata[index], fallbackSlots[index], index === 0 ? primary : ''];
 
     for (const candidate of candidates) {
-      if (candidate && isRemotePhotoUri(candidate)) {
+      if (candidate && isPersistablePhotoUri(candidate)) {
         return candidate;
       }
     }
@@ -262,7 +302,7 @@ function isPersistedPhotoUri(
   if (options.includeLocal) {
     return isDisplayablePhotoUri(trimmed, options.platform ?? 'native');
   }
-  return isRemotePhotoUri(trimmed);
+  return isPersistablePhotoUri(trimmed);
 }
 
 /** Merge every Firestore photo field into fixed slots for admin display and biodata hydration. */
@@ -327,7 +367,7 @@ export function mergeProfilePhotosIntoBiodata(
   const isAdminMember =
     profile.registrationSource === 'admin' || profile.ownerKey?.startsWith('admin-');
   if (isAdminMember && !approvedSlots.some(Boolean)) {
-    approvedSlots = slots.map((url) => (isRemotePhotoUri(url) ? url : ''));
+    approvedSlots = slots.map((url) => (isPersistablePhotoUri(url) ? url : ''));
   }
   if (!slots.some(Boolean) && !approvedSlots.some(Boolean)) {
     return biodata;
@@ -337,8 +377,8 @@ export function mergeProfilePhotosIntoBiodata(
   const approvedPrimary = approvedSlots.find(Boolean) ?? resolvePortableListingPhotoUri(displaySlots);
   return {
     ...biodata,
-    profilePhotoUrls: serializeRemotePhotoUrls(displaySlots),
-    [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(approvedSlots),
+    profilePhotoUrls: serializePersistablePhotoUrls(displaySlots),
+    [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializePersistablePhotoUrls(approvedSlots),
     [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(approvedSlots.some(Boolean) ? approvedSlots : displaySlots),
     listingImage: approvedPrimary,
   };
@@ -351,13 +391,11 @@ export function mergeHydratedProfilePhotoFields(
 ): Record<string, string> {
   const next = { ...local, ...remote };
 
-  const localUploaded = parseRemotePhotoUrls(local.profilePhotoUrls);
-  const remoteUploaded = parseRemotePhotoUrls(remote.profilePhotoUrls);
-  const mergedUploaded = Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
-    return remoteUploaded[index] || localUploaded[index] || '';
-  });
+  const localUploaded = parsePersistablePhotoUrls(local.profilePhotoUrls);
+  const remoteUploaded = parsePersistablePhotoUrls(remote.profilePhotoUrls);
+  const mergedUploaded = mergePersistablePhotoSlotSources(remoteUploaded, localUploaded);
   if (mergedUploaded.some(Boolean)) {
-    next.profilePhotoUrls = serializeRemotePhotoUrls(mergedUploaded);
+    next.profilePhotoUrls = serializePersistablePhotoUrls(mergedUploaded);
   } else if (local.profilePhotoUrls?.trim()) {
     next.profilePhotoUrls = local.profilePhotoUrls;
   }
@@ -365,9 +403,9 @@ export function mergeHydratedProfilePhotoFields(
   const localApproved = parseApprovedProfilePhotoUrls(local[APPROVED_PROFILE_PHOTO_URLS_KEY]);
   const remoteApproved = parseApprovedProfilePhotoUrls(remote[APPROVED_PROFILE_PHOTO_URLS_KEY]);
   if (remoteApproved.some(Boolean)) {
-    next[APPROVED_PROFILE_PHOTO_URLS_KEY] = serializeRemotePhotoUrls(remoteApproved);
+    next[APPROVED_PROFILE_PHOTO_URLS_KEY] = serializePersistablePhotoUrls(remoteApproved);
   } else if (localApproved.some(Boolean)) {
-    next[APPROVED_PROFILE_PHOTO_URLS_KEY] = serializeRemotePhotoUrls(localApproved);
+    next[APPROVED_PROFILE_PHOTO_URLS_KEY] = serializePersistablePhotoUrls(localApproved);
   }
 
   if (local[PROFILE_PHOTOS_DRAFT_KEY]?.trim() && !remote[PROFILE_PHOTOS_DRAFT_KEY]?.trim()) {
@@ -395,27 +433,10 @@ export function getAdminProfilePhotoUri(
   },
   platform: 'web' | 'native' = 'native',
   fallbackSlots: string[] = [],
+  storageSlots: string[] = [],
 ): string {
-  const slots = resolveProfilePhotoSlots(profile, fallbackSlots, { includeLocal: true, platform });
-  const resolved = firstDisplayablePhotoUri(slots, platform);
-  if (resolved) {
-    return resolved;
-  }
-
-  const listingImage = profile.listing?.image?.trim() ?? '';
-  const resolvedListing = resolveDisplayPhotoUri(listingImage, platform);
-  if (resolvedListing) {
-    return resolvedListing;
-  }
-
-  const biodataPrimary = profile.biodata?.listingImage?.trim() ?? '';
-  const resolvedBiodata = resolveDisplayPhotoUri(biodataPrimary, platform);
-  if (resolvedBiodata) {
-    return resolvedBiodata;
-  }
-
-  const primary = profile.primaryPhotoUrl?.trim() ?? '';
-  return resolveDisplayPhotoUri(primary, platform);
+  const uris = getAdminProfilePhotoUris(profile, platform, fallbackSlots, storageSlots);
+  return uris[0] ?? '';
 }
 
 /** All displayable admin profile photos (up to MAX_PROFILE_PHOTOS). */
@@ -429,8 +450,10 @@ export function getAdminProfilePhotoUris(
   },
   platform: 'web' | 'native' = 'native',
   fallbackSlots: string[] = [],
+  storageSlots: string[] = [],
 ): string[] {
-  const slots = resolveProfilePhotoSlots(profile, fallbackSlots, { includeLocal: true, platform });
+  const mergedFallback = mergeRemotePhotoSlotSources(fallbackSlots, storageSlots);
+  const slots = resolveProfilePhotoSlots(profile, mergedFallback, { includeLocal: true, platform });
   const resolved = slots
     .map((uri) => resolveDisplayPhotoUri(uri, platform))
     .filter((uri) => Boolean(uri));
@@ -440,6 +463,7 @@ export function getAdminProfilePhotoUris(
   }
 
   for (const candidate of [
+    ...storageSlots,
     profile.listing?.image,
     profile.biodata?.listingImage,
     profile.primaryPhotoUrl,
@@ -453,19 +477,77 @@ export function getAdminProfilePhotoUris(
   return [];
 }
 
-export function biodataForFirestore(values: Record<string, string>): Record<string, string> {
-  const remoteUrls = values.profilePhotoUrls?.split('|').filter(isRemotePhotoUri) ?? [];
-  const localPhotos = parseProfilePhotos(values[PROFILE_PHOTOS_KEY] ?? '');
-  const remoteSlots = Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
-    const remote = remoteUrls[index] ?? '';
-    const local = localPhotos[index] ?? '';
-    return isRemotePhotoUri(remote) ? remote : isRemotePhotoUri(local) ? local : '';
+export function profileDocHasRemotePhotos(profile: {
+  photoUrls?: string[];
+  approvedPhotoUrls?: string[];
+  primaryPhotoUrl?: string;
+  listing?: { image?: string };
+  biodata?: Record<string, string>;
+}): boolean {
+  const biodata = profile.biodata ?? {};
+  const candidates = [
+    ...(profile.photoUrls ?? []),
+    ...(profile.approvedPhotoUrls ?? []),
+    profile.primaryPhotoUrl ?? '',
+    profile.listing?.image ?? '',
+    biodata.listingImage ?? '',
+    ...parseRemotePhotoUrls(biodata.profilePhotoUrls),
+    ...parseApprovedProfilePhotoUrls(biodata[APPROVED_PROFILE_PHOTO_URLS_KEY]),
+    ...parseProfilePhotos(biodata[PROFILE_PHOTOS_KEY] ?? ''),
+  ];
+
+  return candidates.some((url) => isPersistablePhotoUri(url?.trim() ?? ''));
+}
+
+export function mergePersistablePhotoSlotSources(...sources: string[][]): string[] {
+  return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+    for (const source of sources) {
+      const url = source[index]?.trim() ?? '';
+      if (isPersistablePhotoUri(url)) {
+        return url;
+      }
+    }
+    return '';
   });
+}
+
+export function mergeRemotePhotoSlotSources(...sources: string[][]): string[] {
+  return Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+    for (const source of sources) {
+      const url = source[index]?.trim() ?? '';
+      if (isRemotePhotoUri(url)) {
+        return url;
+      }
+    }
+    return '';
+  });
+}
+
+export function biodataForFirestore(values: Record<string, string>): Record<string, string> {
+  const pipeUrls = (values.profilePhotoUrls ?? '').split('|');
+  const localPhotos = parseProfilePhotos(values[PROFILE_PHOTOS_KEY] ?? '');
+  const persistSlots = Array.from({ length: MAX_PROFILE_PHOTOS }, (_, index) => {
+    for (const candidate of [pipeUrls[index], localPhotos[index]]) {
+      const url = candidate?.trim() ?? '';
+      if (isPersistablePhotoUri(url)) {
+        return url;
+      }
+    }
+    return '';
+  });
+
+  // Keep biodata lean — large data URLs live only on root photoUrls / approvedPhotoUrls.
+  const biodataSlots = persistSlots.map((url) => (isRemotePhotoUri(url) ? url : ''));
 
   return {
     ...values,
-    profilePhotoUrls: serializeRemotePhotoUrls(remoteSlots),
-    [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(remoteSlots),
+    profilePhotoUrls: serializePersistablePhotoUrls(biodataSlots),
+    [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializePersistablePhotoUrls(
+      parseApprovedProfilePhotoUrls(values[APPROVED_PROFILE_PHOTO_URLS_KEY]).map((url) =>
+        isRemotePhotoUri(url) ? url : '',
+      ),
+    ),
+    [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(biodataSlots),
   };
 }
 

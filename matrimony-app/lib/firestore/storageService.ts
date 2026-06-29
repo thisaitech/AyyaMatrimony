@@ -1,15 +1,26 @@
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import { getDownloadURL, ref, uploadBytes, uploadString, listAll } from 'firebase/storage';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { getDownloadURL, ref, uploadString, listAll } from 'firebase/storage';
 import { getFirebaseStorage } from '@/lib/firebase';
-import { isRemotePhotoUri, MAX_PROFILE_PHOTOS } from '@/constants/profilePhotos';
+import {
+  isPersistableDataPhotoUri,
+  isPersistablePhotoUri,
+  isRemotePhotoUri,
+  MAX_FIRESTORE_DATA_PHOTO_CHARS,
+  MAX_PROFILE_PHOTOS,
+} from '@/constants/profilePhotos';
 
-const UPLOAD_TIMEOUT_MS = 20000;
-const READ_URI_TIMEOUT_MS = 15000;
+const UPLOAD_TIMEOUT_MS = 45000;
+const READ_URI_TIMEOUT_MS = 20000;
+const WEB_JPEG_MAX_WIDTH = 960;
+const WEB_JPEG_QUALITY = 0.72;
+const NATIVE_JPEG_MAX_WIDTH = 800;
+const NATIVE_JPEG_QUALITY = 0.65;
 
 let cloudPhotoUploadEnabled: boolean | null = null;
 
-/** Upload profile photos to Firebase Storage so web admin entries appear on APK builds. */
+/** Upload profile photos to Firebase Storage (native) or Storage with Firestore fallback (web CORS). */
 export function shouldAttemptCloudPhotoUpload(): boolean {
   return cloudPhotoUploadEnabled !== false;
 }
@@ -34,6 +45,39 @@ function isPermanentStorageError(error: unknown): boolean {
     firebaseError.code === 'storage/unauthenticated' ||
     firebaseError.code === 'storage/invalid-argument'
   );
+}
+
+function isWebStorageCorsError(error: unknown): boolean {
+  if (Platform.OS !== 'web') {
+    return false;
+  }
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error && 'message' in error
+        ? String((error as { message?: string }).message ?? '')
+        : String(error ?? '');
+
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('cors') ||
+    normalized.includes('network error') ||
+    normalized.includes('failed to fetch') ||
+    normalized.includes('err_failed')
+  );
+}
+
+function shouldUseFirestorePhotoFallback(error: unknown): boolean {
+  if (isPermanentStorageError(error)) {
+    return false;
+  }
+
+  if (Platform.OS === 'web') {
+    return isWebStorageCorsError(error) || !isPermanentStorageError(error);
+  }
+
+  return true;
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -70,15 +114,6 @@ async function normalizeLocalPhotoUri(uri: string): Promise<string> {
   return uri;
 }
 
-function base64ToBlob(base64: string, mimeType = 'image/jpeg'): Blob {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return new Blob([bytes], { type: mimeType });
-}
-
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -88,7 +123,68 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-async function readNativePhotoAsBlob(uri: string): Promise<Blob> {
+/** Resize/compress phone gallery photos so Storage + Firestore can accept them. */
+export async function compressNativePhotoUri(uri: string): Promise<{ uri: string; base64: string }> {
+  const normalized = await withTimeout(
+    normalizeLocalPhotoUri(uri),
+    READ_URI_TIMEOUT_MS,
+    'Timed out while preparing the selected photo.',
+  );
+
+  try {
+    let quality = NATIVE_JPEG_QUALITY;
+    let width = NATIVE_JPEG_MAX_WIDTH;
+    let lastResult: ImageManipulator.ImageResult | null = null;
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const result = await ImageManipulator.manipulateAsync(
+        normalized,
+        [{ resize: { width } }],
+        { compress: quality, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      lastResult = result;
+      const base64 = result.base64 ?? '';
+      if (!base64) {
+        break;
+      }
+
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
+      if (isPersistableDataPhotoUri(dataUrl) || attempt === 5) {
+        return { uri: result.uri, base64 };
+      }
+
+      quality = Math.max(0.35, quality - 0.08);
+      width = Math.max(480, Math.round(width * 0.85));
+    }
+
+    if (lastResult?.base64) {
+      return { uri: lastResult.uri, base64: lastResult.base64 };
+    }
+  } catch {
+    // Fall back when native image module is unavailable in a release build.
+  }
+
+  const base64 = await withTimeout(
+    FileSystem.readAsStringAsync(normalized, {
+      encoding: FileSystem.EncodingType.Base64,
+    }),
+    READ_URI_TIMEOUT_MS,
+    'Timed out while reading the selected photo.',
+  );
+
+  if (!base64) {
+    throw new Error('Selected photo is empty or unreadable.');
+  }
+
+  return { uri: normalized, base64 };
+}
+
+async function readNativePhotoBase64(uri: string): Promise<string> {
+  if (Platform.OS !== 'web' && !uri.startsWith('data:')) {
+    const compressed = await compressNativePhotoUri(uri);
+    return compressed.base64;
+  }
+
   const localUri = await withTimeout(
     normalizeLocalPhotoUri(uri),
     READ_URI_TIMEOUT_MS,
@@ -106,7 +202,7 @@ async function readNativePhotoAsBlob(uri: string): Promise<Blob> {
     throw new Error('Selected photo is empty or unreadable.');
   }
 
-  return base64ToBlob(base64);
+  return base64;
 }
 
 async function uriToBlob(uri: string): Promise<Blob> {
@@ -127,7 +223,16 @@ async function uriToBlob(uri: string): Promise<Blob> {
   }
 
   if (Platform.OS !== 'web') {
-    return readNativePhotoAsBlob(uri);
+    const base64 = await readNativePhotoBase64(uri);
+    const binary = globalThis.atob?.(base64);
+    if (!binary) {
+      throw new Error('Unable to read selected photo.');
+    }
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return new Blob([bytes], { type: 'image/jpeg' });
   }
 
   const response = await withTimeout(
@@ -141,23 +246,78 @@ async function uriToBlob(uri: string): Promise<Blob> {
   return response.blob();
 }
 
-export async function uploadProfilePhoto(
+async function compressBlobForFirestore(blob: Blob): Promise<string> {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') {
+    const dataUrl = await blobToDataUrl(blob);
+    if (!isPersistableDataPhotoUri(dataUrl)) {
+      throw new Error('Photo is too large. Please choose a smaller image.');
+    }
+    return dataUrl;
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error('Unable to read selected photo.'));
+      element.src = objectUrl;
+    });
+
+    const scale = Math.min(1, WEB_JPEG_MAX_WIDTH / Math.max(image.width, 1));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Unable to prepare photo for upload.');
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    let quality = WEB_JPEG_QUALITY;
+    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+    while (dataUrl.length > MAX_FIRESTORE_DATA_PHOTO_CHARS && quality > 0.35) {
+      quality -= 0.08;
+      dataUrl = canvas.toDataURL('image/jpeg', quality);
+    }
+
+    if (!isPersistableDataPhotoUri(dataUrl)) {
+      throw new Error('Photo is too large after compression. Please choose a smaller image.');
+    }
+
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function nativePhotoDataUrlForFirestore(uri: string): Promise<string> {
+  const { base64 } = await compressNativePhotoUri(uri);
+  const dataUrl = `data:image/jpeg;base64,${base64}`;
+  if (!isPersistableDataPhotoUri(dataUrl)) {
+    throw new Error('Photo is too large. Please choose a smaller image.');
+  }
+  return dataUrl;
+}
+
+async function uploadProfilePhotoViaFirestoreFallback(localUri: string): Promise<string> {
+  if (Platform.OS !== 'web') {
+    return nativePhotoDataUrlForFirestore(localUri);
+  }
+
+  const blob = await uriToBlob(localUri);
+  if (!blob.size) {
+    throw new Error('Selected photo is empty or unreadable.');
+  }
+
+  return compressBlobForFirestore(blob);
+}
+
+async function uploadProfilePhotoToStorage(
   phone: string,
   slotIndex: number,
   localUri: string,
 ): Promise<string> {
-  if (!localUri.trim()) {
-    return '';
-  }
-
-  if (isRemotePhotoUri(localUri)) {
-    return localUri;
-  }
-
-  if (!shouldAttemptCloudPhotoUpload()) {
-    return '';
-  }
-
   const storage = await getFirebaseStorage();
   if (!storage) {
     throw new Error('Photo storage is unavailable.');
@@ -180,12 +340,12 @@ export async function uploadProfilePhoto(
     return getDownloadURL(objectRef);
   }
 
-  const blob = await uriToBlob(localUri);
-  if (!blob.size) {
-    throw new Error('Selected photo is empty or unreadable.');
-  }
-
   if (Platform.OS === 'web') {
+    const blob = await uriToBlob(localUri);
+    if (!blob.size) {
+      throw new Error('Selected photo is empty or unreadable.');
+    }
+
     const dataUrl = await blobToDataUrl(blob);
     await withTimeout(
       uploadString(objectRef, dataUrl, 'data_url', { contentType: 'image/jpeg' }),
@@ -193,8 +353,9 @@ export async function uploadProfilePhoto(
       'Photo upload timed out. Please try again.',
     );
   } else {
+    const { base64 } = await compressNativePhotoUri(localUri);
     await withTimeout(
-      uploadBytes(objectRef, blob, { contentType: 'image/jpeg' }),
+      uploadString(objectRef, base64, 'base64', { contentType: 'image/jpeg' }),
       UPLOAD_TIMEOUT_MS,
       'Photo upload timed out. Please try again.',
     );
@@ -204,14 +365,48 @@ export async function uploadProfilePhoto(
   return getDownloadURL(objectRef);
 }
 
+export async function uploadProfilePhoto(
+  phone: string,
+  slotIndex: number,
+  localUri: string,
+): Promise<string> {
+  if (!localUri.trim()) {
+    return '';
+  }
+
+  if (isPersistablePhotoUri(localUri)) {
+    return localUri;
+  }
+
+  if (!shouldAttemptCloudPhotoUpload()) {
+    return uploadProfilePhotoViaFirestoreFallback(localUri);
+  }
+
+  try {
+    return await uploadProfilePhotoToStorage(phone, slotIndex, localUri);
+  } catch (error) {
+    if (isPermanentStorageError(error)) {
+      markCloudPhotoUploadUnavailable();
+    }
+
+    if (!shouldUseFirestorePhotoFallback(error)) {
+      throw error instanceof Error ? error : new Error('Photo upload failed.');
+    }
+
+    try {
+      return await uploadProfilePhotoViaFirestoreFallback(localUri);
+    } catch (fallbackError) {
+      throw fallbackError instanceof Error
+        ? fallbackError
+        : new Error('Photo upload failed. Please try a smaller image.');
+    }
+  }
+}
+
 export async function uploadProfilePhotos(
   phone: string,
   localUris: string[],
 ): Promise<string[]> {
-  if (!shouldAttemptCloudPhotoUpload()) {
-    return localUris.map((uri) => (isRemotePhotoUri(uri) ? uri : ''));
-  }
-
   const results: string[] = [];
   for (let index = 0; index < localUris.length; index += 1) {
     const uri = localUris[index] ?? '';
@@ -220,13 +415,19 @@ export async function uploadProfilePhotos(
       continue;
     }
 
+    if (isPersistablePhotoUri(uri)) {
+      results[index] = uri;
+      continue;
+    }
+
     try {
       results[index] = await uploadProfilePhoto(phone, index, uri);
-    } catch (error) {
-      if (isPermanentStorageError(error)) {
-        markCloudPhotoUploadUnavailable();
+    } catch {
+      try {
+        results[index] = await uploadProfilePhotoViaFirestoreFallback(uri);
+      } catch {
+        results[index] = '';
       }
-      results[index] = isRemotePhotoUri(uri) ? uri : '';
     }
   }
 

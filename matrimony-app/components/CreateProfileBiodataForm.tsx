@@ -57,6 +57,7 @@ import { borderRadius, colors, fonts, spacing } from '@/constants/theme';
 import { applyDefaultRegistrationCommunity, getProfileIncompleteFields, prepareProfileForPublish } from '@/constants/profileCompletion';
 import { CONTACT_PHONE_KEY, normalizePhoneDigits } from '@/constants/contactDetails';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BiodataExportOptions } from '@/lib/biodataExport';
 import { uploadAndSyncProfilePhotosForApproval } from '@/lib/firestore/profilePhotoSync';
 import { shareBiodataSheetAsImage } from '@/lib/biodataShare';
@@ -67,15 +68,21 @@ import {
 import {
   BIODATA_SHOW_PHOTO_KEY,
   parseBiodataShowPhoto,
+  APPROVED_PROFILE_PHOTO_URLS_KEY,
   isLocalPhotoUri,
   parseProfilePhotos,
+  photosForPersistence,
   PROFILE_PHOTOS_DRAFT_KEY,
   PROFILE_PHOTOS_KEY,
   resolveBiodataFormPhotoSlots,
-  serializePersistedProfilePhotos,
+  resolvePortableListingPhotoUri,
+  serializePersistablePhotoUrls,
   serializeProfilePhotos,
-  serializeRemotePhotoUrls,
 } from '@/constants/profilePhotos';
+import {
+  resetCloudPhotoUploadAvailability,
+} from '@/lib/firestore/storageService';
+import { getFirebaseFirestore, getFirebaseStorage } from '@/lib/firebase';
 
 const IS_NATIVE = Platform.OS !== 'web';
 
@@ -966,6 +973,7 @@ function buildBiodataDraftValues({
   language,
   registrationNumber,
   adminContactPhone = '',
+  autoApprovePhotos = false,
 }: {
   form: BiodataState;
   photos: string[];
@@ -977,12 +985,15 @@ function buildBiodataDraftValues({
   language: Language;
   registrationNumber: string;
   adminContactPhone?: string;
+  autoApprovePhotos?: boolean;
 }): Record<string, string> {
   const occupationWorkKey = resolveStoredOptionValue('occupation', form.occupation, language);
+  const persistSlots = photosForPersistence(photos);
+  const persistablePhotoUrls = serializePersistablePhotoUrls(photos);
   const serializedPhotos = serializeProfilePhotos(photos);
-  const persistedPhotos = serializePersistedProfilePhotos(photos);
-  const remoteProfilePhotoUrls = serializeRemotePhotoUrls(photos);
+  const persistedPhotos = serializeProfilePhotos(persistSlots);
   const phoneDigits = normalizePhoneDigits(adminContactPhone);
+  const hasPersistablePhotos = persistablePhotoUrls.replace(/\|/g, '').trim().length > 0;
 
   const next = applyDefaultRegistrationCommunity({
     ...existingValues,
@@ -1046,9 +1057,19 @@ function buildBiodataDraftValues({
     biodataHoroscopeRasi: JSON.stringify(rasiChart),
     biodataHoroscopeAmsam: JSON.stringify(amsamChart),
     biodataDetailGrid: JSON.stringify(detailGrid),
-    [PROFILE_PHOTOS_KEY]: persistedPhotos,
+    [PROFILE_PHOTOS_KEY]: hasPersistablePhotos ? persistedPhotos : serializedPhotos,
     [PROFILE_PHOTOS_DRAFT_KEY]: serializedPhotos,
-    ...(remoteProfilePhotoUrls ? { profilePhotoUrls: remoteProfilePhotoUrls } : {}),
+    ...(hasPersistablePhotos
+      ? {
+          profilePhotoUrls: persistablePhotoUrls,
+          ...(autoApprovePhotos
+            ? {
+                [APPROVED_PROFILE_PHOTO_URLS_KEY]: persistablePhotoUrls,
+                listingImage: resolvePortableListingPhotoUri(photos),
+              }
+            : {}),
+        }
+      : {}),
     [BIODATA_SHOW_PHOTO_KEY]: showPhotoInBiodata ? 'true' : 'false',
     ...(phoneDigits
       ? {
@@ -5310,6 +5331,8 @@ type CreateProfileBiodataFormProps = {
   preferTamilKeyboard?: boolean;
   /** Show contact phone field on step 1 (admin add/edit member only). */
   showAdminPhoneField?: boolean;
+  /** Admin read-only profile view — show all cloud photo URLs. */
+  adminViewProfile?: boolean;
 };
 
 function profileValuesSeedKey(profileValues: Record<string, string>): string {
@@ -5345,10 +5368,14 @@ export function CreateProfileBiodataForm({
   hideActionBar = false,
   preferTamilKeyboard = false,
   showAdminPhoneField = false,
+  adminViewProfile = false,
 }: CreateProfileBiodataFormProps) {
   const dense = true;
   const { translate, translateFormat, language } = useLanguage();
   const { horizontalInset } = useResponsiveLayout();
+  const insets = useSafeAreaInsets();
+  const actionBarBottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 8);
+  const actionBarHeight = IS_NATIVE ? 56 + actionBarBottomInset : 52;
   const { getValue, setValue, replaceValues, values, isReady } = useProfileForm();
   const [isSaving, setIsSaving] = useState(false);
   const [rasiChart, setRasiChart] = useState(emptyHoroscope);
@@ -5360,6 +5387,9 @@ export function CreateProfileBiodataForm({
 
   useEffect(() => {
     ensureBiodataPrintStyles();
+    resetCloudPhotoUploadAvailability();
+    void getFirebaseFirestore();
+    void getFirebaseStorage();
   }, []);
   const photosRef = useRef<string[]>(parseProfilePhotos(''));
   const photosDirtyRef = useRef(false);
@@ -5519,7 +5549,7 @@ export function CreateProfileBiodataForm({
         profilePhotoUrls: readValue('profilePhotoUrls'),
         approvedProfilePhotoUrls: readValue('approvedProfilePhotoUrls'),
       },
-      { viewOnly, adminEntry: showAdminPhoneField },
+      { viewOnly, adminEntry: showAdminPhoneField, adminView: adminViewProfile },
     );
     setPhotos((current) => {
       if (shouldKeepCurrentPhotos(current, mergedPhotos, editable, viewOnly, photosDirtyRef.current)) {
@@ -5539,7 +5569,7 @@ export function CreateProfileBiodataForm({
     if (!profileValues) {
       formHydratedRef.current = true;
     }
-  }, [editable, getValue, isReady, profileValues, setValue, showAdminPhoneField, viewOnly]);
+  }, [editable, getValue, isReady, profileValues, setValue, showAdminPhoneField, adminViewProfile, viewOnly]);
 
   useEffect(() => {
     if (profileValues || !isReady) {
@@ -5625,7 +5655,7 @@ export function CreateProfileBiodataForm({
         profilePhotoUrls: readValue('profilePhotoUrls'),
         approvedProfilePhotoUrls: readValue('approvedProfilePhotoUrls'),
       },
-      { viewOnly, adminEntry: showAdminPhoneField },
+      { viewOnly, adminEntry: showAdminPhoneField, adminView: adminViewProfile },
     );
     setPhotos((current) => {
       if (shouldKeepCurrentPhotos(current, mergedPhotos, editable, viewOnly, photosDirtyRef.current)) {
@@ -5683,6 +5713,7 @@ export function CreateProfileBiodataForm({
         language,
         registrationNumber,
         adminContactPhone: showAdminPhoneField ? adminContactPhone : '',
+        autoApprovePhotos: showAdminPhoneField,
       });
 
       if (syncId !== syncDraftSeqRef.current) {
@@ -5909,6 +5940,7 @@ export function CreateProfileBiodataForm({
     const rasi = form.rasi.trim() || getValue('rasi').trim();
     const natchathiram = form.natchathiram.trim() || getValue('natchathiram').trim();
     let registrationNumber = getValue('registrationNumber').trim() || form.registrationNumber.trim();
+    const photosToPersist = photosRef.current.some(Boolean) ? photosRef.current : photos;
 
     if (religion) {
       const allocated = await resolveRegistrationNumber({
@@ -5924,7 +5956,7 @@ export function CreateProfileBiodataForm({
 
     const nextValues = buildBiodataDraftValues({
       form,
-      photos,
+      photos: photosToPersist,
       rasiChart,
       amsamChart,
       detailGrid,
@@ -5933,6 +5965,7 @@ export function CreateProfileBiodataForm({
       language,
       registrationNumber,
       adminContactPhone: showAdminPhoneField ? adminContactPhone : '',
+      autoApprovePhotos: showAdminPhoneField,
     });
 
     await replaceValues(nextValues);
@@ -5943,7 +5976,6 @@ export function CreateProfileBiodataForm({
     form,
     getValue,
     language,
-    photos,
     rasiChart,
     amsamChart,
     showAdminPhoneField,
@@ -6002,9 +6034,12 @@ export function CreateProfileBiodataForm({
           return;
         }
 
-        await onSave(profileValues);
-      } catch {
-        const message = translate('profileSaveFailed');
+        await Promise.resolve(onSave(profileValues));
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message === 'Profile publish failed'
+            ? translate('profileIncompleteSave')
+            : translate('profileSaveFailed');
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
           window.alert(message);
         } else {
@@ -6587,6 +6622,7 @@ export function CreateProfileBiodataForm({
             isReviewStep && IS_NATIVE && styles.scrollContentReviewNative,
             isReviewStep && IS_NATIVE && { paddingHorizontal: horizontalInset },
             isReviewActions && styles.scrollContentReview,
+            isReviewActions && IS_NATIVE && { paddingBottom: actionBarHeight + 24 },
           ]}
         >
           {biodataSheet}
@@ -6603,6 +6639,7 @@ export function CreateProfileBiodataForm({
           isReviewActions && styles.actionBarReview,
           viewOnly && styles.actionBarEmbedded,
           isChristianReview && styles.actionBarFullScreen,
+          IS_NATIVE && { paddingBottom: actionBarBottomInset },
         ]}
       >
         {viewOnly ? (

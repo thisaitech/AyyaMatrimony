@@ -4,7 +4,7 @@ import { MemberProfile, getMemberProfileById } from '@/constants/images';
 import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 import { getMockMemberBiodata } from '@/constants/memberBiodata';
 import { filterByRecommendedGender, resolveUserGender, type MatchGender } from '@/constants/matchFilters';
-import { PROFILE_PHOTOS_KEY, parseApprovedProfilePhotoUrls, resolveDisplayPhotoUri, resolvePortableListingPhotoUri, serializeProfilePhotos, serializeRemotePhotoUrls } from '@/constants/profilePhotos';
+import { PROFILE_PHOTOS_KEY, parseApprovedProfilePhotoUrls, resolveDisplayPhotoUri, resolvePortableListingPhotoUri, serializePersistablePhotoUrls, serializeProfilePhotos } from '@/constants/profilePhotos';
 import { hasCompletedProfile, applyDefaultRegistrationCommunity, prepareProfileForPublish } from '@/constants/profileCompletion';
 import { matchesRegistrationCommunity, normalizeRegistrationCommunity } from '@/constants/registrationCommunities';
 import {
@@ -243,14 +243,14 @@ export async function publishProfileFromValues(
     published: true,
     uploadPhotos: true,
     autoApprovePhotos: options.autoApprovePhotos ?? resolvedOwnerKey.startsWith('admin-'),
-  });
+  }).catch(() => null);
 
   const syncedBiodata = remoteProfile
     ? {
         ...biodataWithApproval,
         approvalStatus: remoteProfile.approvalStatus ?? biodataWithApproval.approvalStatus,
-        profilePhotoUrls: (remoteProfile.photoUrls ?? []).join('|'),
-        approvedProfilePhotoUrls: serializeRemotePhotoUrls(remoteProfile.approvedPhotoUrls ?? []),
+        profilePhotoUrls: serializePersistablePhotoUrls(remoteProfile.photoUrls ?? []),
+        approvedProfilePhotoUrls: serializePersistablePhotoUrls(remoteProfile.approvedPhotoUrls ?? []),
         [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(
           resolvedOwnerKey.startsWith('admin-')
             ? (remoteProfile.photoUrls ?? [])

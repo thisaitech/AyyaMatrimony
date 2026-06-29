@@ -17,11 +17,13 @@ import { ProfilePhotoCarousel } from '@/components/ProfilePhotoCarousel';
 import { getProfileAvatarUri } from '@/constants/profileDisplay';
 import {
   getAdminProfilePhotoUris,
+  isPersistablePhotoUri,
   parseProfilePhotos,
   PROFILE_PHOTOS_DRAFT_KEY,
   PROFILE_PHOTOS_KEY,
 } from '@/constants/profilePhotos';
 import { useLanguage } from '@/context/LanguageContext';
+import { fetchStoredProfilePhotoUrls } from '@/lib/firestore/storageService';
 import type { FirestoreProfileDoc } from '@/lib/firestore/collections';
 
 type AdminMatrimonyProfileViewProps = {
@@ -47,10 +49,30 @@ export function AdminMatrimonyProfileView({
 }: AdminMatrimonyProfileViewProps) {
   const { language, translate } = useLanguage();
   const [hiddenFromBrowse, setHiddenFromBrowse] = useState(browseHidden);
+  const [storagePhotoSlots, setStoragePhotoSlots] = useState<string[]>([]);
 
   useEffect(() => {
     setHiddenFromBrowse(browseHidden);
   }, [browseHidden]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      setStoragePhotoSlots([]);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchStoredProfilePhotoUrls(phone).then((slots) => {
+      if (!cancelled) {
+        setStoragePhotoSlots(slots.filter(isPersistablePhotoUri));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phone, profileValues._profileUpdatedAt]);
+
   const profilePhotos = useMemo(() => {
     const platform = Platform.OS === 'web' ? 'web' : 'native';
     const fallbackSlots = parseProfilePhotos(
@@ -58,7 +80,12 @@ export function AdminMatrimonyProfileView({
     );
 
     if (profileDoc) {
-      const fromDoc = getAdminProfilePhotoUris(profileDoc, platform, fallbackSlots);
+      const fromDoc = getAdminProfilePhotoUris(
+        profileDoc,
+        platform,
+        fallbackSlots,
+        storagePhotoSlots,
+      );
       if (fromDoc.length > 0) {
         return fromDoc;
       }
@@ -74,14 +101,15 @@ export function AdminMatrimonyProfileView({
       },
       platform,
       fallbackSlots,
+      storagePhotoSlots,
     );
     if (fromValues.length > 0) {
       return fromValues;
     }
 
-    const avatar = getProfileAvatarUri(profileValues);
-    return avatar ? [avatar] : [];
-  }, [profileDoc, profileValues]);
+    const avatar = getProfileAvatarUri(profileValues, { includePendingUploads: true });
+    return avatar ? [avatar] : storagePhotoSlots.filter(isPersistablePhotoUri);
+  }, [profileDoc, profileValues, storagePhotoSlots]);
 
   const name = profileValues.fullName?.trim() || translate('adminMember');
   const rawCommunity =
@@ -176,6 +204,7 @@ export function AdminMatrimonyProfileView({
             key={`admin-view-${phone}-${profileValues._profileUpdatedAt ?? profileValues.registrationNumber ?? '0'}`}
             editable={false}
             viewOnly
+            adminViewProfile
             profileValues={profileValues}
             onSave={() => undefined}
           />

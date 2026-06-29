@@ -4,12 +4,14 @@ import { Platform } from 'react-native';
 import { CONTACT_PHONE_KEY } from '@/constants/contactDetails';
 import {
   APPROVED_PROFILE_PHOTO_URLS_KEY,
+  isPersistableDataPhotoUri,
+  isPersistablePhotoUri,
   isRemotePhotoUri,
   MAX_PROFILE_PHOTOS,
   parseApprovedProfilePhotoUrls,
   parseProfilePhotos,
   PROFILE_PHOTOS_KEY,
-  serializeRemotePhotoUrls,
+  serializePersistablePhotoUrls,
   serializeProfilePhotos,
 } from '@/constants/profilePhotos';
 import { getFirebaseFirestore, getFirebaseStorage } from '@/lib/firebase';
@@ -481,7 +483,12 @@ export async function submitPhotoForApproval(
   },
 ): Promise<void> {
   const digits = phone.replace(/\D/g, '');
-  if (!digits || !options.photoUrl.trim() || !isRemotePhotoUri(options.photoUrl.trim())) {
+  if (!digits || !options.photoUrl.trim()) {
+    return;
+  }
+
+  const photoUrl = options.photoUrl.trim();
+  if (!isRemotePhotoUri(photoUrl) && !isPersistableDataPhotoUri(photoUrl)) {
     return;
   }
 
@@ -538,14 +545,18 @@ export async function submitPhotoForApproval(
     const biodata = {
       ...(profile?.biodata ?? {}),
       [CONTACT_PHONE_KEY]: digits,
-      profilePhotoUrls: serializeRemotePhotoUrls(photoUrls),
-      [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(approvedPhotoUrls),
+      profilePhotoUrls: serializePersistablePhotoUrls(photoUrls),
+      [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializePersistablePhotoUrls(approvedPhotoUrls),
       [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(
         status === 'approved'
           ? approvedPhotoUrls
-          : photoUrls.map((url) => (isRemotePhotoUri(url) ? url : '')),
+          : photoUrls.map((url) => (isPersistablePhotoUri(url) ? url : '')),
       ),
-      listingImage: approvedPhotoUrls.find(Boolean) || photoUrls.find(isRemotePhotoUri) || '',
+      listingImage:
+        approvedPhotoUrls.find(Boolean) ||
+        photoUrls.find(isPersistablePhotoUri) ||
+        photoUrls.find(isRemotePhotoUri) ||
+        '',
     };
 
     await runWithFirestoreRetry(async () => {
@@ -752,8 +763,8 @@ export async function updatePhotoApprovalStatus(
       const approvedPrimary = approvedPhotoUrls.find(Boolean) || '';
       const biodata = {
         ...(profile.biodata ?? {}),
-        profilePhotoUrls: serializeRemotePhotoUrls(profile.photoUrls ?? []),
-        [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializeRemotePhotoUrls(approvedPhotoUrls),
+        profilePhotoUrls: serializePersistablePhotoUrls(profile.photoUrls ?? []),
+        [APPROVED_PROFILE_PHOTO_URLS_KEY]: serializePersistablePhotoUrls(approvedPhotoUrls),
         [PROFILE_PHOTOS_KEY]: serializeProfilePhotos(approvedPhotoUrls),
         listingImage: approvedPrimary,
       };

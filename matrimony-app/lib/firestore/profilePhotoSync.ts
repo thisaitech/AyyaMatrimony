@@ -4,14 +4,13 @@ import { hasCompletedProfile } from '@/constants/profileCompletion';
 import {
   APPROVED_PROFILE_PHOTO_URLS_KEY,
   isLocalPhotoUri,
-  isRemotePhotoUri,
   mergeUploadedPhotos,
   PROFILE_PHOTOS_DRAFT_KEY,
   PROFILE_PHOTOS_KEY,
   parseApprovedProfilePhotoUrls,
   resolvePortableListingPhotoUri,
   serializeProfilePhotos,
-  serializeRemotePhotoUrls,
+  serializePersistablePhotoUrls,
 } from '@/constants/profilePhotos';
 import {
   syncUploadedPhotosToProfile,
@@ -20,7 +19,6 @@ import {
 } from '@/lib/firestore/profileService';
 import {
   markCloudPhotoUploadUnavailable,
-  shouldAttemptCloudPhotoUpload,
   uploadProfilePhotos,
 } from '@/lib/firestore/storageService';
 
@@ -55,22 +53,18 @@ export async function uploadAndSyncProfilePhotosForApproval(
     return { photos: nextPhotos, uploaded: false };
   }
 
-  if (!shouldAttemptCloudPhotoUpload()) {
-    return { photos: nextPhotos, uploaded: false, error: 'no_cloud' };
-  }
-
   const ownerKey = options.ownerKey ?? 'current-user';
   const autoApprove = ownerKey.startsWith('admin-');
 
   try {
     const uploaded = await uploadProfilePhotos(phone, nextPhotos);
     const mergedPhotos = mergeUploadedPhotos(nextPhotos, uploaded);
-    const remoteUrls = serializeRemotePhotoUrls(mergedPhotos);
-    if (!remoteUrls) {
+    const remoteUrls = serializePersistablePhotoUrls(mergedPhotos);
+    if (!remoteUrls.replace(/\|/g, '').trim()) {
       throw new Error('Cloud upload returned no photo URLs.');
     }
 
-    const preservedApproved = serializeRemotePhotoUrls(
+    const preservedApproved = serializePersistablePhotoUrls(
       parseApprovedProfilePhotoUrls(options.getProfileValues()[APPROVED_PROFILE_PHOTO_URLS_KEY]),
     );
 
@@ -125,8 +119,15 @@ export async function uploadAndSyncProfilePhotosForApproval(
     }
 
     return { photos: mergedPhotos, uploaded: true };
-  } catch {
-    markCloudPhotoUploadUnavailable();
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      (error as { code?: string }).code === 'storage/unauthorized'
+    ) {
+      markCloudPhotoUploadUnavailable();
+    }
     return { photos: nextPhotos, uploaded: false, error: 'upload_failed' };
   }
 }
